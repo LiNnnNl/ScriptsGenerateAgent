@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ScriptAgent - AI 剧本生成系统</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .main-card {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .step {
+            margin-bottom: 30px;
+            padding-bottom: 30px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .step:last-child {
+            border-bottom: none;
+        }
+
+        .step-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .step-number {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.2em;
+            margin-right: 15px;
+        }
+
+        .step-title {
+            font-size: 1.3em;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .style-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .style-card {
+            padding: 20px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: center;
+        }
+
+        .style-card:hover {
+            border-color: #667eea;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+        }
+
+        .style-card.selected {
+            border-color: #667eea;
+            background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
+        }
+
+        .style-card h3 {
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .select-box {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border-color 0.3s;
+        }
+
+        .select-box:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .character-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .character-card {
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .character-card:hover {
+            border-color: #667eea;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
+        }
+
+        .character-card.selected {
+            border-color: #667eea;
+            background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
+        }
+
+        .character-card h4 {
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        .character-card p {
+            color: #666;
+            font-size: 0.9em;
+            margin-bottom: 5px;
+        }
+
+        .textarea-box {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1em;
+            font-family: inherit;
+            min-height: 150px;
+            resize: vertical;
+            transition: border-color 0.3s;
+        }
+
+        .textarea-box:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn {
+            padding: 15px 40px;
+            font-size: 1.1em;
+            font-weight: 600;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            width: 100%;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .info-box {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 10px;
+        }
+
+        .info-box h5 {
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        .info-box p {
+            color: #666;
+            font-size: 0.9em;
+            line-height: 1.5;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .result {
+            display: none;
+            margin-top: 20px;
+            padding: 20px;
+            background: #e8f5e9;
+            border-radius: 8px;
+            border-left: 4px solid #4caf50;
+        }
+
+        .result.active {
+            display: block;
+        }
+
+        .result h3 {
+            color: #2e7d32;
+            margin-bottom: 10px;
+        }
+
+        .error {
+            display: none;
+            margin-top: 20px;
+            padding: 20px;
+            background: #ffebee;
+            border-radius: 8px;
+            border-left: 4px solid #f44336;
+        }
+
+        .error.active {
+            display: block;
+        }
+
+        .error h3 {
+            color: #c62828;
+            margin-bottom: 10px;
+        }
+
+        .disabled {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎬 ScriptAgent</h1>
+            <p>AI 驱动的智能剧本生成系统</p>
+        </div>
+
+        <div class="main-card">
+            <!-- 步骤1: 选择画风 -->
+            <div class="step" id="step1">
+                <div class="step-header">
+                    <div class="step-number">1</div>
+                    <div class="step-title">选择画风</div>
+                </div>
+                <div class="style-grid" id="styleGrid">
+                    <!-- 动态加载画风选项 -->
+                </div>
+            </div>
+
+            <!-- 步骤2: 选择场景 -->
+            <div class="step disabled" id="step2">
+                <div class="step-header">
+                    <div class="step-number">2</div>
+                    <div class="step-title">选择场景</div>
+                </div>
+                <select class="select-box" id="sceneSelect">
+                    <option value="">请先选择画风...</option>
+                </select>
+                <div class="info-box" id="sceneInfo" style="display: none;">
+                    <h5>场景信息</h5>
+                    <p id="sceneDescription"></p>
+                    <div id="scenePositions"></div>
+                </div>
+            </div>
+
+            <!-- 步骤3: 选择角色 -->
+            <div class="step disabled" id="step3">
+                <div class="step-header">
+                    <div class="step-number">3</div>
+                    <div class="step-title">选择角色（可多选）</div>
+                </div>
+                <div class="character-grid" id="characterGrid">
+                    <!-- 动态加载角色选项 -->
+                </div>
+            </div>
+
+            <!-- 步骤4: 输入剧情大纲 -->
+            <div class="step disabled" id="step4">
+                <div class="step-header">
+                    <div class="step-number">4</div>
+                    <div class="step-title">输入剧情大纲</div>
+                </div>
+                <textarea class="textarea-box" id="plotOutline" 
+                          placeholder="请详细描述剧情，包括角色的行动、位置、情绪等...&#10;&#10;示例：&#10;序一号在主控台前冷静地宣布倒计时剩余47小时。&#10;澜二号从门口走进来，迟到了。&#10;序一号斥责他，澜二号试图解释..."></textarea>
+            </div>
+
+            <!-- 生成按钮 -->
+            <div class="step">
+                <button class="btn btn-primary" id="generateBtn" disabled>
+                    🚀 生成剧本
+                </button>
+            </div>
+
+            <!-- 加载状态 -->
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p>AI 正在生成剧本，请稍候...</p>
+            </div>
+
+            <!-- 成功结果 -->
+            <div class="result" id="result">
+                <h3>✅ 剧本生成成功！</h3>
+                <p id="resultMessage"></p>
+                <button class="btn btn-primary" id="downloadBtn" style="margin-top: 15px;">
+                    📥 下载 JSON 文件
+                </button>
+            </div>
+
+            <!-- 错误信息 -->
+            <div class="error" id="error">
+                <h3>❌ 生成失败</h3>
+                <p id="errorMessage"></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 全局状态
+        const state = {
+            selectedStyle: null,
+            selectedScene: null,
+            selectedCharacters: [],
+            scenes: [],
+            characters: []
+        };
+
+        let currentFilename = null;
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            loadStyles();
+            setupEventListeners();
+        });
+
+        // 加载画风列表
+        async function loadStyles() {
+            try {
+                const response = await fetch('/api/styles');
+                const result = await response.json();
+                
+                if (result.success) {
+                    const grid = document.getElementById('styleGrid');
+                    grid.innerHTML = result.data.map(style => `
+                        <div class="style-card" data-style="${style}">
+                            <h3>${style}</h3>
+                        </div>
+                    `).join('');
+
+                    // 添加点击事件
+                    grid.querySelectorAll('.style-card').forEach(card => {
+                        card.addEventListener('click', () => selectStyle(card.dataset.style));
+                    });
+                }
+            } catch (error) {
+                console.error('加载画风失败:', error);
+            }
+        }
+
+        // 选择画风
+        async function selectStyle(style) {
+            state.selectedStyle = style;
+            state.selectedScene = null;
+            state.selectedCharacters = [];
+
+            // 更新UI
+            document.querySelectorAll('.style-card').forEach(card => {
+                card.classList.toggle('selected', card.dataset.style === style);
+            });
+
+            // 启用步骤2
+            document.getElementById('step2').classList.remove('disabled');
+
+            // 加载场景和角色
+            await Promise.all([
+                loadScenes(style),
+                loadCharacters(style)
+            ]);
+
+            checkFormComplete();
+        }
+
+        // 加载场景列表
+        async function loadScenes(style) {
+            try {
+                const response = await fetch(`/api/scenes/${style}`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    state.scenes = result.data;
+                    const select = document.getElementById('sceneSelect');
+                    select.innerHTML = '<option value="">请选择场景...</option>' +
+                        result.data.map(scene => `
+                            <option value="${scene.id}">${scene.name}</option>
+                        `).join('');
+                }
+            } catch (error) {
+                console.error('加载场景失败:', error);
+            }
+        }
+
+        // 加载角色列表
+        async function loadCharacters(style) {
+            try {
+                const response = await fetch(`/api/characters/${style}`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    state.characters = result.data;
+                    const grid = document.getElementById('characterGrid');
+                    grid.innerHTML = result.data.map(char => `
+                        <div class="character-card" data-id="${char.id}">
+                            <h4>${char.name}</h4>
+                            <p><strong>描述:</strong> ${char.description}</p>
+                            <p><strong>性格:</strong> ${char.personality}</p>
+                        </div>
+                    `).join('');
+
+                    // 添加点击事件
+                    grid.querySelectorAll('.character-card').forEach(card => {
+                        card.addEventListener('click', () => toggleCharacter(card.dataset.id));
+                    });
+                }
+            } catch (error) {
+                console.error('加载角色失败:', error);
+            }
+        }
+
+        // 切换角色选择
+        function toggleCharacter(charId) {
+            const index = state.selectedCharacters.indexOf(charId);
+            if (index > -1) {
+                state.selectedCharacters.splice(index, 1);
+            } else {
+                state.selectedCharacters.push(charId);
+            }
+
+            // 更新UI
+            document.querySelectorAll('.character-card').forEach(card => {
+                card.classList.toggle('selected', 
+                    state.selectedCharacters.includes(card.dataset.id));
+            });
+
+            checkFormComplete();
+        }
+
+        // 设置事件监听
+        function setupEventListeners() {
+            // 场景选择
+            document.getElementById('sceneSelect').addEventListener('change', (e) => {
+                state.selectedScene = e.target.value;
+                
+                if (e.target.value) {
+                    const scene = state.scenes.find(s => s.id === e.target.value);
+                    if (scene) {
+                        const info = document.getElementById('sceneInfo');
+                        document.getElementById('sceneDescription').textContent = scene.description;
+                        document.getElementById('scenePositions').innerHTML = 
+                            '<h5 style="margin-top: 10px;">可用点位:</h5>' +
+                            scene.positions.map(pos => `
+                                <p style="margin-left: 10px;">• <strong>${pos.id}</strong>: ${pos.description}</p>
+                            `).join('');
+                        info.style.display = 'block';
+                    }
+
+                    // 启用步骤3
+                    document.getElementById('step3').classList.remove('disabled');
+                }
+
+                checkFormComplete();
+            });
+
+            // 剧情大纲输入
+            document.getElementById('plotOutline').addEventListener('input', checkFormComplete);
+
+            // 生成按钮
+            document.getElementById('generateBtn').addEventListener('click', generateScript);
+
+            // 下载按钮
+            document.getElementById('downloadBtn').addEventListener('click', downloadScript);
+        }
+
+        // 检查表单是否完整
+        function checkFormComplete() {
+            const plotOutline = document.getElementById('plotOutline').value.trim();
+            const isComplete = state.selectedStyle && 
+                              state.selectedScene && 
+                              state.selectedCharacters.length > 0 &&
+                              plotOutline.length > 0;
+
+            if (isComplete) {
+                document.getElementById('step4').classList.remove('disabled');
+                document.getElementById('generateBtn').disabled = false;
+            } else {
+                document.getElementById('generateBtn').disabled = true;
+            }
+        }
+
+        // 生成剧本
+        async function generateScript() {
+            const btn = document.getElementById('generateBtn');
+            const loading = document.getElementById('loading');
+            const result = document.getElementById('result');
+            const error = document.getElementById('error');
+
+            // 隐藏之前的结果
+            result.classList.remove('active');
+            error.classList.remove('active');
+
+            // 显示加载状态
+            btn.disabled = true;
+            loading.classList.add('active');
+
+            try {
+                const response = await fetch('/api/generate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        character_ids: state.selectedCharacters,
+                        scene_id: state.selectedScene,
+                        plot_outline: document.getElementById('plotOutline').value
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    currentFilename = data.data.filename;
+                    let message = `文件已保存: ${data.data.filename}`;
+                    
+                    if (data.data.warnings && data.data.warnings.length > 0) {
+                        message += '\n\n警告:\n' + data.data.warnings.join('\n');
+                    }
+
+                    document.getElementById('resultMessage').textContent = message;
+                    result.classList.add('active');
+                } else {
+                    document.getElementById('errorMessage').textContent = 
+                        data.error + (data.details ? '\n\n' + JSON.stringify(data.details, null, 2) : '');
+                    error.classList.add('active');
+                }
+            } catch (err) {
+                document.getElementById('errorMessage').textContent = 
+                    '网络错误: ' + err.message;
+                error.classList.add('active');
+            } finally {
+                loading.classList.remove('active');
+                btn.disabled = false;
+            }
+        }
+
+        // 下载脚本
+        function downloadScript() {
+            if (currentFilename) {
+                window.location.href = `/api/download/${currentFilename}`;
+            }
+        }
+    </script>
+</body>
+</html>
+

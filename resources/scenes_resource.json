@@ -1,0 +1,145 @@
+[
+  {
+    "id": "scene_space_station_isolation",
+    "name": "太空站-隔离室1F",
+    "style_tag": "Cyberpunk_Realism",
+    "description": "冰冷的金属走廊，玻璃舱中隔离着人类幸存者，监控设备随处可见。",
+    "valid_positions": [
+      {
+        "id": "Position 7",
+        "description": "中央主控台前方，适合发号施令、宣布决策、对峙",
+        "is_sittable": false
+      },
+      {
+        "id": "Position 8",
+        "description": "主控台右侧，适合辅助位置、观察、汇报",
+        "is_sittable": false
+      },
+      {
+        "id": "Position 9",
+        "description": "主控台左侧，与Position 8对称，适合团队站位",
+        "is_sittable": false
+      },
+      {
+        "id": "Position 10",
+        "description": "入口自动门，适合登场、离场、守卫",
+        "is_sittable": false
+      },
+      {
+        "id": "Position 17",
+        "description": "走廊深处的巡检区，适合巡逻、观察、隔离",
+        "is_sittable": false
+      },
+      {
+        "id": "Position 18",
+        "description": "角落的旧椅子，适合坐下、休息、思考、等待",
+        "is_sittable": true
+      },
+      {
+        "id": "Position 11",
+        "description": "玻璃舱观察窗前，适合观察隔离人员、沉思",
+        "is_sittable": false
+      }
+    ]
+  },
+  {
+    "id": "scene_school_rooftop",
+    "name": "学校天台",
+    "style_tag": "Anime_2D",
+    "description": "午后的学校天台，能看到城市全景，微风轻拂。",
+    "valid_positions": [
+      {
+        "id": "Position 1",
+        "description": "天台中央，视野开阔，适合对峙、宣言",
+        "is_sittable": false
+      },
+      {
+        "id": "Position 2",
+        "description": "栏杆边，适合眺望、思考、告白",
+        "is_sittable": false
+      },
+      {
+        "id": "Position 3",
+        "description": "天台入口，适合登场、离开",
+        "is_sittable": false
+      },
+      {
+        "id": "Position 4",
+        "description": "长椅处，适合坐下聊天、休息",
+        "is_sittable": true
+      },
+      {
+        "id": "Position 5",
+        "description": "储物箱旁，适合躲藏、等待",
+        "is_sittable": false
+      }
+    ]
+  },
+  {
+    "id": "scene_magic_tower",
+    "name": "魔法塔-议事厅",
+    "style_tag": "Fantasy_3D",
+    "description": "高耸的魔法塔内部，水晶吊灯悬浮，古老的魔法阵在地面发光。",
+    "valid_positions": [
+      {
+        "id": "Position 1",
+        "description": "圆桌中心，适合召开会议、发布命令",
+        "is_sittable": false
+      },
+      {
+        "id": "Position 2",
+        "description": "圆桌北侧座位，主席位置",
+        "is_sittable": true
+      },
+      {
+        "id": "Position 3",
+        "description": "圆桌东侧座位",
+        "is_sittable": true
+      },
+      {
+        "id": "Position 4",
+        "description": "圆桌西侧座位",
+        "is_sittable": true
+      },
+      {
+        "id": "Position 6",
+        "description": "大门入口，适合迎接、送别",
+        "is_sittable": false
+      },
+      {
+        "id": "Position 7",
+        "description": "魔法阵中心，适合施法、仪式",
+        "is_sittable": false
+      }
+    ]
+  },
+  {
+    "id": "scene_space_station_command",
+    "name": "太空站-指挥中心",
+    "style_tag": "Cyberpunk_Realism",
+    "description": "环形的指挥中心，全息屏幕环绕，中央是战术沙盘。",
+    "valid_positions": [
+      {
+        "id": "Position 1",
+        "description": "中央指挥台，最高权限位置",
+        "is_sittable": false
+      },
+      {
+        "id": "Position 2",
+        "description": "战术分析台，适合数据展示",
+        "is_sittable": false
+      },
+      {
+        "id": "Position 3",
+        "description": "通讯控制台，适合联络、汇报",
+        "is_sittable": true
+      },
+      {
+        "id": "Position 5",
+        "description": "入口处，适合进出",
+        "is_sittable": false
+      }
+    ]
+  }
+]
+
