@@ -94,19 +94,17 @@ def interactive_mode(resource_loader: ResourceLoader):
     
     print(f"\n✓ 已选择角色: {', '.join([c.name for c in selected_chars])}\n")
     
-    # 步骤4: 输入剧情大纲
-    print("【步骤4】输入剧情大纲")
-    print("请描述这场戏的剧情（多行输入，输入END结束）:")
+    # 步骤4: 输入创作想法（可选）
+    print("【步骤4】输入创作想法（可选）")
+    print("请输入剧情主题、走向或想法（直接回车跳过，由AI自由创作）:")
+    print("例如：关于信任与背叛的故事 / 两人从争吵到和解 / 紧张压抑的氛围\n")
     
-    plot_lines = []
-    while True:
-        line = input()
-        if line.strip().upper() == "END":
-            break
-        plot_lines.append(line)
+    creative_idea = input("> ").strip()
     
-    plot_outline = "\n".join(plot_lines)
-    print(f"\n✓ 剧情大纲已录入\n")
+    if creative_idea:
+        print(f"\n✓ 创作想法已录入，AI 将根据你的想法创作剧本\n")
+    else:
+        print(f"\n✓ 将由 AI 完全自由创作剧情\n")
     
     # 验证配置
     validation = resource_loader.validate_configuration(
@@ -126,7 +124,7 @@ def interactive_mode(resource_loader: ResourceLoader):
         "style": selected_style,
         "scene": selected_scene,
         "characters": selected_chars,
-        "plot_outline": plot_outline
+        "creative_idea": creative_idea
     }
 
 
@@ -149,7 +147,7 @@ def generate_script(config: dict, api_key: str, output_file: str, base_url: str 
     ai_script = director.generate_script(
         characters=config["characters"],
         scene=config["scene"],
-        plot_outline=config["plot_outline"]
+        plot_outline=config.get("creative_idea", "")
     )
     
     # 检查是否有错误
@@ -178,9 +176,17 @@ def generate_script(config: dict, api_key: str, output_file: str, base_url: str 
     # 生成最终JSON
     print("\n正在生成最终JSON...")
     generator = ScriptJSONGenerator(config["characters"], config["scene"])
+    
+    # 生成剧情概述
+    creative_idea = config.get("creative_idea", "")
+    if creative_idea:
+        plot_summary = creative_idea[:100] + ("..." if len(creative_idea) > 100 else "")
+    else:
+        plot_summary = f"{len(config['characters'])}个角色在{config['scene'].name}的场景"
+    
     final_json = generator.generate_final_json(
         ai_script, 
-        config["plot_outline"][:100] + "..."  # 截取前100字符作为概述
+        plot_summary
     )
     
     # 验证JSON规范
@@ -293,7 +299,7 @@ def main():
         # 解析配置
         character_ids = config_data.get("character_ids", [])
         scene_id = config_data.get("scene_id")
-        plot_outline = config_data.get("plot_outline", "")
+        creative_idea = config_data.get("creative_idea", "")
         
         # 获取资源对象
         characters = [resource_loader.get_character_by_id(cid) for cid in character_ids]
@@ -316,7 +322,7 @@ def main():
         config = {
             "characters": characters,
             "scene": scene,
-            "plot_outline": plot_outline
+            "creative_idea": creative_idea
         }
         
         # 生成剧本

@@ -1,14 +1,50 @@
 # ScriptAgent - AI 剧本生成系统
 
-基于 DeepSeek AI 的智能剧本生成工具，通过资源驱动的方式自动生成符合规范的场景脚本 JSON。
+基于 DeepSeek AI 的智能剧本生成工具，电影胶片风格界面，前后端分离架构。
 
-## 📋 核心设计理念
+## 🎬 项目特色
 
-**UI 负责约束视觉风格（画风/场景/角色），AI 负责调度通用行为（动作/走位）。**
+- **电影级 UI 设计**：模拟真实电影胶片的视觉效果
+- **智能剧本生成**：基于 DeepSeek AI 的创作引擎
+- **资源驱动架构**：UI 约束视觉风格，AI 调度行为
+- **实时生成日志**：观看 AI 的创作思考过程
+- **前后端分离**：现代化的系统架构
 
-- **角色资源**: 定义演员池，包含画风标签和性格描述
-- **场景资源**: 定义舞台空间，包含画风标签和语义化点位
-- **动作资源**: 通用表演库，不区分画风，所有角色共用
+## 🏗️ 架构设计
+
+```
+ScriptAgent/
+├── frontend/                      # 前端（电影风格UI）
+│   ├── index.html
+│   ├── css/style.css
+│   ├── js/
+│   │   ├── config.js
+│   │   ├── api.js
+│   │   ├── ui.js
+│   │   └── main.js
+│   └── README.md
+│
+├── backend/                       # 后端API
+│   ├── app.py                     # Flask应用
+│   ├── requirements.txt
+│   ├── .env.example
+│   ├── .gitignore
+│   ├── src/
+│   │   ├── resource_loader.py
+│   │   ├── director_ai.py
+│   │   └── json_generator.py
+│   ├── resources/
+│   │   ├── characters_resource.json
+│   │   ├── scenes_resource.json
+│   │   └── actions_resource.json
+│   ├── outputs/                   # 生成的剧本
+│   └── README.md
+│
+├── main.py                        # 命令行版本
+├── start_backend.bat              # 启动后端
+├── start_frontend.bat             # 启动前端
+└── README.md                      # 本文件
+```
 
 ## 🚀 快速开始
 
@@ -18,266 +54,229 @@
 pip install -r requirements.txt
 ```
 
-### 2. 设置 API Key
+### 2. 配置环境变量
 
-创建 `.env` 文件：
+在 `backend` 目录下创建 `.env` 文件：
+
+```bash
+cd backend
+copy .env.example .env
+# 然后编辑 .env 文件，填入你的 API Key
+```
+
+或手动创建 `backend/.env`：
 
 ```bash
 DEEPSEEK_API_KEY=your-api-key-here
 DEEPSEEK_BASE_URL=https://api.deepseek.com
 ```
 
-### 3. 运行
-
-**方式一：Web UI（推荐）**
+### 3. 启动后端
 
 ```bash
+# 方式1: 使用启动脚本（推荐）
+start_backend.bat
+
+# 方式2: 命令行
+cd backend
 python app.py
 ```
 
-然后在浏览器中访问 `http://localhost:5000`
+后端将运行在 `http://localhost:5000`
 
-**方式二：命令行（交互式模式）**
-
-```bash
-python main.py --mode interactive --output my_script.json
-```
-
-系统将引导你：
-1. 选择画风（Cyberpunk_Realism, Anime_2D, Fantasy_3D 等）
-2. 选择场景（如：太空站-隔离室）
-3. 选择角色（可多选，必须与场景画风一致）
-4. 输入剧情大纲（多行输入，输入 `END` 结束）
-
-### 4. 运行（配置文件模式）
+### 4. 启动前端
 
 ```bash
-python main.py --mode config --config example_config.json --output output_script.json
+# 方式1: 使用启动脚本（推荐）
+start_frontend.bat
+
+# 方式2: 命令行
+cd frontend
+python -m http.server 8080
 ```
 
-配置文件格式：
+然后访问 `http://localhost:8080`
 
-```json
-{
-  "character_ids": ["char_001_xu", "char_002_lan"],
-  "scene_id": "scene_space_station_isolation",
-  "plot_outline": "你的剧情大纲..."
-}
-```
+## 🎨 使用流程
 
-## 📁 项目结构
+1. **选择画风** → 点击喜欢的视觉风格
+2. **选择场景** → 从下拉列表选择拍摄地点
+3. **设定角色数** → 增减按钮调整演员数量
+4. **选择角色** → 点击卡片选择参演角色
+5. **输入创意** → （可选）输入主题或留空由 AI 发挥
+6. **ACTION!** → 点击金色大按钮开始生成
+7. **观看日志** → 实时查看 AI 创作过程
+8. **下载剧本** → 获取生成的 JSON 文件
 
-```
-ScriptAgent/
-├── resources/                      # 资源文件目录
-│   ├── characters_resource.json    # 角色资源库
-│   ├── scenes_resource.json        # 场景资源库
-│   └── actions_resource.json       # 动作资源库（通用）
-├── src/                            # 核心代码
-│   ├── __init__.py
-│   ├── resource_loader.py          # 资源加载和验证
-│   ├── director_ai.py              # 导演AI核心逻辑
-│   └── json_generator.py           # JSON生成器
-├── main.py                         # 主程序入口
-├── example_config.json             # 配置文件示例
-├── scene_json_spec.md              # JSON格式规范文档
-├── requirements.txt                # Python依赖
-└── README.md                       # 本文件
-```
+## 📦 资源文件说明
 
-## 🎨 资源文件说明
+### 角色资源 (`backend/resources/characters_resource.json`)
 
-### 角色资源 (`characters_resource.json`)
-
-定义可用的角色，包含：
-- `id`: 唯一标识符
-- `name`: 角色名称
-- `style_tag`: 画风标签（用于UI筛选）
-- `description`: 外观描述
-- `personality`: 性格描述（AI生成对白的依据）
-
-**示例：**
+定义可用角色，包含画风标签和性格描述：
 
 ```json
 {
   "id": "char_001_xu",
   "name": "序一号",
   "style_tag": "Cyberpunk_Realism",
-  "description": "冷静的指挥官，半机械人。",
-  "personality": "理智、冷漠、讲究逻辑，说话不带感情色彩。"
+  "description": "冷静的指挥官，半机械人",
+  "personality": "理智、冷漠、讲究逻辑"
 }
 ```
 
-### 场景资源 (`scenes_resource.json`)
+### 场景资源 (`backend/resources/scenes_resource.json`)
 
-定义可用的场景，包含：
-- `id`: 唯一标识符
-- `name`: 场景名称
-- `style_tag`: 画风标签（必须与角色匹配）
-- `description`: 场景描述
-- `valid_positions`: 语义化点位列表
-  - `id`: 点位ID（如 "Position 7"）
-  - `description`: 语义描述（如 "中央主控台，适合发号施令"）
-  - `is_sittable`: 是否可坐
-
-**示例：**
+定义可用场景和语义化点位：
 
 ```json
 {
-  "id": "scene_space_station_isolation",
-  "name": "太空站-隔离室1F",
+  "id": "scene_space_station",
+  "name": "太空站-隔离室",
   "style_tag": "Cyberpunk_Realism",
   "valid_positions": [
     {
       "id": "Position 7",
-      "description": "中央主控台前方，适合发号施令、对峙",
+      "description": "中央主控台，适合发号施令",
       "is_sittable": false
     }
   ]
 }
 ```
 
-### 动作资源 (`actions_resource.json`)
+### 动作资源 (`backend/resources/actions_resource.json`)
 
-定义通用动作库（不区分画风），包含：
-- `action_id`: 动作ID
-- `category`: 分类（Idle, Talking, Emotion, Movement等）
-- `description`: 详细描述（AI选择动作的依据）
-- `compatible_states`: 兼容的状态（standing, sitting）
-
-**示例：**
+通用动作库，不区分画风：
 
 ```json
 {
   "action_id": "Talk_Angry_Point",
   "category": "Talking",
-  "description": "愤怒地指责对方，手臂用力前指，身体前倾。适合争吵、命令、威胁。",
+  "description": "愤怒地指责对方，手臂用力前指",
   "compatible_states": ["standing"]
 }
 ```
 
-## 🤖 工作流程
+## 🎯 技术栈
 
-1. **输入层（UI）**
-   - 用户选择画风
-   - 在该画风下选择场景和角色
-   - 输入剧情大纲
+### 前端
+- 原生 JavaScript (ES6+)
+- CSS3 动画
+- Fetch API
+- 响应式设计
 
-2. **决策层（Director AI）**
-   - 读取角色性格 → 知道怎么说话
-   - 读取场景点位 → 知道往哪走
-   - 读取通用动作 → 知道怎么表演
-   - 生成中间态剧本指令
+### 后端
+- Python 3.8+
+- Flask (Web框架)
+- Flask-CORS (跨域支持)
+- OpenAI SDK (兼容 DeepSeek)
 
-3. **输出层（JSON Generator）**
-   - 将AI指令转换为符合 `scene_json_spec.md` 的标准格式
-   - 自动维护角色位置和状态
+### AI
+- DeepSeek API
+- 流式响应
+- 提示词工程
 
-## 📝 输出格式
+## 🎬 电影风格设计元素
 
-生成的 JSON 符合 `scene_json_spec.md` 规范，包含：
+- **胶片孔装饰**：左右边框模拟真实胶片
+- **金色主题**：好莱坞经典金色调
+- **八边形数字**：独特的步骤编号
+- **光泽扫过**：按钮悬停的光影效果
+- **渐变卡片**：深色渐变背景
+- **等宽字体**：日志区域使用 Roboto Mono
+- **装饰性边角**：卡片四角的金色边框
 
-```json
-[
-  {
-    "scene information": {
-      "who": ["角色列表"],
-      "where": "场景名称",
-      "what": "剧情概述"
-    },
-    "scene": [
-      {
-        "speaker": "角色名称",
-        "content": "对白内容",
-        "shot": "character",
-        "actions": [...],
-        "current position": [...]
-      }
-    ]
-  }
-]
-```
+## 🛠️ API 接口
 
-## 🔧 扩展指南
+### GET /api/styles
+获取所有可用画风
 
-### 添加新角色
+### GET /api/scenes/:style_tag
+获取指定画风的场景列表
 
-编辑 `resources/characters_resource.json`，添加新条目：
+### GET /api/characters/:style_tag
+获取指定画风的角色列表
 
+### POST /api/generate
+生成剧本（流式响应）
+
+**请求体：**
 ```json
 {
-  "id": "char_999_new",
-  "name": "新角色",
-  "style_tag": "你的画风标签",
-  "description": "外观描述",
-  "personality": "性格描述（越详细，AI生成的对白越准确）"
+  "character_ids": ["char_001", "char_002"],
+  "scene_id": "scene_001",
+  "creative_idea": "可选的创作想法"
 }
 ```
 
-### 添加新场景
+### GET /api/download/:filename
+下载生成的剧本文件
 
-编辑 `resources/scenes_resource.json`，添加新条目，注意定义清晰的语义化点位。
+## 🔧 扩展开发
 
-### 添加新动作
+### 添加新画风
 
-编辑 `resources/actions_resource.json`，添加新条目。关键是 `description` 字段要详细，这是AI选择动作的唯一依据。
+1. 在 `backend/resources/characters_resource.json` 添加该画风的角色
+2. 在 `backend/resources/scenes_resource.json` 添加该画风的场景
+3. 动作库自动通用，无需修改
 
-## ⚙️ 配置参数
+### 自定义UI主题
 
-### 命令行参数
+编辑 `frontend/css/style.css` 中的 CSS 变量：
 
-| 参数 | 说明 | 默认值 |
-|------|------|--------|
-| `--mode` | 运行模式：interactive 或 config | interactive |
-| `--config` | 配置文件路径 | - |
-| `--api-key` | Anthropic API Key | 从环境变量读取 |
-| `--output` | 输出文件路径 | output_script.json |
-
-### 环境变量
-
-- `ANTHROPIC_API_KEY`: Anthropic API密钥
-
-## 🛡️ 防错机制
-
-1. **画风校验**: 系统强制要求角色和场景的 `style_tag` 必须一致
-2. **资源验证**: AI 只能从资源文件提供的 ID 中选择，杜绝生成不存在的资源
-3. **状态追踪**: 自动维护角色的位置和状态（standing/sitting）
-4. **规范验证**: 输出前自动验证是否符合 `scene_json_spec.md`
-
-## 📖 示例
-
-查看 `example_config.json` 了解配置文件示例。
-
-运行示例：
-
-```bash
-python main.py --mode config --config example_config.json --output example_output.json
+```css
+:root {
+    --gold: #d4af37;          /* 主题色 */
+    --gold-light: #f4e4a6;    /* 高亮色 */
+    --black: #0a0a0a;         /* 背景色 */
+}
 ```
+
+### 集成其他 AI 模型
+
+修改 `backend/src/director_ai.py` 中的 API 调用部分即可。
+
+## 📝 输出格式
+
+生成的剧本保存在 `backend/outputs/` 目录，JSON 格式符合 `scene_json_spec.md` 规范，包含：
+
+- **场景信息**：角色、地点、剧情概述
+- **对白片段**：说话者、内容、动作、位置
+- **移动片段**：角色移动指令
+- **氛围描述**：场景氛围和运镜建议
 
 ## 🐛 故障排除
 
-### API调用失败
+### 跨域问题
+确保后端已安装并启用 flask-cors
 
-- 检查 API Key 是否正确设置
-- 检查网络连接
-- 检查 API 配额
+### API 连接失败
+检查 `frontend/js/config.js` 中的 `BASE_URL` 配置
 
-### 生成的剧本不符合预期
+### 样式异常
+清除浏览器缓存，确保使用现代浏览器
 
-- 优化剧情大纲的描述，更详细、更具体
-- 调整角色的 `personality` 描述
-- 检查场景点位的语义描述是否清晰
+## 📄 命令行版本
 
-### 验证失败
+如果不想使用 Web UI，可以使用命令行：
 
-- 检查角色和场景的画风标签是否一致
-- 确保所有引用的 ID 在资源文件中存在
+```bash
+# 交互式模式
+python main.py --mode interactive
 
-## 📄 许可证
+# 配置文件模式
+python main.py --mode config --config example_config.json
+```
 
-本项目为技术方案演示代码。
+## 🌟 致谢
 
-## 🙏 致谢
+- UI 设计灵感来自经典好莱坞电影
+- AI 技术由 DeepSeek 提供
+- 字体：Cinzel & Roboto Mono (Google Fonts)
 
-本系统基于 Anthropic Claude AI 构建。
+## 📜 许可证
 
+MIT License
+
+---
+
+**Enjoy creating cinematic scripts with AI!** 🎬✨

@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ScriptAgent - 电影级AI剧本生成系统</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <!-- 电影胶片装饰 -->
+    <div class="film-border film-left"></div>
+    <div class="film-border film-right"></div>
+    
+    <!-- 顶部胶片滚动装饰 -->
+    <div class="film-strip-top"></div>
+    
+    <div class="container">
+        <!-- 标题区域 -->
+        <header class="header">
+            <div class="film-reel">🎞️</div>
+            <h1 class="title">SCRIPT AGENT</h1>
+            <p class="subtitle">CINEMA-GRADE AI SCRIPT GENERATOR</p>
+            <div class="divider"></div>
+        </header>
+
+        <!-- 主卡片 -->
+        <div class="main-card">
+            <!-- 装饰性胶片孔 -->
+            <div class="card-corner corner-tl"></div>
+            <div class="card-corner corner-tr"></div>
+            <div class="card-corner corner-bl"></div>
+            <div class="card-corner corner-br"></div>
+
+            <!-- 步骤1: 选择画风 -->
+            <section class="step" id="step1" data-step="1">
+                <div class="step-header">
+                    <div class="step-number">
+                        <span class="number-inner">01</span>
+                    </div>
+                    <h2 class="step-title">SELECT STYLE</h2>
+                    <div class="step-line"></div>
+                </div>
+                <div class="style-grid" id="styleGrid">
+                    <!-- 动态加载 -->
+                </div>
+            </section>
+
+            <!-- 步骤2: 选择场景 -->
+            <section class="step disabled" id="step2" data-step="2">
+                <div class="step-header">
+                    <div class="step-number">
+                        <span class="number-inner">02</span>
+                    </div>
+                    <h2 class="step-title">SELECT SCENE</h2>
+                    <div class="step-line"></div>
+                </div>
+                <select class="select-box" id="sceneSelect">
+                    <option value="">请先选择画风...</option>
+                </select>
+                <div class="scene-info" id="sceneInfo" style="display: none;">
+                    <div class="info-label">场景描述</div>
+                    <p class="scene-description" id="sceneDescription"></p>
+                    <div class="info-label">可用点位</div>
+                    <div class="positions-list" id="scenePositions"></div>
+                </div>
+            </section>
+
+            <!-- 步骤3: 角色数量 -->
+            <section class="step disabled" id="step3" data-step="3">
+                <div class="step-header">
+                    <div class="step-number">
+                        <span class="number-inner">03</span>
+                    </div>
+                    <h2 class="step-title">CHARACTER COUNT</h2>
+                    <div class="step-line"></div>
+                </div>
+                <div class="count-selector">
+                    <label class="count-label">需要几位演员：</label>
+                    <div class="number-input-wrapper">
+                        <button class="num-btn" id="decreaseBtn">−</button>
+                        <input type="number" id="characterCount" class="number-input" 
+                               min="1" max="10" value="2">
+                        <button class="num-btn" id="increaseBtn">+</button>
+                    </div>
+                    <span class="count-unit">位</span>
+                </div>
+            </section>
+
+            <!-- 步骤4: 选择角色 -->
+            <section class="step disabled" id="step4" data-step="4">
+                <div class="step-header">
+                    <div class="step-number">
+                        <span class="number-inner">04</span>
+                    </div>
+                    <h2 class="step-title">CAST SELECTION</h2>
+                    <div class="step-line"></div>
+                    <div class="selection-counter">
+                        <span id="selectedCount">0</span>/<span id="requiredCount">0</span>
+                    </div>
+                </div>
+                <div class="character-grid" id="characterGrid">
+                    <!-- 动态加载 -->
+                </div>
+            </section>
+
+            <!-- 步骤5: 创作想法 -->
+            <section class="step disabled" id="step5" data-step="5">
+                <div class="step-header">
+                    <div class="step-number">
+                        <span class="number-inner">05</span>
+                    </div>
+                    <h2 class="step-title">CREATIVE CONCEPT</h2>
+                    <div class="step-line"></div>
+                    <div class="optional-badge">OPTIONAL</div>
+                </div>
+                <textarea class="textarea-box" id="creativeIdea" 
+                          placeholder="输入创作灵感...&#10;&#10;• 主题：信任与背叛&#10;• 情节：冲突与和解&#10;• 氛围：紧张压抑&#10;&#10;留空则由 AI 自由创作"></textarea>
+                <div class="hint">
+                    <span class="hint-icon">💡</span>
+                    <span>输入主题、情节或氛围，AI 将据此创作；留空则完全自由发挥</span>
+                </div>
+            </section>
+
+            <!-- 生成按钮 -->
+            <div class="action-section">
+                <button class="generate-btn" id="generateBtn" disabled>
+                    <span class="btn-icon">🎬</span>
+                    <span class="btn-text">ACTION!</span>
+                    <span class="btn-subtitle">Generate Script</span>
+                </button>
+            </div>
+
+            <!-- 日志区域 -->
+            <div class="log-panel" id="logPanel" style="display: none;">
+                <div class="log-header">
+                    <div class="log-title">
+                        <span class="log-icon">🎞️</span>
+                        <span>PRODUCTION LOG</span>
+                    </div>
+                    <button class="log-clear-btn" id="clearLogBtn">清空</button>
+                </div>
+                <div class="log-content" id="logContent"></div>
+            </div>
+
+            <!-- 结果区域 -->
+            <div class="result-panel success" id="resultPanel" style="display: none;">
+                <div class="result-icon">✨</div>
+                <h3 class="result-title">剧本生成完成！</h3>
+                <p class="result-message" id="resultMessage"></p>
+                <button class="download-btn" id="downloadBtn">
+                    <span>📥</span>
+                    <span>下载剧本文件</span>
+                </button>
+            </div>
+
+            <!-- 错误区域 -->
+            <div class="result-panel error" id="errorPanel" style="display: none;">
+                <div class="result-icon">⚠️</div>
+                <h3 class="result-title">生成失败</h3>
+                <p class="result-message" id="errorMessage"></p>
+            </div>
+        </div>
+
+        <!-- 底部装饰 -->
+        <footer class="footer">
+            <div class="film-strip-bottom"></div>
+            <p class="copyright">© 2026 ScriptAgent - Powered by DeepSeek AI</p>
+        </footer>
+    </div>
+
+    <script src="js/config.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>
