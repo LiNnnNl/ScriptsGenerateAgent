@@ -1,0 +1,1026 @@
+[
+  {
+    "trigger": "Standing Talking 1",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "Animation\\Ty@Talking.fbx"
+  },
+  {
+    "trigger": "Standing Talking 2",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "Animation\\Ty@Talking (1).fbx"
+  },
+  {
+    "trigger": "Standing Talking 3",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "Animation\\Ty@Talking (1).fbx"
+  },
+  {
+    "trigger": "Standing Talking 4",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "Animation\\Ty@Talking On Phone.fbx"
+  },
+  {
+    "trigger": "Standing Talking 5",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "Animation\\Arm Gesture.fbx"
+  },
+  {
+    "trigger": "Standing Talking 6",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "Animation\\Ty@Whatever Gesture.fbx"
+  },
+  {
+    "trigger": "Standing Talking 7",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "animations\\Female_Animations\\Animations\\Common\\Anim_Talk_01.fbx"
+  },
+  {
+    "trigger": "Standing Talking 8",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "animations\\Female_Animations\\Animations\\Common\\Anim_Talk_02.fbx"
+  },
+  {
+    "trigger": "Standing Thinking",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "Animation\\f05@hughip_00.fbx"
+  },
+  {
+    "trigger": "Standing Depressed",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "Animation\\Ty@Sad Idle.fbx"
+  },
+  {
+    "trigger": "Standing Crying",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "Animation\\2-Crying.fbx"
+  },
+  {
+    "trigger": "Standing Angry 1",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "Animation\\Ty@Angry.fbx"
+  },
+  {
+    "trigger": "Standing Angry 2",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "Animation\\Ty@Angry Point.fbx"
+  },
+  {
+    "trigger": "Standing Angry 3",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "Animation\\Angry Gesture.fbx"
+  },
+  {
+    "trigger": "Standing Angry 4",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "Animation\\Gestures Pack Basic\\angry gesture.fbx"
+  },
+  {
+    "trigger": "Standing Happy",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "Animation\\Happy Hand Gesture.fbx"
+  },
+  {
+    "trigger": "Standing Surprise",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "Animation\\Hands Forward Gesture.fbx"
+  },
+  {
+    "trigger": "Standing Normal",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "Animation\\f05@embar_01.fbx"
+  },
+  {
+    "trigger": "Standing Arguing 1",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "Animation\\Ty@Standing Arguing (1).fbx"
+  },
+  {
+    "trigger": "Standing Arguing 2",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "Animation\\Ty@Standing Arguing.fbx"
+  },
+  {
+    "trigger": "Standing Agree 1",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "Animation\\Agreeing.fbx"
+  },
+  {
+    "trigger": "Standing Agree 2",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "Animation\\Gestures Pack Basic\\acknowledging.fbx"
+  },
+  {
+    "trigger": "Standing Puzzled",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "Animation\\Thoughtful Head Shake.fbx"
+  },
+  {
+    "trigger": "Standing Bored",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "Animation\\11-Bored guy looks at the time on his watch.fbx"
+  },
+  {
+    "trigger": "Standing Deny",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "Animation\\Gestures Pack Basic\\shaking head no.fbx"
+  },
+  {
+    "trigger": "Standing Greeting",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "Animation\\Gestures Pack Basic\\dismissing gesture.fbx"
+  },
+  {
+    "trigger": "Standing Upset 1",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "animations\\Everyday_MoCap_Collection\\Everyday_MoCap_02\\Animations\\Upset_01.fbx"
+  },
+  {
+    "trigger": "Standing Upset 2",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "animations\\Everyday_MoCap_Collection\\Everyday_MoCap_02\\Animations\\Upset_02.fbx"
+  },
+  {
+    "trigger": "Standing Texting",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "animations\\Everyday_MoCap_Collection\\Everyday_MoCap_03\\Animations\\Texting_01.fbx"
+  },
+  {
+    "trigger": "Standing Speech 1",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "AIChatTookit\\Animation\\animo\\AA_people_speech\\Animation\\SplitClips\\AA_stand_people_speech_01.anim"
+  },
+  {
+    "trigger": "Standing Speech 2",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "AIChatTookit\\Animation\\animo\\AA_people_speech\\Animation\\SplitClips\\AA_stand_people_speech_02.anim"
+  },
+  {
+    "trigger": "Standing Speech 3",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "AIChatTookit\\Animation\\animo\\AA_people_speech\\Animation\\SplitClips\\AA_stand_people_speech_03.anim"
+  },
+  {
+    "trigger": "Standing Speech 4",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "AIChatTookit\\Animation\\animo\\AA_people_speech\\Animation\\SplitClips\\AA_stand_people_speech_04.anim"
+  },
+  {
+    "trigger": "Dancing",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "Animation\\X Bot@Bboy Hip Hop Move.fbx"
+  },
+  {
+    "trigger": "Dance 1",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\Anim_Dance_01.fbx"
+  },
+  {
+    "trigger": "Dance 2",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\High Rhythm Dance 15 30fps.fbx"
+  },
+  {
+    "trigger": "Dance 3",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\High Rhythm Dance 16 30fps.fbx"
+  },
+  {
+    "trigger": "Dance 4",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\High Rhythm Dance 17 30fps.fbx"
+  },
+  {
+    "trigger": "Dance 5",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\Mid Rhythm Dance 13 30fps.fbx"
+  },
+  {
+    "trigger": "Dance 6",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\Mid Rhythm Dance 14 30fps.fbx"
+  },
+  {
+    "trigger": "Dance 7",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\Mid Rhythm Dance 15 30fps.fbx"
+  },
+  {
+    "trigger": "Dance 8",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\Slow Rhythm Dance 16 30fps.fbx"
+  },
+  {
+    "trigger": "Dance 9",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\Slow Rhythm Dance 17 30fps.fbx"
+  },
+  {
+    "trigger": "Dance 10",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\Slow Rhythm Dance 18 30fps.fbx"
+  },
+  {
+    "trigger": "Dance 11",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\Slow Rhythm Dance 19 30fps.fbx"
+  },
+  {
+    "trigger": "Ballet 1",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\Medium_Allegro_Assemble_L_30fps.fbx"
+  },
+  {
+    "trigger": "Ballet 2",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\Medium_Allegro_Brise_L_30fps.fbx"
+  },
+  {
+    "trigger": "Ballet 3",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\Medium_Allegro_Cabriole_Back_L_30fps.fbx"
+  },
+  {
+    "trigger": "Ballet 4",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\Medium_Allegro_Cabriole_Front_L_30fps.fbx"
+  },
+  {
+    "trigger": "Ballet 5",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\Medium_Allegro_Glissade_L_30fps.fbx"
+  },
+  {
+    "trigger": "Ballet 6",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\Medium_Allegro_Sequence_01_L_30fps.fbx"
+  },
+  {
+    "trigger": "Ballet 7",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\Medium_Allegro_Sequence_02_L_30fps.fbx"
+  },
+  {
+    "trigger": "Ballet 8",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\Medium_Allegro_Sissonne_Back_L_30fps.fbx"
+  },
+  {
+    "trigger": "Ballet 9",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\Medium_Allegro_Sissonne_Front_L_30fps.fbx"
+  },
+  {
+    "trigger": "Ballet 10",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\Medium_Allegro_Sissonne_Sequence_01_L_30fps.fbx"
+  },
+  {
+    "trigger": "Ballet 11",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\Medium_Allegro_Sissonne_Side_L_30fps.fbx"
+  },
+  {
+    "trigger": "Ballet 12",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\Medium_Allegro_Sissonne_Simple_L_30fps.fbx"
+  },
+  {
+    "trigger": "Ballet 13",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\Medium_Allegro_Tenlever_L_30fps.fbx"
+  },
+  {
+    "trigger": "YOGA 1",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\bird of paradise.fbx"
+  },
+  {
+    "trigger": "YOGA 2",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\chair pose.fbx"
+  },
+  {
+    "trigger": "YOGA 3",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\dancer pose.fbx"
+  },
+  {
+    "trigger": "YOGA 4",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\eagle pose.fbx"
+  },
+  {
+    "trigger": "YOGA 5",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\extended hand to big toe pose.fbx"
+  },
+  {
+    "trigger": "YOGA 6",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\goddess pose.fbx"
+  },
+  {
+    "trigger": "YOGA 7",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\hand to big toe pose.fbx"
+  },
+  {
+    "trigger": "YOGA 8",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\reverse namaste.fbx"
+  },
+  {
+    "trigger": "YOGA 9",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\side bends.fbx"
+  },
+  {
+    "trigger": "YOGA 10",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\standing pose sequence 01.fbx"
+  },
+  {
+    "trigger": "YOGA 11",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\standing pose sequence 02.fbx"
+  },
+  {
+    "trigger": "YOGA 12",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\standing split.fbx"
+  },
+  {
+    "trigger": "YOGA 13",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\tree pose.fbx"
+  },
+  {
+    "trigger": "YOGA 14",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\twisted hand to big toe pose.fbx"
+  },
+  {
+    "trigger": "Scary 1",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\anim_Scary_01.fbx"
+  },
+  {
+    "trigger": "Scary 2",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\anim_Scary_02.fbx"
+  },
+  {
+    "trigger": "Scary 3",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\anim_Scary_03.fbx"
+  },
+  {
+    "trigger": "Scary 4",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\anim_Scary_04.fbx"
+  },
+  {
+    "trigger": "Scary 5",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\anim_Scary_05.fbx"
+  },
+  {
+    "trigger": "Scary 6",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\anim_Scary_06.fbx"
+  },
+  {
+    "trigger": "Scary 7",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\anim_Scary_07.fbx"
+  },
+  {
+    "trigger": "Scary 8",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\anim_Scary_08.fbx"
+  },
+  {
+    "trigger": "Scary 9",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\anim_Scary_09.fbx"
+  },
+  {
+    "trigger": "Scary 10",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\anim_Scary_10.fbx"
+  },
+  {
+    "trigger": "Scary 11",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\anim_Scary_12.fbx"
+  },
+  {
+    "trigger": "Scary 12",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\anim_Scary_13.fbx"
+  },
+  {
+    "trigger": "Scary 13",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\anim_Scary_15.fbx"
+  },
+  {
+    "trigger": "Scary 14",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\anim_Scary_17.fbx"
+  },
+  {
+    "trigger": "Scary 15",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\anim_Scary_18.fbx"
+  },
+  {
+    "trigger": "Scary 16",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\anim_Scary_19.fbx"
+  },
+  {
+    "trigger": "Scary 17",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\anim_Scary_20.fbx"
+  },
+  {
+    "trigger": "Scary 18",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\anim_Scary_22.fbx"
+  },
+  {
+    "trigger": "Scary 19",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\anim_Scary_24.fbx"
+  },
+  {
+    "trigger": "Scary 20",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\anim_Scary_25.fbx"
+  },
+  {
+    "trigger": "Scary 21",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\anim_Scary_26.fbx"
+  },
+  {
+    "trigger": "Conv ShakeHands",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\MCU_af_StandConv_Greet_01_ShakeHands_PairB.fbx"
+  },
+  {
+    "trigger": "Conv HighFive 1",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\MCU_af_StandConv_Greet_03_HighFive_PairB.fbx"
+  },
+  {
+    "trigger": "Conv HighFive 2",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\MCU_af_StandConv_Greet_04_HighFive_PairB.fbx"
+  },
+  {
+    "trigger": "Conv Give",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\MCU_af_StandConv_KickGroin_02_AGive_BReceive_PairB.fbx"
+  },
+  {
+    "trigger": "Conv Receive",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\MCU_af_StandConv_KickGroin_01_AReceive_BGive_PairB.fbx"
+  },
+  {
+    "trigger": "Conv Lose",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\MCU_af_StandConv_Roshambo_ALose_BWin_PairB.fbx"
+  },
+  {
+    "trigger": "Conv Win",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\MCU_af_StandConv_Roshambo_AWin_BLose_PairB.fbx"
+  },
+  {
+    "trigger": "Conv Paper",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\MCU_af_StandConv_Roshambo_Paper_PairB.fbx"
+  },
+  {
+    "trigger": "Conv Rock",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\MCU_af_StandConv_Roshambo_Rock_PairB.fbx"
+  },
+  {
+    "trigger": "Conv Scissors",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\MCU_af_StandConv_Roshambo_Scissors_PairB.fbx"
+  },
+  {
+    "trigger": "Conv SlapFace Give",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\MCU_af_StandConv_SlapFace_01_AGive_BReceive_PairB.fbx"
+  },
+  {
+    "trigger": "Conv SlapFace Receive",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\MCU_af_StandConv_SlapFace_02_AReceive_BGive_PairB.fbx"
+  },
+  {
+    "trigger": "Conv Reject Things 1",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "双人动作\\MCU_af_StandConv_Trade_08_AGive_BReject_PairB.FBX"
+  },
+  {
+    "trigger": "Conv Take Things 1",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "双人动作\\MCU_af_StandConv_Trade_07_AGive_BTake_PairB.FBX"
+  },
+  {
+    "trigger": "Conv Give Things 1",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "双人动作\\MCU_af_StandConv_Trade_05_ATake_BGive_PairB.FBX"
+  },
+  {
+    "trigger": "Joyful Jump",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "Animation\\Ty@Joyful Jump.fbx"
+  },
+  {
+    "trigger": "Duck",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\Anim_Duck.fbx"
+  },
+  {
+    "trigger": "Fight",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\Anim_Fight_01.fbx"
+  },
+  {
+    "trigger": "Lean Against Wall",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\Anim_Lean_Against_Wall.fbx"
+  },
+  {
+    "trigger": "Run 1",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\Anim_Run_01-In_Place.fbx"
+  },
+  {
+    "trigger": "Run 2",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\Anim_Run_01-Root_Motion.fbx"
+  },
+  {
+    "trigger": "Strafe Left-In Place",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\Anim_Strafe_Left-In_Place.fbx"
+  },
+  {
+    "trigger": "Strafe Left-Root Motion",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\Anim_Strafe_Left-Root_Motion.fbx"
+  },
+  {
+    "trigger": "Strafe Right-In Place",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\Anim_Strafe_Right-In_Place.fbx"
+  },
+  {
+    "trigger": "Strafe Right-Root Motion",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\Anim_Strafe_Right-Root_Motion.fbx"
+  },
+  {
+    "trigger": "Throw",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\Anim_Throw.fbx"
+  },
+  {
+    "trigger": "Walk Injured-In Place",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\Anim_Walk_Injured-In_Place.fbx"
+  },
+  {
+    "trigger": "Walk Injured-Root Motion",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\Anim_Walk_Injured-Root_Motion.fbx"
+  },
+  {
+    "trigger": "Button Pushing",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "Button Pushing.fbx"
+  },
+  {
+    "trigger": "Anim_Breakdown_01_Trigger",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\Anim_Breakdown_01.fbx"
+  },
+  {
+    "trigger": "Anim_Breakdown_02_Trigger",
+    "description": "",
+    "compatible_states": [
+      "standing"
+    ],
+    "file": "ImportedAnimations\\Anim_Breakdown_02.fbx"
+  },
+  {
+    "trigger": "Sitting Talking 1",
+    "description": "",
+    "compatible_states": [
+      "sitting"
+    ],
+    "file": ""
+  },
+  {
+    "trigger": "Sitting Talking 2",
+    "description": "",
+    "compatible_states": [
+      "sitting"
+    ],
+    "file": ""
+  },
+  {
+    "trigger": "Sitting Laughing",
+    "description": "",
+    "compatible_states": [
+      "sitting"
+    ],
+    "file": ""
+  },
+  {
+    "trigger": "Sitting Claping",
+    "description": "",
+    "compatible_states": [
+      "sitting"
+    ],
+    "file": ""
+  }
+]
