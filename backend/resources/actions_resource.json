@@ -1,962 +1,962 @@
-﻿[
-    {
-        "trigger":  "Standing Talking 1",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "Animation\\Ty@Talking.fbx"
+[
+    {
+        "trigger": "Standing Talking 1",
+        "description": "平静交谈，手势温和自然，手臂小幅摆动。适合日常对话、友好讨论。（时长 5.9 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "Animation\\Ty@Talking.fbx"
     },
-    {
-        "trigger":  "Standing Talking 2",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "Animation\\Ty@Talking (1).fbx"
+    {
+        "trigger": "Standing Talking 2",
+        "description": "认真交谈，身体略微前倾，手势有力，动作幅度较大。适合强调观点、说服他人。（时长 3.9 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "Animation\\Ty@Talking (1).fbx"
     },
-    {
-        "trigger":  "Standing Talking 3",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "Animation\\Ty@Talking (1).fbx"
+    {
+        "trigger": "Standing Talking 3",
+        "description": "理智地解释，配合单手手势进行逻辑拆解，动作精准。适合陈述事实、分析情报、讲解计划。（时长 3.9 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "Animation\\Ty@Talking (1).fbx"
     },
-    {
-        "trigger":  "Standing Talking 4",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "Animation\\Ty@Talking On Phone.fbx"
+    {
+        "trigger": "Standing Talking 4",
+        "description": "站立说话，配合自然的身体语言和手势。（时长 38.8 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "Animation\\Ty@Talking On Phone.fbx"
     },
-    {
-        "trigger":  "Standing Talking 5",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "Animation\\Arm Gesture.fbx"
+    {
+        "trigger": "Standing Talking 5",
+        "description": "手臂动作手势，配合说话，手臂有中等幅度的挥动。适合表达时辅助强调。（时长 3.4 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "Animation\\Arm Gesture.fbx"
     },
-    {
-        "trigger":  "Standing Talking 6",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "Animation\\Ty@Whatever Gesture.fbx"
+    {
+        "trigger": "Standing Talking 6",
+        "description": "轻松俏皮地交谈，配合耸肩摊手的手势。适合开玩笑、提出有趣的想法。（时长 1.4 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "Animation\\Ty@Whatever Gesture.fbx"
     },
-    {
-        "trigger":  "Standing Talking 7",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "animations\\Female_Animations\\Animations\\Common\\Anim_Talk_01.fbx"
+    {
+        "trigger": "Standing Talking 7",
+        "description": "站立说话，配合自然的身体语言和手势。（时长 13.3 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "animations\\Female_Animations\\Animations\\Common\\Anim_Talk_01.fbx"
     },
-    {
-        "trigger":  "Standing Talking 8",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "animations\\Female_Animations\\Animations\\Common\\Anim_Talk_02.fbx"
+    {
+        "trigger": "Standing Talking 8",
+        "description": "站立说话，配合自然的身体语言和手势。（时长 13.3 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "animations\\Female_Animations\\Animations\\Common\\Anim_Talk_02.fbx"
     },
-    {
-        "trigger":  "Standing Thinking",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "Animation\\f05@hughip_00.fbx"
+    {
+        "trigger": "Standing Thinking",
+        "description": "站立思考状态，手托下巴或头部，低头，视线向下。适合陷入思考、犹豫不决时使用。（时长 4.2 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "Animation\\f05@hughip_00.fbx"
     },
-    {
-        "trigger":  "Standing Depressed",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "Animation\\Ty@Sad Idle.fbx"
+    {
+        "trigger": "Standing Depressed",
+        "description": "沮丧消沉，低头垂肩，身体无力，肩膀微微下垂。适合失望、挫败时使用。（时长 2.8 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "Animation\\Ty@Sad Idle.fbx"
     },
-    {
-        "trigger":  "Standing Crying",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "Animation\\2-Crying.fbx"
+    {
+        "trigger": "Standing Crying",
+        "description": "站立哭泣，双手掩面或抬到脸部附近，肩膀抽动。适合悲伤、绝望、感动时使用。（时长 20.5 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "Animation\\2-Crying.fbx"
     },
-    {
-        "trigger":  "Standing Angry 1",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "Animation\\Ty@Angry.fbx"
+    {
+        "trigger": "Standing Angry 1",
+        "description": "愤怒状态，双手握拳，身体紧绷，肩膀耸起。适合表达不满、抗议。（时长 19.2 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "Animation\\Ty@Angry.fbx"
     },
-    {
-        "trigger":  "Standing Angry 2",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "Animation\\Ty@Angry Point.fbx"
+    {
+        "trigger": "Standing Angry 2",
+        "description": "愤怒地指责对方，手臂用力前指，身体前倾，动作幅度很大。适合争吵、命令、质问。（时长 2.4 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "Animation\\Ty@Angry Point.fbx"
     },
-    {
-        "trigger":  "Standing Angry 3",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "Animation\\Angry Gesture.fbx"
+    {
+        "trigger": "Standing Angry 3",
+        "description": "愤怒的手势表达，手臂用力挥动，动作幅度大，附带大幅度的挥手动作。（时长 3.3 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "Animation\\Angry Gesture.fbx"
     },
-    {
-        "trigger":  "Standing Angry 4",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "Animation\\Gestures Pack Basic\\angry gesture.fbx"
+    {
+        "trigger": "Standing Angry 4",
+        "description": "愤怒的手势表达，手臂用力挥动，动作幅度大，附带大幅度的挥手动作。（时长 2.2 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "Animation\\Gestures Pack Basic\\angry gesture.fbx"
     },
-    {
-        "trigger":  "Standing Happy",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "Animation\\Happy Hand Gesture.fbx"
+    {
+        "trigger": "Standing Happy",
+        "description": "开心愉悦，身体放松，双手有轻快的小动作。适合表达喜悦、满足。（时长 2.9 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "Animation\\Happy Hand Gesture.fbx"
     },
-    {
-        "trigger":  "Standing Surprise",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "Animation\\Hands Forward Gesture.fbx"
+    {
+        "trigger": "Standing Surprise",
+        "description": "惊讶的动作，双手向前伸，身体微微后仰。适合意外、吃惊时。（时长 3.1 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "Animation\\Hands Forward Gesture.fbx"
     },
-    {
-        "trigger":  "Standing Normal",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "Animation\\f05@embar_01.fbx"
+    {
+        "trigger": "Standing Normal",
+        "description": "普通站立姿势，身体放松。（时长 7.3 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "Animation\\f05@embar_01.fbx"
     },
-    {
-        "trigger":  "Standing Arguing 1",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "Animation\\Ty@Standing Arguing (1).fbx"
+    {
+        "trigger": "Standing Arguing 1",
+        "description": "激烈争论，手势频繁，手臂大幅挥动。适合辩论、对抗。（时长 20.8 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "Animation\\Ty@Standing Arguing (1).fbx"
     },
-    {
-        "trigger":  "Standing Arguing 2",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "Animation\\Ty@Standing Arguing.fbx"
+    {
+        "trigger": "Standing Arguing 2",
+        "description": "据理力争，手势有力，身体前倾，动作幅度大。适合坚持己见、反驳对方。（时长 20.8 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "Animation\\Ty@Standing Arguing.fbx"
     },
-    {
-        "trigger":  "Standing Agree 1",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "Animation\\Agreeing.fbx"
+    {
+        "trigger": "Standing Agree 1",
+        "description": "点头同意，手势表示认可，头部上下点动。适合表达赞同、接受建议。（时长 4.7 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "Animation\\Agreeing.fbx"
     },
-    {
-        "trigger":  "Standing Agree 2",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "Animation\\Gestures Pack Basic\\acknowledging.fbx"
+    {
+        "trigger": "Standing Agree 2",
+        "description": "确认、回应的动作，轻微点头示意。（时长 1.6 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "Animation\\Gestures Pack Basic\\acknowledging.fbx"
     },
-    {
-        "trigger":  "Standing Puzzled",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "Animation\\Thoughtful Head Shake.fbx"
+    {
+        "trigger": "Standing Puzzled",
+        "description": "困惑迷茫，摊手歪头。适合不理解、疑惑时使用。（时长 3.1 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "Animation\\Thoughtful Head Shake.fbx"
     },
-    {
-        "trigger":  "Standing Bored",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "Animation\\11-Bored guy looks at the time on his watch.fbx"
+    {
+        "trigger": "Standing Bored",
+        "description": "无聊地看手表，显得不耐烦，身体微微晃动。（时长 8.0 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "Animation\\11-Bored guy looks at the time on his watch.fbx"
     },
-    {
-        "trigger":  "Standing Deny",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "Animation\\Gestures Pack Basic\\shaking head no.fbx"
+    {
+        "trigger": "Standing Deny",
+        "description": "摇头表示否定、不赞同或无奈，头部左右摆动幅度适中。适合拒绝、反对、叹息时使用。（时长 1.8 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "Animation\\Gestures Pack Basic\\shaking head no.fbx"
     },
-    {
-        "trigger":  "Standing Greeting",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "Animation\\Gestures Pack Basic\\dismissing gesture.fbx"
+    {
+        "trigger": "Standing Greeting",
+        "description": "打招呼的手势，手臂摆动，适合欢迎或告别。（时长 3.2 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "Animation\\Gestures Pack Basic\\dismissing gesture.fbx"
     },
-    {
-        "trigger":  "Standing Upset 1",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "animations\\Everyday_MoCap_Collection\\Everyday_MoCap_02\\Animations\\Upset_01.fbx"
+    {
+        "trigger": "Standing Upset 1",
+        "description": "心烦意乱的动作，身体微微晃动。（时长 12.7 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "animations\\Everyday_MoCap_Collection\\Everyday_MoCap_02\\Animations\\Upset_01.fbx"
     },
-    {
-        "trigger":  "Standing Upset 2",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "animations\\Everyday_MoCap_Collection\\Everyday_MoCap_02\\Animations\\Upset_02.fbx"
+    {
+        "trigger": "Standing Upset 2",
+        "description": "心烦意乱的动作，身体微微晃动。（时长 8.3 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "animations\\Everyday_MoCap_Collection\\Everyday_MoCap_02\\Animations\\Upset_02.fbx"
     },
-    {
-        "trigger":  "Standing Texting",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "animations\\Everyday_MoCap_Collection\\Everyday_MoCap_03\\Animations\\Texting_01.fbx"
+    {
+        "trigger": "Standing Texting",
+        "description": "玩手机发短信的姿势，低头看手，手指快速点击。（时长 12.4 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "animations\\Everyday_MoCap_Collection\\Everyday_MoCap_03\\Animations\\Texting_01.fbx"
     },
-    {
-        "trigger":  "Standing Speech 1",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "AIChatTookit\\Animation\\animo\\AA_people_speech\\Animation\\SplitClips\\AA_stand_people_speech_01.anim"
+    {
+        "trigger": "Standing Speech 1",
+        "description": "正式的演讲姿态，身体挺直，双手张开配合讲话，动作幅度适中。适合发表宣言、宣布决策、激励士气。（时长 23.4 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "AIChatTookit\\Animation\\animo\\AA_people_speech\\Animation\\SplitClips\\AA_stand_people_speech_01.anim"
     },
-    {
-        "trigger":  "Standing Speech 2",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "AIChatTookit\\Animation\\animo\\AA_people_speech\\Animation\\SplitClips\\AA_stand_people_speech_02.anim"
+    {
+        "trigger": "Standing Speech 2",
+        "description": "激情的演讲，手臂上扬，动作幅度大，附带大幅度的挥手动作。适合慷慨陈词、表达强烈观点。（时长 28.2 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "AIChatTookit\\Animation\\animo\\AA_people_speech\\Animation\\SplitClips\\AA_stand_people_speech_02.anim"
     },
-    {
-        "trigger":  "Standing Speech 3",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "AIChatTookit\\Animation\\animo\\AA_people_speech\\Animation\\SplitClips\\AA_stand_people_speech_03.anim"
+    {
+        "trigger": "Standing Speech 3",
+        "description": "站立说话，配合自然的身体语言和手势，动作流畅。（时长 23.7 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "AIChatTookit\\Animation\\animo\\AA_people_speech\\Animation\\SplitClips\\AA_stand_people_speech_03.anim"
     },
-    {
-        "trigger":  "Standing Speech 4",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "AIChatTookit\\Animation\\animo\\AA_people_speech\\Animation\\SplitClips\\AA_stand_people_speech_04.anim"
+    {
+        "trigger": "Standing Speech 4",
+        "description": "站立说话，配合自然的身体语言和手势，动作流畅。（时长 26.0 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "AIChatTookit\\Animation\\animo\\AA_people_speech\\Animation\\SplitClips\\AA_stand_people_speech_04.anim"
     },
-    {
-        "trigger":  "Dancing",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "Animation\\X Bot@Bboy Hip Hop Move.fbx"
+    {
+        "trigger": "Dancing",
+        "description": "街舞breaking地板动作，身体接触地面，动作有节奏感和力量感。（时长 2.2 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "Animation\\X Bot@Bboy Hip Hop Move.fbx"
     },
-    {
-        "trigger":  "Dance 1",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\Anim_Dance_01.fbx"
+    {
+        "trigger": "Dance 1",
+        "description": "跳舞动作，有节奏的身体律动。（时长 5.0 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\Anim_Dance_01.fbx"
     },
-    {
-        "trigger":  "Dance 2",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\High Rhythm Dance 15 30fps.fbx"
+    {
+        "trigger": "Dance 2",
+        "description": "跳舞动作，有节奏的身体律动，肢体配合摆动。（时长 25.7 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\High Rhythm Dance 15 30fps.fbx"
     },
-    {
-        "trigger":  "Dance 3",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\High Rhythm Dance 16 30fps.fbx"
+    {
+        "trigger": "Dance 3",
+        "description": "跳舞动作，有节奏的身体律动，肢体配合摆动。（时长 16.2 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\High Rhythm Dance 16 30fps.fbx"
     },
-    {
-        "trigger":  "Dance 4",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\High Rhythm Dance 17 30fps.fbx"
+    {
+        "trigger": "Dance 4",
+        "description": "跳舞动作，有节奏的身体律动，肢体配合摆动。（时长 20.6 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\High Rhythm Dance 17 30fps.fbx"
     },
-    {
-        "trigger":  "Dance 5",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\Mid Rhythm Dance 13 30fps.fbx"
+    {
+        "trigger": "Dance 5",
+        "description": "跳舞动作，有节奏的身体律动，肢体配合摆动。（时长 11.8 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\Mid Rhythm Dance 13 30fps.fbx"
     },
-    {
-        "trigger":  "Dance 6",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\Mid Rhythm Dance 14 30fps.fbx"
+    {
+        "trigger": "Dance 6",
+        "description": "跳舞动作，有节奏的身体律动，肢体配合摆动。（时长 13.0 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\Mid Rhythm Dance 14 30fps.fbx"
     },
-    {
-        "trigger":  "Dance 7",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\Mid Rhythm Dance 15 30fps.fbx"
+    {
+        "trigger": "Dance 7",
+        "description": "跳舞动作，有节奏的身体律动，肢体配合摆动。（时长 13.1 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\Mid Rhythm Dance 15 30fps.fbx"
     },
-    {
-        "trigger":  "Dance 8",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\Slow Rhythm Dance 16 30fps.fbx"
+    {
+        "trigger": "Dance 8",
+        "description": "跳舞动作，有节奏的身体律动，肢体配合摆动。（时长 9.1 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\Slow Rhythm Dance 16 30fps.fbx"
     },
-    {
-        "trigger":  "Dance 9",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\Slow Rhythm Dance 17 30fps.fbx"
+    {
+        "trigger": "Dance 9",
+        "description": "跳舞动作，有节奏的身体律动，肢体配合摆动。（时长 14.9 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\Slow Rhythm Dance 17 30fps.fbx"
     },
-    {
-        "trigger":  "Dance 10",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\Slow Rhythm Dance 18 30fps.fbx"
+    {
+        "trigger": "Dance 10",
+        "description": "跳舞动作，有节奏的身体律动，肢体配合摆动。（时长 12.5 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\Slow Rhythm Dance 18 30fps.fbx"
     },
-    {
-        "trigger":  "Dance 11",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\Slow Rhythm Dance 19 30fps.fbx"
+    {
+        "trigger": "Dance 11",
+        "description": "跳舞动作，有节奏的身体律动，肢体配合摆动。（时长 10.3 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\Slow Rhythm Dance 19 30fps.fbx"
     },
-    {
-        "trigger":  "Ballet 1",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\Medium_Allegro_Assemble_L_30fps.fbx"
+    {
+        "trigger": "Ballet 1",
+        "description": "芭蕾舞动作，优雅的舞蹈姿态，肢体舒展，动作精准。（时长 4.5 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\Medium_Allegro_Assemble_L_30fps.fbx"
     },
-    {
-        "trigger":  "Ballet 2",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\Medium_Allegro_Brise_L_30fps.fbx"
+    {
+        "trigger": "Ballet 2",
+        "description": "芭蕾舞动作，优雅的舞蹈姿态，肢体舒展，动作精准。（时长 4.6 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\Medium_Allegro_Brise_L_30fps.fbx"
     },
-    {
-        "trigger":  "Ballet 3",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\Medium_Allegro_Cabriole_Back_L_30fps.fbx"
+    {
+        "trigger": "Ballet 3",
+        "description": "芭蕾舞动作，优雅的舞蹈姿态，肢体舒展，动作精准。（时长 7.7 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\Medium_Allegro_Cabriole_Back_L_30fps.fbx"
     },
-    {
-        "trigger":  "Ballet 4",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\Medium_Allegro_Cabriole_Front_L_30fps.fbx"
+    {
+        "trigger": "Ballet 4",
+        "description": "芭蕾舞动作，优雅的舞蹈姿态，肢体舒展，动作精准。（时长 7.3 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\Medium_Allegro_Cabriole_Front_L_30fps.fbx"
     },
-    {
-        "trigger":  "Ballet 5",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\Medium_Allegro_Glissade_L_30fps.fbx"
+    {
+        "trigger": "Ballet 5",
+        "description": "芭蕾舞动作，优雅的舞蹈姿态，肢体舒展，动作精准。（时长 5.5 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\Medium_Allegro_Glissade_L_30fps.fbx"
     },
-    {
-        "trigger":  "Ballet 6",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\Medium_Allegro_Sequence_01_L_30fps.fbx"
+    {
+        "trigger": "Ballet 6",
+        "description": "芭蕾舞动作，优雅的舞蹈姿态，肢体舒展，动作精准。（时长 14.2 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\Medium_Allegro_Sequence_01_L_30fps.fbx"
     },
-    {
-        "trigger":  "Ballet 7",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\Medium_Allegro_Sequence_02_L_30fps.fbx"
+    {
+        "trigger": "Ballet 7",
+        "description": "芭蕾舞动作，优雅的舞蹈姿态，肢体舒展，动作精准。（时长 15.3 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\Medium_Allegro_Sequence_02_L_30fps.fbx"
     },
-    {
-        "trigger":  "Ballet 8",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\Medium_Allegro_Sissonne_Back_L_30fps.fbx"
+    {
+        "trigger": "Ballet 8",
+        "description": "芭蕾舞动作，优雅的舞蹈姿态，肢体舒展，动作精准。（时长 4.9 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\Medium_Allegro_Sissonne_Back_L_30fps.fbx"
     },
-    {
-        "trigger":  "Ballet 9",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\Medium_Allegro_Sissonne_Front_L_30fps.fbx"
+    {
+        "trigger": "Ballet 9",
+        "description": "芭蕾舞动作，优雅的舞蹈姿态，肢体舒展，动作精准。（时长 4.6 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\Medium_Allegro_Sissonne_Front_L_30fps.fbx"
     },
-    {
-        "trigger":  "Ballet 10",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\Medium_Allegro_Sissonne_Sequence_01_L_30fps.fbx"
+    {
+        "trigger": "Ballet 10",
+        "description": "芭蕾舞动作，优雅的舞蹈姿态，肢体舒展，动作精准。（时长 10.7 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\Medium_Allegro_Sissonne_Sequence_01_L_30fps.fbx"
     },
-    {
-        "trigger":  "Ballet 11",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\Medium_Allegro_Sissonne_Side_L_30fps.fbx"
+    {
+        "trigger": "Ballet 11",
+        "description": "芭蕾舞动作，优雅的舞蹈姿态，肢体舒展，动作精准。（时长 4.4 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\Medium_Allegro_Sissonne_Side_L_30fps.fbx"
     },
-    {
-        "trigger":  "Ballet 12",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\Medium_Allegro_Sissonne_Simple_L_30fps.fbx"
+    {
+        "trigger": "Ballet 12",
+        "description": "芭蕾舞动作，优雅的舞蹈姿态，肢体舒展，动作精准。（时长 4.8 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\Medium_Allegro_Sissonne_Simple_L_30fps.fbx"
     },
-    {
-        "trigger":  "Ballet 13",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\Medium_Allegro_Tenlever_L_30fps.fbx"
+    {
+        "trigger": "Ballet 13",
+        "description": "芭蕾舞动作，优雅的舞蹈姿态，肢体舒展，动作精准。（时长 7.6 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\Medium_Allegro_Tenlever_L_30fps.fbx"
     },
-    {
-        "trigger":  "YOGA 1",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\bird of paradise.fbx"
+    {
+        "trigger": "YOGA 1",
+        "description": "瑜伽姿势，身体舒展，保持平衡，动作静态而有控制。（时长 26.0 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\bird of paradise.fbx"
     },
-    {
-        "trigger":  "YOGA 2",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\chair pose.fbx"
+    {
+        "trigger": "YOGA 2",
+        "description": "瑜伽姿势，身体舒展，保持平衡，动作静态而有控制。（时长 12.1 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\chair pose.fbx"
     },
-    {
-        "trigger":  "YOGA 3",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\dancer pose.fbx"
+    {
+        "trigger": "YOGA 3",
+        "description": "瑜伽姿势，身体舒展，保持平衡，动作静态而有控制。（时长 14.9 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\dancer pose.fbx"
     },
-    {
-        "trigger":  "YOGA 4",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\eagle pose.fbx"
+    {
+        "trigger": "YOGA 4",
+        "description": "瑜伽姿势，身体舒展，保持平衡，动作静态而有控制。（时长 14.6 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\eagle pose.fbx"
     },
-    {
-        "trigger":  "YOGA 5",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\extended hand to big toe pose.fbx"
+    {
+        "trigger": "YOGA 5",
+        "description": "瑜伽姿势，身体舒展，保持平衡，动作静态而有控制。（时长 16.1 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\extended hand to big toe pose.fbx"
     },
-    {
-        "trigger":  "YOGA 6",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\goddess pose.fbx"
+    {
+        "trigger": "YOGA 6",
+        "description": "瑜伽姿势，身体舒展，保持平衡，动作静态而有控制。（时长 13.1 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\goddess pose.fbx"
     },
-    {
-        "trigger":  "YOGA 7",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\hand to big toe pose.fbx"
+    {
+        "trigger": "YOGA 7",
+        "description": "瑜伽姿势，身体舒展，保持平衡，动作静态而有控制。（时长 14.7 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\hand to big toe pose.fbx"
     },
-    {
-        "trigger":  "YOGA 8",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\reverse namaste.fbx"
+    {
+        "trigger": "YOGA 8",
+        "description": "瑜伽姿势，身体舒展，保持平衡，动作静态而有控制。（时长 13.7 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\reverse namaste.fbx"
     },
-    {
-        "trigger":  "YOGA 9",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\side bends.fbx"
+    {
+        "trigger": "YOGA 9",
+        "description": "瑜伽姿势，身体舒展，保持平衡，动作静态而有控制。（时长 15.3 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\side bends.fbx"
     },
-    {
-        "trigger":  "YOGA 10",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\standing pose sequence 01.fbx"
+    {
+        "trigger": "YOGA 10",
+        "description": "瑜伽姿势，身体舒展，保持平衡，动作静态而有控制。（时长 27.8 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\standing pose sequence 01.fbx"
     },
-    {
-        "trigger":  "YOGA 11",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\standing pose sequence 02.fbx"
+    {
+        "trigger": "YOGA 11",
+        "description": "瑜伽姿势，身体舒展，保持平衡，动作静态而有控制。（时长 31.2 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\standing pose sequence 02.fbx"
     },
-    {
-        "trigger":  "YOGA 12",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\standing split.fbx"
+    {
+        "trigger": "YOGA 12",
+        "description": "瑜伽姿势，身体舒展，保持平衡，动作静态而有控制。（时长 17.0 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\standing split.fbx"
     },
-    {
-        "trigger":  "YOGA 13",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\tree pose.fbx"
+    {
+        "trigger": "YOGA 13",
+        "description": "瑜伽姿势，身体舒展，保持平衡，动作静态而有控制。（时长 11.6 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\tree pose.fbx"
     },
-    {
-        "trigger":  "YOGA 14",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\twisted hand to big toe pose.fbx"
+    {
+        "trigger": "YOGA 14",
+        "description": "瑜伽姿势，身体舒展，保持平衡，动作静态而有控制。（时长 15.7 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\twisted hand to big toe pose.fbx"
     },
-    {
-        "trigger":  "Scary 1",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\anim_Scary_01.fbx"
+    {
+        "trigger": "Scary 1",
+        "description": "恐怖的姿势和动作，身体姿态怪异，适合惊悚场景。（时长 5.9 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\anim_Scary_01.fbx"
     },
-    {
-        "trigger":  "Scary 2",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\anim_Scary_02.fbx"
+    {
+        "trigger": "Scary 2",
+        "description": "恐怖的姿势和动作，身体姿态怪异，适合惊悚场景。（时长 5.5 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\anim_Scary_02.fbx"
     },
-    {
-        "trigger":  "Scary 3",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\anim_Scary_03.fbx"
+    {
+        "trigger": "Scary 3",
+        "description": "恐怖的姿势和动作，身体姿态怪异，适合惊悚场景。（时长 5.5 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\anim_Scary_03.fbx"
     },
-    {
-        "trigger":  "Scary 4",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\anim_Scary_04.fbx"
+    {
+        "trigger": "Scary 4",
+        "description": "恐怖的姿势和动作，身体姿态怪异，适合惊悚场景。（时长 4.9 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\anim_Scary_04.fbx"
     },
-    {
-        "trigger":  "Scary 5",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\anim_Scary_05.fbx"
+    {
+        "trigger": "Scary 5",
+        "description": "恐怖的姿势和动作，身体姿态怪异，适合惊悚场景。（时长 9.3 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\anim_Scary_05.fbx"
     },
-    {
-        "trigger":  "Scary 6",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\anim_Scary_06.fbx"
+    {
+        "trigger": "Scary 6",
+        "description": "恐怖的姿势和动作，身体姿态怪异，适合惊悚场景。（时长 3.8 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\anim_Scary_06.fbx"
     },
-    {
-        "trigger":  "Scary 7",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\anim_Scary_07.fbx"
+    {
+        "trigger": "Scary 7",
+        "description": "恐怖的姿势和动作，身体姿态怪异，适合惊悚场景。（时长 4.3 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\anim_Scary_07.fbx"
     },
-    {
-        "trigger":  "Scary 8",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\anim_Scary_08.fbx"
+    {
+        "trigger": "Scary 8",
+        "description": "恐怖的姿势和动作，身体姿态怪异，适合惊悚场景。（时长 5.5 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\anim_Scary_08.fbx"
     },
-    {
-        "trigger":  "Scary 9",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\anim_Scary_09.fbx"
+    {
+        "trigger": "Scary 9",
+        "description": "恐怖的姿势和动作，身体姿态怪异，适合惊悚场景。（时长 7.6 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\anim_Scary_09.fbx"
     },
-    {
-        "trigger":  "Scary 10",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\anim_Scary_10.fbx"
+    {
+        "trigger": "Scary 10",
+        "description": "恐怖的姿势和动作，身体姿态怪异，适合惊悚场景。（时长 4.0 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\anim_Scary_10.fbx"
     },
-    {
-        "trigger":  "Scary 11",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\anim_Scary_12.fbx"
+    {
+        "trigger": "Scary 11",
+        "description": "恐怖的姿势和动作，身体姿态怪异，适合惊悚场景。（时长 4.6 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\anim_Scary_12.fbx"
     },
-    {
-        "trigger":  "Scary 12",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\anim_Scary_13.fbx"
+    {
+        "trigger": "Scary 12",
+        "description": "恐怖的姿势和动作，身体姿态怪异，适合惊悚场景。（时长 2.5 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\anim_Scary_13.fbx"
     },
-    {
-        "trigger":  "Scary 13",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\anim_Scary_15.fbx"
+    {
+        "trigger": "Scary 13",
+        "description": "恐怖的姿势和动作，身体姿态怪异，适合惊悚场景。（时长 3.0 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\anim_Scary_15.fbx"
     },
-    {
-        "trigger":  "Scary 14",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\anim_Scary_17.fbx"
+    {
+        "trigger": "Scary 14",
+        "description": "恐怖的姿势和动作，身体姿态怪异，适合惊悚场景。（时长 7.4 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\anim_Scary_17.fbx"
     },
-    {
-        "trigger":  "Scary 15",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\anim_Scary_18.fbx"
+    {
+        "trigger": "Scary 15",
+        "description": "恐怖的姿势和动作，身体姿态怪异，适合惊悚场景。（时长 2.3 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\anim_Scary_18.fbx"
     },
-    {
-        "trigger":  "Scary 16",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\anim_Scary_19.fbx"
+    {
+        "trigger": "Scary 16",
+        "description": "恐怖的姿势和动作，身体姿态怪异，适合惊悚场景。（时长 3.5 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\anim_Scary_19.fbx"
     },
-    {
-        "trigger":  "Scary 17",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\anim_Scary_20.fbx"
+    {
+        "trigger": "Scary 17",
+        "description": "恐怖的姿势和动作，身体姿态怪异，适合惊悚场景。（时长 6.0 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\anim_Scary_20.fbx"
     },
-    {
-        "trigger":  "Scary 18",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\anim_Scary_22.fbx"
+    {
+        "trigger": "Scary 18",
+        "description": "恐怖的姿势和动作，身体姿态怪异，适合惊悚场景。（时长 7.5 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\anim_Scary_22.fbx"
     },
-    {
-        "trigger":  "Scary 19",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\anim_Scary_24.fbx"
+    {
+        "trigger": "Scary 19",
+        "description": "恐怖的姿势和动作，身体姿态怪异，适合惊悚场景。（时长 6.6 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\anim_Scary_24.fbx"
     },
-    {
-        "trigger":  "Scary 20",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\anim_Scary_25.fbx"
+    {
+        "trigger": "Scary 20",
+        "description": "恐怖的姿势和动作，身体姿态怪异，适合惊悚场景。（时长 4.0 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\anim_Scary_25.fbx"
     },
-    {
-        "trigger":  "Scary 21",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\anim_Scary_26.fbx"
+    {
+        "trigger": "Scary 21",
+        "description": "恐怖的姿势和动作，身体姿态怪异，适合惊悚场景。（时长 4.7 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\anim_Scary_26.fbx"
     },
-    {
-        "trigger":  "Conv ShakeHands",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\MCU_af_StandConv_Greet_01_ShakeHands_PairB.fbx"
+    {
+        "trigger": "Conv ShakeHands",
+        "description": "握手动作，身体微微前倾，手臂伸出，双手交握。适合问候或告别。（时长 4.0 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\MCU_af_StandConv_Greet_01_ShakeHands_PairB.fbx"
     },
-    {
-        "trigger":  "Conv HighFive 1",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\MCU_af_StandConv_Greet_03_HighFive_PairB.fbx"
+    {
+        "trigger": "Conv HighFive 1",
+        "description": "击掌庆祝，开心互动，手掌高举后相击，动作幅度大。（时长 3.5 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\MCU_af_StandConv_Greet_03_HighFive_PairB.fbx"
     },
-    {
-        "trigger":  "Conv HighFive 2",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\MCU_af_StandConv_Greet_04_HighFive_PairB.fbx"
+    {
+        "trigger": "Conv HighFive 2",
+        "description": "击掌庆祝，开心互动，手掌高举后相击，动作幅度大。（时长 4.3 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\MCU_af_StandConv_Greet_04_HighFive_PairB.fbx"
     },
-    {
-        "trigger":  "Conv Give",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\MCU_af_StandConv_KickGroin_02_AGive_BReceive_PairB.fbx"
+    {
+        "trigger": "Conv Give",
+        "description": "递东西给对方的动作，手臂前伸，手掌托住物品。（时长 12.2 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\MCU_af_StandConv_KickGroin_02_AGive_BReceive_PairB.fbx"
     },
-    {
-        "trigger":  "Conv Receive",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\MCU_af_StandConv_KickGroin_01_AReceive_BGive_PairB.fbx"
+    {
+        "trigger": "Conv Receive",
+        "description": "接收东西的动作，手臂伸出，手掌准备接物。（时长 10.5 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\MCU_af_StandConv_KickGroin_01_AReceive_BGive_PairB.fbx"
     },
-    {
-        "trigger":  "Conv Lose",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\MCU_af_StandConv_Roshambo_ALose_BWin_PairB.fbx"
+    {
+        "trigger": "Conv Lose",
+        "description": "猜拳输了的反应，身体微微后仰。（时长 6.7 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\MCU_af_StandConv_Roshambo_ALose_BWin_PairB.fbx"
     },
-    {
-        "trigger":  "Conv Win",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\MCU_af_StandConv_Roshambo_AWin_BLose_PairB.fbx"
+    {
+        "trigger": "Conv Win",
+        "description": "猜拳赢了的庆祝动作，手臂举起，身体轻微跳跃。（时长 3.8 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\MCU_af_StandConv_Roshambo_AWin_BLose_PairB.fbx"
     },
-    {
-        "trigger":  "Conv Paper",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\MCU_af_StandConv_Roshambo_Paper_PairB.fbx"
+    {
+        "trigger": "Conv Paper",
+        "description": "猜拳出布，手掌张开，手臂前伸。（时长 2.7 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\MCU_af_StandConv_Roshambo_Paper_PairB.fbx"
     },
-    {
-        "trigger":  "Conv Rock",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\MCU_af_StandConv_Roshambo_Rock_PairB.fbx"
+    {
+        "trigger": "Conv Rock",
+        "description": "猜拳出石头，拳头握紧，手臂前伸。（时长 2.7 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\MCU_af_StandConv_Roshambo_Rock_PairB.fbx"
     },
-    {
-        "trigger":  "Conv Scissors",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\MCU_af_StandConv_Roshambo_Scissors_PairB.fbx"
+    {
+        "trigger": "Conv Scissors",
+        "description": "猜拳出剪刀，手指比出剪刀形状，手臂前伸。（时长 2.7 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\MCU_af_StandConv_Roshambo_Scissors_PairB.fbx"
     },
-    {
-        "trigger":  "Conv SlapFace Give",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\MCU_af_StandConv_SlapFace_01_AGive_BReceive_PairB.fbx"
+    {
+        "trigger": "Conv SlapFace Give",
+        "description": "扇耳光的动作，手臂快速挥动，动作幅度大。（时长 10.2 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\MCU_af_StandConv_SlapFace_01_AGive_BReceive_PairB.fbx"
     },
-    {
-        "trigger":  "Conv SlapFace Receive",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\MCU_af_StandConv_SlapFace_02_AReceive_BGive_PairB.fbx"
+    {
+        "trigger": "Conv SlapFace Receive",
+        "description": "被扇耳光的反应，头部侧向一边，身体跟随转动。（时长 7.3 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\MCU_af_StandConv_SlapFace_02_AReceive_BGive_PairB.fbx"
     },
-    {
-        "trigger":  "Joyful Jump",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "Animation\\Ty@Joyful Jump.fbx"
+    {
+        "trigger": "Joyful Jump",
+        "description": "开心地跳起来，双脚离地，双手上扬，动作幅度大。适合庆祝、兴奋时。（时长 1.9 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "Animation\\Ty@Joyful Jump.fbx"
     },
-    {
-        "trigger":  "Duck",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\Anim_Duck.fbx"
+    {
+        "trigger": "Duck",
+        "description": "蹲下躲避，身体快速降低，膝盖弯曲，头部低下。（时长 6.3 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\Anim_Duck.fbx"
     },
-    {
-        "trigger":  "Fight",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\Anim_Fight_01.fbx"
-    },
-    {
-        "trigger":  "Lean Against Wall",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\Anim_Lean_Against_Wall.fbx"
-    },
-    {
-        "trigger":  "Run 1",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\Anim_Run_01-In_Place.fbx"
-    },
-    {
-        "trigger":  "Run 2",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\Anim_Run_01-Root_Motion.fbx"
-    },
-    {
-        "trigger":  "Strafe Left-In Place",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\Anim_Strafe_Left-In_Place.fbx"
-    },
-    {
-        "trigger":  "Strafe Left-Root Motion",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\Anim_Strafe_Left-Root_Motion.fbx"
-    },
-    {
-        "trigger":  "Strafe Right-In Place",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\Anim_Strafe_Right-In_Place.fbx"
-    },
-    {
-        "trigger":  "Strafe Right-Root Motion",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\Anim_Strafe_Right-Root_Motion.fbx"
-    },
-    {
-        "trigger":  "Throw",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\Anim_Throw.fbx"
-    },
-    {
-        "trigger":  "Walk Injured-In Place",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\Anim_Walk_Injured-In_Place.fbx"
-    },
-    {
-        "trigger":  "Walk Injured-Root Motion",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\Anim_Walk_Injured-Root_Motion.fbx"
-    },
-    {
-        "trigger":  "Anim_Breakdown_01_Trigger",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\Anim_Breakdown_01.fbx"
-    },
-    {
-        "trigger":  "Anim_Breakdown_02_Trigger",
-        "description":  "",
-        "compatible_states":  [
-                                  "standing"
-                              ],
-        "file":  "ImportedAnimations\\Anim_Breakdown_02.fbx"
+    {
+        "trigger": "Fight",
+        "description": "战斗攻击姿态，身体紧绷，拳头握紧，动作带有力量感。（时长 6.7 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\Anim_Fight_01.fbx"
+    },
+    {
+        "trigger": "Lean Against Wall",
+        "description": "斜靠在墙上，放松的站立姿势，身体重心偏向一侧，肩膀靠墙。（时长 6.7 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\Anim_Lean_Against_Wall.fbx"
+    },
+    {
+        "trigger": "Run 1",
+        "description": "跑步动作，双腿快速交替，手臂摆动幅度大，身体略微前倾。（时长 0.9 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\Anim_Run_01-In_Place.fbx"
+    },
+    {
+        "trigger": "Run 2",
+        "description": "跑步动作，双腿快速交替，手臂摆动幅度大，身体略微前倾。（时长 1.7 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\Anim_Run_01-Root_Motion.fbx"
+    },
+    {
+        "trigger": "Strafe Left-In Place",
+        "description": "向左平移移动，身体保持面向前方，脚步横向移动。（时长 3.0 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\Anim_Strafe_Left-In_Place.fbx"
+    },
+    {
+        "trigger": "Strafe Left-Root Motion",
+        "description": "向左平移移动，身体保持面向前方，脚步横向移动。（时长 3.0 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\Anim_Strafe_Left-Root_Motion.fbx"
+    },
+    {
+        "trigger": "Strafe Right-In Place",
+        "description": "向右平移移动，身体保持面向前方，脚步横向移动。（时长 3.0 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\Anim_Strafe_Right-In_Place.fbx"
+    },
+    {
+        "trigger": "Strafe Right-Root Motion",
+        "description": "向右平移移动，身体保持面向前方，脚步横向移动。（时长 3.0 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\Anim_Strafe_Right-Root_Motion.fbx"
+    },
+    {
+        "trigger": "Throw",
+        "description": "投掷动作，手臂摆动发力，动作幅度大，身体跟随转动。（时长 3.3 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\Anim_Throw.fbx"
+    },
+    {
+        "trigger": "Walk Injured-In Place",
+        "description": "受伤状态行走，姿势痛苦缓慢，身体重心不稳。（时长 1.2 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\Anim_Walk_Injured-In_Place.fbx"
+    },
+    {
+        "trigger": "Walk Injured-Root Motion",
+        "description": "受伤状态行走，姿势痛苦缓慢，身体重心不稳。（时长 3.5 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\Anim_Walk_Injured-Root_Motion.fbx"
+    },
+    {
+        "trigger": "Anim_Breakdown_01_Trigger",
+        "description": "动作分解过渡姿势，身体状态变化的衔接动作。（时长 2.0 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\Anim_Breakdown_01.fbx"
+    },
+    {
+        "trigger": "Anim_Breakdown_02_Trigger",
+        "description": "动作分解过渡姿势，身体状态变化的衔接动作。（时长 2.0 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\Anim_Breakdown_02.fbx"
     }
 ]
