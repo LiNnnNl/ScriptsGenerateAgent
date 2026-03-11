@@ -279,7 +279,7 @@ def main():
             sys.exit(1)
         
         # 生成剧本
-        success = generate_script(config, api_key, args.output)
+        success = generate_script(config, api_key, args.output, base_url)
         sys.exit(0 if success else 1)
     
     elif args.mode == "config":

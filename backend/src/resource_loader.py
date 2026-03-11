@@ -48,9 +48,10 @@ class Scene:
 class Action:
     """动作资源（通用，不区分画风）"""
     def __init__(self, data: dict):
-        self.action_id = data['action_id']
-        self.category = data['category']
-        self.description = data['description']
+        self.action_id = data.get('action_id') or data.get('trigger', '')
+        self.category = data.get('category', '')
+        self.description = data.get('description', '')
+        self.file = data.get('file', '')
         self.compatible_states = data.get('compatible_states', ['standing'])
     
     def is_compatible_with_state(self, state: str) -> bool:
@@ -76,19 +77,19 @@ class ResourceLoader:
         """加载所有资源文件"""
         # 加载角色
         char_file = self.resource_dir / "characters_resource.json"
-        with open(char_file, 'r', encoding='utf-8') as f:
+        with open(char_file, 'r', encoding='utf-8-sig') as f:
             char_data = json.load(f)
             self.characters = [Character(c) for c in char_data]
         
         # 加载场景
         scene_file = self.resource_dir / "scenes_resource.json"
-        with open(scene_file, 'r', encoding='utf-8') as f:
+        with open(scene_file, 'r', encoding='utf-8-sig') as f:
             scene_data = json.load(f)
             self.scenes = [Scene(s) for s in scene_data]
         
         # 加载动作
         action_file = self.resource_dir / "actions_resource.json"
-        with open(action_file, 'r', encoding='utf-8') as f:
+        with open(action_file, 'r', encoding='utf-8-sig') as f:
             action_data = json.load(f)
             self.actions = [Action(a) for a in action_data]
     

@@ -23,7 +23,7 @@ app.config['JSON_AS_ASCII'] = False  # 支持中文
 # 启用CORS（跨域资源共享）
 CORS(app, resources={
     r"/api/*": {
-        "origins": "*",  # 允许所有来源，生产环境应该指定具体域名
+        "origins": "*",
         "methods": ["GET", "POST", "OPTIONS"],
         "allow_headers": ["Content-Type"]
     }
@@ -183,7 +183,7 @@ def generate_script():
             if creative_idea:
                 yield json.dumps({
                     'type': 'thinking',
-                    'message': f'创作想法: "{creative_idea[:80]}..."'
+                    'message': f'创作想法: "{creative_idea[:80]}{"..." if len(creative_idea) > 80 else ""}"'
                 }) + '\n'
                 yield json.dumps({
                     'type': 'log',

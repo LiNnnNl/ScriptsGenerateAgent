@@ -73,15 +73,15 @@ class ScriptJSONGenerator:
         
         moves = segment.get("move", [])
         
+        # 构建current position（移动前的位置）
+        current_position = self._get_all_positions()
+
         # 更新位置追踪
         for move in moves:
             char_name = move.get("character")
             destination = move.get("destination")
             if char_name and destination:
                 self.character_positions[char_name] = destination
-        
-        # 构建current position（移动前的位置）
-        current_position = self._get_all_positions()
         
         return {
             "move": moves,

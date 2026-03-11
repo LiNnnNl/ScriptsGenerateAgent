@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd D:/code/ScriptsGenerateAgent/backend && python app.py)",
+      "Bash(cd D:/code/ScriptsGenerateAgent/frontend && python -m http.server 8080)",
+      "Bash(sleep 2 && curl -s http://localhost:8080 -o /dev/null -w \"%{http_code}\")",
+      "Bash(netstat -ano | grep -E \"5000|8080\")",
+      "Bash(netstat -ano)",
+      "Bash(taskkill /F /PID 12296 && taskkill /F /PID 39896)",
+      "Bash(cmd.exe /c \"taskkill /F /PID 12296 & taskkill /F /PID 39896\")",
+      "Bash(cmd.exe /c \"taskkill /F /PID 12296\" && cmd.exe /c \"taskkill /F /PID 39896\")"
+    ]
+  }
+}

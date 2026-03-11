@@ -154,11 +154,7 @@ function handleStreamData(data) {
         UI.addLog('success', '✅ 剧本生成成功！');
         UI.addLog('success', `📁 文件保存: ${data.filename}`);
         
-        if (data.warnings && data.warnings.length > 0) {
-            data.warnings.forEach(w => UI.addLog('warning', '⚠️  ' + w));
-        }
-
-        UI.showSuccess(data.filename, data.warnings);
+        UI.showSuccess(data.filename);
     } else if (data.type === 'error') {
         UI.addLog('error', '❌ ' + data.message);
         if (data.details) {

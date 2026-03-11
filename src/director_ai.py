@@ -199,7 +199,7 @@ class DirectorAI:
         scene: Scene,
         plot_outline: str,
         temperature: float = 0.7,
-        model: str = "deepseek-chat"
+        model: str = None
     ) -> Dict:
         """
         生成剧本
@@ -217,8 +217,12 @@ class DirectorAI:
         
         # 构建提示词
         system_prompt = self._build_context_prompt(characters, scene, plot_outline)
-        
-        # 调用 DeepSeek API (兼容 OpenAI 格式)
+
+        # 从环境变量读取模型名，参数优先
+        if model is None:
+            model = os.getenv("DEEPSEEK_MODEL", "deepseek-v3-241226")
+
+        # 调用 ARK API (兼容 OpenAI 格式)
         response = self.client.chat.completions.create(
             model=model,
             max_tokens=8000,
@@ -243,7 +247,7 @@ class DirectorAI:
         import re
         
         # 尝试提取JSON代码块
-        json_match = re.search(r'```json\s*(\{.*?\})\s*```', response_text, re.DOTALL)
+        json_match = re.search(r'```json\s*(\{.*\})\s*```', response_text, re.DOTALL)
         if json_match:
             json_str = json_match.group(1)
         else:

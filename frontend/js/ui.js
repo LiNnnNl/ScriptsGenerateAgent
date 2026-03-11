@@ -32,12 +32,7 @@ const UI = {
         const resultPanel = document.getElementById('resultPanel');
         const messageEl = document.getElementById('resultMessage');
         
-        let message = `文件已保存: ${filename}`;
-        if (warnings.length > 0) {
-            message += '\n\n警告:\n' + warnings.join('\n');
-        }
-        
-        messageEl.textContent = message;
+        messageEl.textContent = `文件已保存: ${filename}`;
         resultPanel.style.display = 'block';
         
         APP_STATE.currentFilename = filename;
