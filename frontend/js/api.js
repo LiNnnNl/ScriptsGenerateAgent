@@ -1,20 +1,8 @@
 // API调用模块
 const API = {
-    // 获取所有画风
-    async getStyles() {
-        const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.STYLES}`);
-        return await response.json();
-    },
-
-    // 获取指定画风的场景
-    async getScenes(styleTag) {
-        const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.SCENES}/${styleTag}`);
-        return await response.json();
-    },
-
-    // 获取指定画风的角色
-    async getCharacters(styleTag) {
-        const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.CHARACTERS}/${styleTag}`);
+    // 获取所有场景
+    async getScenes() {
+        const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.SCENES}`);
         return await response.json();
     },
 

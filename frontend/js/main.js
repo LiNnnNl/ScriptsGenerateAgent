@@ -2,108 +2,28 @@
 document.addEventListener('DOMContentLoaded', init);
 
 async function init() {
-    await loadStyles();
+    await loadScenes();
     setupEventListeners();
 }
 
-// 加载画风列表
-async function loadStyles() {
+// 加载场景列表
+async function loadScenes() {
     try {
-        const result = await API.getStyles();
+        const result = await API.getScenes();
         if (result.success) {
-            UI.renderStyles(result.data);
-            bindStyleClickEvents();
+            APP_STATE.scenes = result.data;
+            UI.renderScenes(result.data);
         }
     } catch (error) {
-        console.error('加载画风失败:', error);
-        UI.showError('加载画风失败: ' + error.message);
+        console.error('加载场景失败:', error);
+        UI.showError('加载场景失败: ' + error.message);
     }
-}
-
-// 绑定画风点击事件
-function bindStyleClickEvents() {
-    document.querySelectorAll('.style-card').forEach(card => {
-        card.addEventListener('click', () => selectStyle(card.dataset.style));
-    });
-}
-
-// 选择画风
-async function selectStyle(style) {
-    APP_STATE.selectedStyle = style;
-    APP_STATE.selectedScene = null;
-    APP_STATE.selectedCharacters = [];
-
-    // 更新UI
-    document.querySelectorAll('.style-card').forEach(card => {
-        card.classList.toggle('selected', card.dataset.style === style);
-    });
-
-    UI.enableStep('step2');
-
-    // 加载场景和角色
-    try {
-        const [scenesResult, charactersResult] = await Promise.all([
-            API.getScenes(style),
-            API.getCharacters(style)
-        ]);
-
-        if (scenesResult.success) {
-            APP_STATE.scenes = scenesResult.data;
-            UI.renderScenes(scenesResult.data);
-        }
-
-        if (charactersResult.success) {
-            APP_STATE.characters = charactersResult.data;
-            UI.renderCharacters(charactersResult.data);
-            bindCharacterClickEvents();
-        }
-    } catch (error) {
-        console.error('加载数据失败:', error);
-        UI.showError('加载数据失败: ' + error.message);
-    }
-
-    checkFormComplete();
-}
-
-// 绑定角色点击事件
-function bindCharacterClickEvents() {
-    document.querySelectorAll('.character-card').forEach(card => {
-        card.addEventListener('click', () => toggleCharacter(card.dataset.id));
-    });
-}
-
-// 切换角色选择
-function toggleCharacter(charId) {
-    const index = APP_STATE.selectedCharacters.indexOf(charId);
-    
-    if (index > -1) {
-        APP_STATE.selectedCharacters.splice(index, 1);
-    } else {
-        if (APP_STATE.selectedCharacters.length >= APP_STATE.requiredCharacterCount) {
-            UI.addLog('warning', `最多只能选择 ${APP_STATE.requiredCharacterCount} 个角色`);
-            return;
-        }
-        APP_STATE.selectedCharacters.push(charId);
-    }
-
-    UI.updateCharacterSelection();
-    checkFormComplete();
 }
 
 // 检查表单完整性
 function checkFormComplete() {
-    const hasCorrectCharacterCount = 
-        APP_STATE.selectedCharacters.length === APP_STATE.requiredCharacterCount;
-    
-    if (hasCorrectCharacterCount) {
-        UI.enableStep('step5');
-    }
-    
-    const isComplete = APP_STATE.selectedStyle && 
-                      APP_STATE.selectedScene && 
-                      hasCorrectCharacterCount;
-
-    if (isComplete) {
+    if (APP_STATE.selectedScene) {
+        UI.enableStep('step4');
         UI.enableGenerateBtn();
     } else {
         UI.disableGenerateBtn();
@@ -121,17 +41,19 @@ async function generateScript() {
 
     // 开始日志
     UI.addLog('info', '🚀 开始生成剧本...');
-    UI.addLog('info', `选择的角色: ${APP_STATE.selectedCharacters.map(id => {
-        const char = APP_STATE.characters.find(c => c.id === id);
-        return char ? char.name : id;
-    }).join(', ')}`);
+    const validChars = APP_STATE.customCharacters.filter(c => c.name !== '');
+    if (validChars.length > 0) {
+        UI.addLog('info', `自定义角色: ${validChars.map(c => c.name).join(', ')}`);
+    } else {
+        UI.addLog('info', 'AI 将自由创作角色');
+    }
     UI.addLog('info', `场景: ${APP_STATE.scenes.find(s => s.id === APP_STATE.selectedScene)?.name || APP_STATE.selectedScene}`);
 
     try {
         UI.addLog('info', '📡 正在连接 AI 服务...');
 
         await API.generateScript({
-            character_ids: APP_STATE.selectedCharacters,
+            custom_characters: validChars,
             scene_id: APP_STATE.selectedScene,
             creative_idea: document.getElementById('creativeIdea').value.trim()
         }, handleStreamData);
@@ -176,8 +98,8 @@ function setupEventListeners() {
                 UI.showSceneInfo(scene);
             }
 
+            UI.enableStep('step2');
             UI.enableStep('step3');
-            UI.enableStep('step4');
             
             const count = parseInt(document.getElementById('characterCount').value) || 2;
             APP_STATE.requiredCharacterCount = count;
@@ -231,14 +153,7 @@ function setupEventListeners() {
 // 更新角色数量
 function updateCount(count) {
     if (count < 1 || count > 10) return;
-    
+
     UI.updateCharacterCount(count);
-    
-    // 清空已选角色如果超出数量
-    if (APP_STATE.selectedCharacters.length > count) {
-        APP_STATE.selectedCharacters = APP_STATE.selectedCharacters.slice(0, count);
-        UI.updateCharacterSelection();
-    }
-    
     checkFormComplete();
 }

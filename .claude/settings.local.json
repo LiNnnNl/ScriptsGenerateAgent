@@ -8,7 +8,8 @@
       "Bash(netstat -ano)",
       "Bash(taskkill /F /PID 12296 && taskkill /F /PID 39896)",
       "Bash(cmd.exe /c \"taskkill /F /PID 12296 & taskkill /F /PID 39896\")",
-      "Bash(cmd.exe /c \"taskkill /F /PID 12296\" && cmd.exe /c \"taskkill /F /PID 39896\")"
+      "Bash(cmd.exe /c \"taskkill /F /PID 12296\" && cmd.exe /c \"taskkill /F /PID 39896\")",
+      "Bash(find /d/code/ScriptsGenerateAgent -path \"*resource*\" -type f 2>/dev/null | head -10)"
     ]
   }
 }

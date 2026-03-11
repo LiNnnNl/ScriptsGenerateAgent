@@ -2,7 +2,6 @@
   {
     "id": "scene_space_station_isolation",
     "name": "太空站-隔离室1F",
-    "style_tag": "Cyberpunk_Realism",
     "description": "冰冷的金属走廊，玻璃舱中隔离着人类幸存者，监控设备随处可见。",
     "valid_positions": [
       {
@@ -45,7 +44,6 @@
   {
     "id": "scene_school_rooftop",
     "name": "学校天台",
-    "style_tag": "Anime_2D",
     "description": "午后的学校天台，能看到城市全景，微风轻拂。",
     "valid_positions": [
       {
@@ -78,7 +76,6 @@
   {
     "id": "scene_magic_tower",
     "name": "魔法塔-议事厅",
-    "style_tag": "Fantasy_3D",
     "description": "高耸的魔法塔内部，水晶吊灯悬浮，古老的魔法阵在地面发光。",
     "valid_positions": [
       {
@@ -116,7 +113,6 @@
   {
     "id": "scene_space_station_command",
     "name": "太空站-指挥中心",
-    "style_tag": "Cyberpunk_Realism",
     "description": "环形的指挥中心，全息屏幕环绕，中央是战术沙盘。",
     "valid_positions": [
       {
@@ -140,6 +136,35 @@
         "is_sittable": false
       }
     ]
+  },
+  {
+    "id": "Street",
+    "name": "街道",
+    "description": "一条卡通动漫风格的日本小镇街道。",
+    "valid_positions": []
+  },
+  {
+    "id": "Office",
+    "name": "办公室",
+    "description": "现代风格的办公室，带有一个讨论长桌。",
+    "valid_positions": []
+  },
+  {
+    "id": "MeetingRoom",
+    "name": "中型会议室",
+    "description": "五排座位的会议室，发言台四个位置。",
+    "valid_positions": []
+  },
+  {
+    "id": "CityStreet",
+    "name": "城市街道",
+    "description": "低聚面的城市街道，并带有一个小型的机场，能看到山脉。",
+    "valid_positions": []
+  },
+  {
+    "id": "FireStation",
+    "name": "消防站",
+    "description": "低聚面的消防站，停着三辆消防车，带有一个员工宿舍和餐厅休息区。",
+    "valid_positions": []
   }
 ]
-
