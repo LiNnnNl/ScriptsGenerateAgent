@@ -157,11 +157,11 @@ def generate_script():
                 }) + '\n'
             
             # 检查 API Key
-            api_key = os.getenv('DEEPSEEK_API_KEY')
+            api_key = os.getenv('API_KEY')
             if not api_key:
                 yield json.dumps({
                     'type': 'error',
-                    'message': '未配置 DEEPSEEK_API_KEY，请在 .env 文件中设置'
+                    'message': '未配置 API_KEY，请在 .env 文件中设置'
                 }) + '\n'
                 return
             
