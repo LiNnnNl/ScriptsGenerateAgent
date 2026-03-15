@@ -69,11 +69,14 @@ class Action:
         return f"Action({self.action_id}, {self.category})"
 
 
+_DEFAULT_RESOURCE_DIR = Path(r"D:\code\ScriptsGenerateAgent\backend\resources")
+
+
 class ResourceLoader:
     """资源管理器"""
     
-    def __init__(self, resource_dir: str = "resources"):
-        self.resource_dir = Path(resource_dir)
+    def __init__(self, resource_dir: Path = None):
+        self.resource_dir = Path(resource_dir) if resource_dir else _DEFAULT_RESOURCE_DIR
         self.characters: List[Character] = []
         self.scenes: List[Scene] = []
         self.actions: List[Action] = []
@@ -95,7 +98,7 @@ class ResourceLoader:
             self.scenes = [Scene(s) for s in scene_data]
         
         # 加载动作
-        action_file = self.resource_dir / "actions_resource.json"
+        action_file = self.resource_dir / "actions_resource_backup.json"
         with open(action_file, 'r', encoding='utf-8') as f:
             action_data = json.load(f)
             self.actions = [Action(a) for a in action_data]

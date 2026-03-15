@@ -26,7 +26,6 @@ class Scene:
     def __init__(self, data: dict):
         self.id = data['id']
         self.name = data['name']
-        self.style_tag = data['style_tag']
         self.description = data['description']
         self.valid_positions = data['valid_positions']
         self.camera_groups = data.get('camera_groups', [])
@@ -50,15 +49,16 @@ class Scene:
         return ''
 
     def __repr__(self):
-        return f"Scene({self.name}, {self.style_tag})"
+        return f"Scene({self.name})"
 
 
 class Action:
     """动作资源（通用，不区分画风）"""
     def __init__(self, data: dict):
-        self.action_id = data['action_id']
-        self.category = data['category']
-        self.description = data['description']
+        self.action_id = data.get('action_id') or data.get('trigger', '')
+        self.category = data.get('category', '')
+        self.description = data.get('description', '')
+        self.file = data.get('file', '')
         self.compatible_states = data.get('compatible_states', ['standing'])
     
     def is_compatible_with_state(self, state: str) -> bool:
@@ -84,19 +84,19 @@ class ResourceLoader:
         """加载所有资源文件"""
         # 加载角色
         char_file = self.resource_dir / "characters_resource.json"
-        with open(char_file, 'r', encoding='utf-8') as f:
+        with open(char_file, 'r', encoding='utf-8-sig') as f:
             char_data = json.load(f)
             self.characters = [Character(c) for c in char_data]
         
         # 加载场景
         scene_file = self.resource_dir / "scenes_resource.json"
-        with open(scene_file, 'r', encoding='utf-8') as f:
+        with open(scene_file, 'r', encoding='utf-8-sig') as f:
             scene_data = json.load(f)
             self.scenes = [Scene(s) for s in scene_data]
         
         # 加载动作
         action_file = self.resource_dir / "actions_resource.json"
-        with open(action_file, 'r', encoding='utf-8') as f:
+        with open(action_file, 'r', encoding='utf-8-sig') as f:
             action_data = json.load(f)
             self.actions = [Action(a) for a in action_data]
     
@@ -105,17 +105,15 @@ class ResourceLoader:
         styles = set()
         for char in self.characters:
             styles.add(char.style_tag)
-        for scene in self.scenes:
-            styles.add(scene.style_tag)
         return sorted(list(styles))
-    
+
     def get_characters_by_style(self, style_tag: str) -> List[Character]:
         """按画风筛选角色"""
         return [c for c in self.characters if c.style_tag == style_tag]
-    
-    def get_scenes_by_style(self, style_tag: str) -> List[Scene]:
-        """按画风筛选场景"""
-        return [s for s in self.scenes if s.style_tag == style_tag]
+
+    def get_all_scenes(self) -> List[Scene]:
+        """获取所有场景"""
+        return list(self.scenes)
     
     def get_character_by_id(self, char_id: str) -> Optional[Character]:
         """根据ID获取角色"""
@@ -167,7 +165,7 @@ class ResourceLoader:
             errors.append(f"场景ID不存在: {scene_id}")
             return {"valid": False, "errors": errors, "warnings": warnings}
         
-        # 检查角色是否存在，并验证画风
+        # 检查角色是否存在
         characters = []
         for char_id in character_ids:
             char = self.get_character_by_id(char_id)
@@ -175,14 +173,6 @@ class ResourceLoader:
                 errors.append(f"角色ID不存在: {char_id}")
             else:
                 characters.append(char)
-                if char.style_tag != scene.style_tag:
-                    errors.append(
-                        f"画风不匹配: 角色 '{char.name}' ({char.style_tag}) "
-                        f"与场景 '{scene.name}' ({scene.style_tag}) 画风不一致"
-                    )
-        
-        if len(characters) == 0:
-            errors.append("至少需要一个有效角色")
         
         return {
             "valid": len(errors) == 0,
@@ -192,6 +182,24 @@ class ResourceLoader:
             "characters": characters
         }
     
+    def build_custom_characters(self, custom_chars_input: List[Dict]) -> List[Character]:
+        """根据用户输入构建自定义角色列表"""
+        result = []
+        for item in custom_chars_input:
+            name = (item.get('name') or '').strip()
+            if not name:
+                continue
+            desc = (item.get('description') or '').strip()
+            char = Character({
+                'id': name,
+                'name': name,
+                'style_tag': '',
+                'description': desc if desc else f'用户自定义角色：{name}',
+                'personality': desc if desc else '性格由AI自由发挥',
+            })
+            result.append(char)
+        return result
+
     def get_resource_summary(self) -> str:
         """获取资源摘要信息"""
         summary = []
@@ -200,14 +208,7 @@ class ResourceLoader:
         summary.append(f"场景总数: {len(self.scenes)}")
         summary.append(f"动作总数: {len(self.actions)}")
         summary.append(f"\n可用画风: {', '.join(self.get_available_styles())}")
-        
-        # 按画风分组显示
-        for style in self.get_available_styles():
-            chars = self.get_characters_by_style(style)
-            scenes = self.get_scenes_by_style(style)
-            summary.append(f"\n[{style}]")
-            summary.append(f"  角色: {', '.join([c.name for c in chars])}")
-            summary.append(f"  场景: {', '.join([s.name for s in scenes])}")
+        summary.append(f"场景列表: {', '.join([s.name for s in self.scenes])}")
         
         return "\n".join(summary)
 

@@ -23,7 +23,7 @@ app.config['JSON_AS_ASCII'] = False  # 支持中文
 # 启用CORS（跨域资源共享）
 CORS(app, resources={
     r"/api/*": {
-        "origins": "*",  # 允许所有来源，生产环境应该指定具体域名
+        "origins": "*",
         "methods": ["GET", "POST", "OPTIONS"],
         "allow_headers": ["Content-Type"]
     }
@@ -47,6 +47,25 @@ def get_styles():
             'success': False,
             'error': str(e)
         }), 500
+
+
+@app.route('/api/scenes', methods=['GET'])
+def get_all_scenes():
+    """获取所有场景"""
+    try:
+        scenes = resource_loader.get_all_scenes()
+        scenes_data = [
+            {
+                'id': scene.id,
+                'name': scene.name,
+                'description': scene.description,
+                'positions': scene.valid_positions
+            }
+            for scene in scenes
+        ]
+        return jsonify({'success': True, 'data': scenes_data})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 @app.route('/api/scenes/<style_tag>', methods=['GET'])
@@ -109,53 +128,41 @@ def generate_script():
             data = request.json
             
             # 获取参数
-            character_ids = data.get('character_ids', [])
+            custom_characters_input = data.get('custom_characters', [])
             scene_id = data.get('scene_id')
             creative_idea = data.get('creative_idea', '').strip()
-            
+
             # 使用用户的创作想法（如果提供）
             plot_outline = creative_idea if creative_idea else ''
-            
-            # 发送日志：开始验证
-            yield json.dumps({
-                'type': 'log',
-                'level': 'info',
-                'message': '📋 开始验证配置...'
-            }) + '\n'
-            
-            # 验证配置
-            validation = resource_loader.validate_configuration(character_ids, scene_id)
-            
-            if not validation['valid']:
-                yield json.dumps({
-                    'type': 'error',
-                    'message': '配置验证失败',
-                    'details': validation['errors']
-                }) + '\n'
+
+            # 验证场景
+            scene = resource_loader.get_scene_by_id(scene_id)
+            if not scene:
+                yield json.dumps({'type': 'error', 'message': f'场景不存在: {scene_id}'}) + '\n'
                 return
-            
-            yield json.dumps({
-                'type': 'log',
-                'level': 'success',
-                'message': '✅ 配置验证通过'
-            }) + '\n'
-            
-            # 获取资源对象
-            characters = validation['characters']
-            scene = validation['scene']
-            
-            yield json.dumps({
-                'type': 'log',
-                'level': 'info',
-                'message': f'🎭 已加载 {len(characters)} 个角色，场景: {scene.name}'
-            }) + '\n'
+
+            # 构建角色列表
+            if custom_characters_input:
+                characters = resource_loader.build_custom_characters(custom_characters_input)
+                yield json.dumps({
+                    'type': 'log',
+                    'level': 'success',
+                    'message': f'✅ 已构建 {len(characters)} 个自定义角色'
+                }) + '\n'
+            else:
+                characters = []
+                yield json.dumps({
+                    'type': 'log',
+                    'level': 'info',
+                    'message': '💭 未指定角色，AI 将自由创作'
+                }) + '\n'
             
             # 检查 API Key
-            api_key = os.getenv('DEEPSEEK_API_KEY')
+            api_key = os.getenv('API_KEY')
             if not api_key:
                 yield json.dumps({
                     'type': 'error',
-                    'message': '未配置 DEEPSEEK_API_KEY，请在 .env 文件中设置'
+                    'message': '未配置 API_KEY，请在 .env 文件中设置'
                 }) + '\n'
                 return
             
@@ -184,7 +191,7 @@ def generate_script():
             if creative_idea:
                 yield json.dumps({
                     'type': 'thinking',
-                    'message': f'创作想法: "{creative_idea[:80]}..."'
+                    'message': f'创作想法: "{creative_idea[:80]}{"..." if len(creative_idea) > 80 else ""}"'
                 }) + '\n'
                 yield json.dumps({
                     'type': 'log',
@@ -194,7 +201,7 @@ def generate_script():
             else:
                 yield json.dumps({
                     'type': 'thinking',
-                    'message': f'准备让 {len(characters)} 个角色在 {scene.name} 中自由发挥...'
+                    'message': f'准备在 {scene.name} 中自由发挥...'
                 }) + '\n'
                 yield json.dumps({
                     'type': 'log',
@@ -270,8 +277,10 @@ def generate_script():
             # 生成剧情概述
             if creative_idea:
                 plot_summary = creative_idea[:100] + ("..." if len(creative_idea) > 100 else "")
-            else:
+            elif characters:
                 plot_summary = f"{len(characters)}个角色在{scene.name}的场景"
+            else:
+                plot_summary = f"AI自由创作：{scene.name}"
             
             final_json = generator.generate_final_json(
                 ai_script,

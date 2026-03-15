@@ -18,11 +18,11 @@ class DirectorAI:
     
     def __init__(self, resource_loader: ResourceLoader, api_key: Optional[str] = None, base_url: Optional[str] = None):
         self.resource_loader = resource_loader
-        self.api_key = api_key or os.getenv("DEEPSEEK_API_KEY")
-        self.base_url = base_url or os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
-        
+        self.api_key = api_key or os.getenv("API_KEY")
+        self.base_url = base_url or os.getenv("BASE_URL", "https://api.deepseek.com")
+
         if not self.api_key:
-            raise ValueError("需要提供 DEEPSEEK_API_KEY，可通过参数或 .env 文件设置")
+            raise ValueError("需要提供 API_KEY，可通过参数或 .env 文件设置")
         
         self.client = OpenAI(
             api_key=self.api_key,
@@ -248,7 +248,7 @@ class DirectorAI:
         scene: Scene,
         plot_outline: str,
         temperature: float = 0.7,
-        model: str = "deepseek-chat"
+        model: str = None
     ) -> Dict:
         """
         生成剧本
@@ -266,8 +266,12 @@ class DirectorAI:
         
         # 构建提示词
         system_prompt = self._build_context_prompt(characters, scene, plot_outline)
-        
-        # 调用 DeepSeek API (兼容 OpenAI 格式)
+
+        # 从环境变量读取模型名，参数优先
+        if model is None:
+            model = os.getenv("MODEL", "deepseek-v3-241226")
+
+        # 调用 ARK API (兼容 OpenAI 格式)
         response = self.client.chat.completions.create(
             model=model,
             max_tokens=8000,

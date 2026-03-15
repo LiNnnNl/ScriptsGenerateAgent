@@ -32,12 +32,7 @@ const UI = {
         const resultPanel = document.getElementById('resultPanel');
         const messageEl = document.getElementById('resultMessage');
         
-        let message = `文件已保存: ${filename}`;
-        if (warnings.length > 0) {
-            message += '\n\n警告:\n' + warnings.join('\n');
-        }
-        
-        messageEl.textContent = message;
+        messageEl.textContent = `文件已保存: ${filename}`;
         resultPanel.style.display = 'block';
         
         APP_STATE.currentFilename = filename;
@@ -63,23 +58,11 @@ const UI = {
         document.getElementById('errorPanel').style.display = 'none';
     },
 
-    // 渲染画风列表
-    renderStyles(styles) {
-        const grid = document.getElementById('styleGrid');
-        grid.innerHTML = styles.map(style => `
-            <div class="style-card" data-style="${style}">
-                <h3>${style}</h3>
-            </div>
-        `).join('');
-    },
-
     // 渲染场景列表
     renderScenes(scenes) {
         const select = document.getElementById('sceneSelect');
         select.innerHTML = '<option value="">请选择场景...</option>' +
-            scenes.map(scene => `
-                <option value="${scene.id}">${scene.name}</option>
-            `).join('');
+            scenes.map(scene => `<option value="${scene.id}">${scene.name}</option>`).join('');
     },
 
     // 显示场景信息
@@ -110,34 +93,35 @@ const UI = {
         info.style.display = 'block';
     },
 
-    // 渲染角色列表
-    renderCharacters(characters) {
-        const grid = document.getElementById('characterGrid');
-        grid.innerHTML = characters.map(char => `
-            <div class="character-card" data-id="${char.id}">
-                <h4>${char.name}</h4>
-                <p><strong>描述:</strong> ${char.description}</p>
-                <p><strong>性格:</strong> ${char.personality}</p>
-            </div>
-        `).join('');
-    },
-
-    // 更新角色选择UI
-    updateCharacterSelection() {
-        document.querySelectorAll('.character-card').forEach(card => {
-            card.classList.toggle('selected', 
-                APP_STATE.selectedCharacters.includes(card.dataset.id));
-        });
-        
-        document.getElementById('selectedCount').textContent = APP_STATE.selectedCharacters.length;
-        document.getElementById('requiredCount').textContent = APP_STATE.requiredCharacterCount;
-    },
-
     // 更新角色数量
     updateCharacterCount(count) {
         document.getElementById('characterCount').value = count;
         APP_STATE.requiredCharacterCount = count;
-        document.getElementById('requiredCount').textContent = count;
+        this.renderCastForm(count);
+    },
+
+    // 渲染自定义角色输入表单
+    renderCastForm(count) {
+        const container = document.getElementById('castForm');
+        container.innerHTML = '';
+        APP_STATE.customCharacters = Array.from({length: count}, () => ({name: '', description: ''}));
+        for (let i = 0; i < count; i++) {
+            const row = document.createElement('div');
+            row.className = 'cast-row';
+            row.innerHTML = `
+                <span class="cast-index">角色 ${i + 1}</span>
+                <input type="text" class="cast-name" data-index="${i}" placeholder="角色名称">
+                <input type="text" class="cast-desc" data-index="${i}" placeholder="性格/描述（可选）">
+            `;
+            container.appendChild(row);
+        }
+        container.querySelectorAll('.cast-name, .cast-desc').forEach(input => {
+            input.addEventListener('input', () => {
+                const idx = parseInt(input.dataset.index);
+                const isName = input.classList.contains('cast-name');
+                APP_STATE.customCharacters[idx][isName ? 'name' : 'description'] = input.value.trim();
+            });
+        });
     },
 
     // 启用/禁用步骤

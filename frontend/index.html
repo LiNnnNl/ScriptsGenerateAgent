@@ -31,31 +31,17 @@
             <div class="card-corner corner-bl"></div>
             <div class="card-corner corner-br"></div>
 
-            <!-- 步骤1: 选择画风 -->
+            <!-- 步骤1: 选择场景 -->
             <section class="step" id="step1" data-step="1">
                 <div class="step-header">
                     <div class="step-number">
                         <span class="number-inner">01</span>
                     </div>
-                    <h2 class="step-title">SELECT STYLE</h2>
-                    <div class="step-line"></div>
-                </div>
-                <div class="style-grid" id="styleGrid">
-                    <!-- 动态加载 -->
-                </div>
-            </section>
-
-            <!-- 步骤2: 选择场景 -->
-            <section class="step disabled" id="step2" data-step="2">
-                <div class="step-header">
-                    <div class="step-number">
-                        <span class="number-inner">02</span>
-                    </div>
                     <h2 class="step-title">SELECT SCENE</h2>
                     <div class="step-line"></div>
                 </div>
                 <select class="select-box" id="sceneSelect">
-                    <option value="">请先选择画风...</option>
+                    <option value="">请选择场景...</option>
                 </select>
                 <div class="scene-info" id="sceneInfo" style="display: none;">
                     <div class="info-label">场景描述</div>
@@ -65,11 +51,11 @@
                 </div>
             </section>
 
-            <!-- 步骤3: 角色数量 -->
-            <section class="step disabled" id="step3" data-step="3">
+            <!-- 步骤2: 角色数量 -->
+            <section class="step disabled" id="step2" data-step="2">
                 <div class="step-header">
                     <div class="step-number">
-                        <span class="number-inner">03</span>
+                        <span class="number-inner">02</span>
                     </div>
                     <h2 class="step-title">CHARACTER COUNT</h2>
                     <div class="step-line"></div>
@@ -86,28 +72,25 @@
                 </div>
             </section>
 
-            <!-- 步骤4: 选择角色 -->
+            <!-- 步骤3: 自定义角色 -->
+            <section class="step disabled" id="step3" data-step="3">
+                <div class="step-header">
+                    <div class="step-number">
+                        <span class="number-inner">03</span>
+                    </div>
+                    <h2 class="step-title">CAST SETTING</h2>
+                    <div class="step-line"></div>
+                    <span class="step-optional">OPTIONAL</span>
+                </div>
+                <div class="cast-form" id="castForm"></div>
+                <p class="cast-hint">留空则由 AI 自由决定角色</p>
+            </section>
+
+            <!-- 步骤4: 创作想法 -->
             <section class="step disabled" id="step4" data-step="4">
                 <div class="step-header">
                     <div class="step-number">
                         <span class="number-inner">04</span>
-                    </div>
-                    <h2 class="step-title">CAST SELECTION</h2>
-                    <div class="step-line"></div>
-                    <div class="selection-counter">
-                        <span id="selectedCount">0</span>/<span id="requiredCount">0</span>
-                    </div>
-                </div>
-                <div class="character-grid" id="characterGrid">
-                    <!-- 动态加载 -->
-                </div>
-            </section>
-
-            <!-- 步骤5: 创作想法 -->
-            <section class="step disabled" id="step5" data-step="5">
-                <div class="step-header">
-                    <div class="step-number">
-                        <span class="number-inner">05</span>
                     </div>
                     <h2 class="step-title">CREATIVE CONCEPT</h2>
                     <div class="step-line"></div>

@@ -235,13 +235,13 @@ def main():
     parser.add_argument(
         "--api-key",
         type=str,
-        help="DeepSeek API Key (也可在 .env 文件中设置 DEEPSEEK_API_KEY)"
+        help="API Key (也可在 .env 文件中设置 API_KEY)"
     )
-    
+
     parser.add_argument(
         "--base-url",
         type=str,
-        help="DeepSeek API Base URL (也可在 .env 文件中设置 DEEPSEEK_BASE_URL)"
+        help="API Base URL (也可在 .env 文件中设置 BASE_URL)"
     )
     
     parser.add_argument(
@@ -255,12 +255,12 @@ def main():
     
     # 检查API Key
     import os
-    api_key = args.api_key or os.getenv("DEEPSEEK_API_KEY")
-    base_url = args.base_url or os.getenv("DEEPSEEK_BASE_URL")
-    
+    api_key = args.api_key or os.getenv("API_KEY")
+    base_url = args.base_url or os.getenv("BASE_URL")
+
     if not api_key:
         print("❌ 错误: 未提供API Key")
-        print("请在 .env 文件中设置 DEEPSEEK_API_KEY 或使用 --api-key 参数")
+        print("请在 .env 文件中设置 API_KEY 或使用 --api-key 参数")
         sys.exit(1)
     
     # 初始化资源加载器
@@ -279,7 +279,7 @@ def main():
             sys.exit(1)
         
         # 生成剧本
-        success = generate_script(config, api_key, args.output)
+        success = generate_script(config, api_key, args.output, base_url)
         sys.exit(0 if success else 1)
     
     elif args.mode == "config":
