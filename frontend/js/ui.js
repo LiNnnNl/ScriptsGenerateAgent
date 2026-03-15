@@ -87,12 +87,26 @@ const UI = {
         const info = document.getElementById('sceneInfo');
         const description = document.getElementById('sceneDescription');
         const positions = document.getElementById('scenePositions');
-        
+
         description.textContent = scene.description;
-        positions.innerHTML = scene.positions.map(pos => `
-            <p><strong>${pos.id}</strong>: ${pos.description}</p>
-        `).join('');
-        
+
+        let html = '';
+
+        if (scene.camera_groups && scene.camera_groups.length > 0) {
+            html += '<div class="camera-groups-info"><strong>镜头分组（同组点位可同框拍摄）：</strong><ul>';
+            for (const group of scene.camera_groups) {
+                html += `<li><strong>${group.id}组 - ${group.name}</strong>: ${group.position_ids.join(', ')}</li>`;
+            }
+            html += '</ul></div>';
+        }
+
+        html += scene.positions.map(pos => {
+            const groupTag = pos.camera_group ? ` <span class="group-tag">[组${pos.camera_group}]</span>` : '';
+            return `<p><strong>${pos.id}</strong>${groupTag}: ${pos.description}</p>`;
+        }).join('');
+
+        positions.innerHTML = html;
+
         info.style.display = 'block';
     },
 

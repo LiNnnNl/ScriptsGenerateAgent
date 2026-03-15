@@ -59,7 +59,8 @@ def get_scenes(style_tag):
                 'id': scene.id,
                 'name': scene.name,
                 'description': scene.description,
-                'positions': scene.valid_positions
+                'positions': scene.valid_positions,
+                'camera_groups': scene.camera_groups
             }
             for scene in scenes
         ]

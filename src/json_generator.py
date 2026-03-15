@@ -21,52 +21,135 @@ class ScriptJSONGenerator:
             self.character_states[char.name] = "standing"
             self.character_positions[char.name] = None
     
-    def generate_final_json(self, ai_script: Dict, plot_summary: str) -> List[Dict]:
+    def generate_final_json(self, ai_script, plot_summary: str, title: str = "") -> List[Dict]:
         """
-        将AI生成的中间态剧本转换为最终的JSON格式
-        
+        将AI生成的剧本转换为最终的JSON格式。
+
+        支持两种输入：
+        - 新格式（List）：AI直接输出符合规范的场景数组，仅补充 title 字段
+        - 旧格式（Dict，含 scene_sequence）：兼容旧中间态格式，自动转换
+
         Args:
-            ai_script: 导演AI生成的剧本数据
-            plot_summary: 剧情概述（用于scene information的what字段）
-        
+            ai_script: 导演AI生成的剧本数据（List 或 Dict）
+            plot_summary: 剧情概述（用于 scene information.what，新格式中已由AI填写时可忽略）
+            title: 剧集标题，用于生成 title 字段
+
         Returns:
-            符合scene_json_spec.md规范的JSON数组
+            符合 scene_json_spec.md 规范并含 title、initial position 的完整 JSON 数组
         """
-        
+
+        # ── 新格式：AI 直接输出场景数组 ──
+        if isinstance(ai_script, list):
+            result = []
+            for scene_obj in ai_script:
+                scene_obj = dict(scene_obj)
+                # 插入 title（在 scene information 之后）
+                ordered = {}
+                ordered["scene information"] = scene_obj.get("scene information", {
+                    "who": [char.name for char in self.characters],
+                    "where": self.scene.name,
+                    "what": plot_summary
+                })
+                ordered["title"] = self._build_title(title or ordered["scene information"].get("where", ""))
+                ordered["initial position"] = scene_obj.get(
+                    "initial position",
+                    [{"character": char.name, "position": ""} for char in self.characters]
+                )
+                ordered["scene"] = scene_obj.get("scene", [])
+                result.append(ordered)
+            return result
+
+        # ── 旧格式：含 scene_sequence 的中间态对象 ──
         scene_sequence = ai_script.get("scene_sequence", [])
-        
-        # 构建scene information
+
         scene_info = {
             "who": [char.name for char in self.characters],
             "where": self.scene.name,
             "what": plot_summary
         }
-        
-        # 转换场景序列
+
         final_scene = []
-        
         for segment in scene_sequence:
             seg_type = segment.get("type", "dialogue")
-            
             if seg_type == "movement":
-                # 移动场景
-                movement_item = self._build_movement_item(segment)
-                if movement_item:
-                    final_scene.append(movement_item)
-            
+                item = self._build_movement_item(segment)
+                if item:
+                    final_scene.append(item)
             elif seg_type in ["dialogue", "description"]:
-                # 对白或描述场景
-                dialogue_item = self._build_dialogue_item(segment)
-                if dialogue_item:
-                    final_scene.append(dialogue_item)
-        
-        # 返回完整结构
+                item = self._build_dialogue_item(segment)
+                if item:
+                    final_scene.append(item)
+
         return [
             {
                 "scene information": scene_info,
+                "title": self._build_title(title or self.scene.name),
+                "initial position": [
+                    {"character": char.name, "position": self.character_positions.get(char.name, "")}
+                    for char in self.characters
+                ],
                 "scene": final_scene
             }
         ]
+
+    def _build_title(self, title: str) -> Dict:
+        """生成 title 字段模板"""
+        return {
+            "start": [title] if title else [],
+            "EpisodeEndText": "本集结束",
+            "end": [
+                "导演与编剧智能体",
+                "总导演 柯念昕",
+                "编剧与故事设计 柯念昕 刘  艳 郑心怡",
+                "________________________________________",
+                "虚拟演员智能体",
+                "语音表演设计 陈思涵",
+                "角色表现与情感设计 柯念昕 刘  艳 张一蔚",
+                "________________________________________",
+                "摄影与视觉智能体",
+                "摄影指导 马敬雯 王思颖",
+                "镜头设计与运镜 柯念昕 刘  艳",
+                "________________________________________",
+                "动作与动画",
+                "动作指导 林哲帆 吴翔宇 吕文涵",
+                "动画与交互设计 陈  琦",
+                "________________________________________",
+                "美术与场景",
+                "场景设计与解析 刘  艳 陈  可",
+                "环境与灯光设计 林哲帆 陈思涵",
+                "________________________________________",
+                "制片部门",
+                "监制 柯念昕",
+                "制片人 柯念昕 刘  艳 陈  琦 林哲帆 陈思涵",
+                "________________________________________",
+                "后期制作",
+                "视觉指导 王思颖 马敬雯",
+                "成片优化 刘 艳 陈思涵",
+                "________________________________________",
+                "顾问团队",
+                "技术顾问 吴清强 洪清启",
+                "学术顾问 黄鸣奋",
+                "艺术顾问 孙慧英",
+                "项目顾问 佘莹莹",
+                "产品顾问 肖  明",
+                "________________________________________",
+                "特别鸣谢",
+                "开源社区贡献者",
+                "测试团队与体验用户",
+                "________________________________________",
+                "出品与支持单位",
+                "厦门大学电影学院",
+                "厦门大学影视智能创作学社",
+                "厦门大学影视制作智能技术研究中心",
+                "厦门市人工智能创新中心",
+                "________________________________________",
+                "制作平台与技术支持",
+                "Unity 实时三维引擎",
+                "Filmaker创影者 V2.1",
+                "________________________________________",
+                "© 2026 All Rights Reserved"
+            ]
+        }
     
     def _build_movement_item(self, segment: Dict) -> Dict:
         """构建移动场景项"""

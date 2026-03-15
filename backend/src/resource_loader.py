@@ -29,18 +29,26 @@ class Scene:
         self.style_tag = data['style_tag']
         self.description = data['description']
         self.valid_positions = data['valid_positions']
-    
+        self.camera_groups = data.get('camera_groups', [])
+
     def get_position(self, position_id: str) -> Optional[dict]:
         """根据ID获取位置信息"""
         for pos in self.valid_positions:
             if pos['id'] == position_id:
                 return pos
         return None
-    
+
     def get_sittable_positions(self) -> List[str]:
         """获取所有可坐位置的ID列表"""
         return [pos['id'] for pos in self.valid_positions if pos.get('is_sittable', False)]
-    
+
+    def get_group_for_position(self, position_id: str) -> str:
+        """返回该点位所属的camera_group id，若无分组则返回空字符串"""
+        for pos in self.valid_positions:
+            if pos['id'] == position_id:
+                return pos.get('camera_group', '')
+        return ''
+
     def __repr__(self):
         return f"Scene({self.name}, {self.style_tag})"
 
