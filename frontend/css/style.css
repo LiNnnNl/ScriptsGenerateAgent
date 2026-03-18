@@ -1000,6 +1000,60 @@ body {
     cursor: not-allowed;
 }
 
+/* ── JSON 导入区 ── */
+.cast-import-area {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+
+.cast-import-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 18px;
+    background: transparent;
+    border: 1px solid rgba(212, 175, 55, 0.4);
+    color: var(--gold);
+    font-family: 'Roboto Mono', monospace;
+    font-size: 0.82em;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.cast-import-btn:hover {
+    background: rgba(212, 175, 55, 0.1);
+    border-color: var(--gold);
+}
+.import-icon { font-size: 1em; }
+
+.cast-import-hint {
+    font-family: 'Roboto Mono', monospace;
+    font-size: 0.75em;
+    color: var(--text-light);
+    opacity: 0.4;
+}
+
+.cast-import-feedback {
+    width: 100%;
+    font-family: 'Roboto Mono', monospace;
+    font-size: 0.82em;
+    padding: 6px 12px;
+    border-left: 3px solid;
+}
+.cast-import-feedback.success {
+    color: #7ec98a;
+    border-color: #7ec98a;
+    background: rgba(126, 201, 138, 0.08);
+}
+.cast-import-feedback.error {
+    color: #e07070;
+    border-color: #e07070;
+    background: rgba(224, 112, 112, 0.08);
+}
+
 .cast-hint {
     font-family: 'Roboto Mono', monospace;
     font-size: 0.85em;

@@ -44,10 +44,12 @@
                     <option value="">请选择场景...</option>
                 </select>
                 <div class="scene-info" id="sceneInfo" style="display: none;">
-                    <div class="info-label">场景描述</div>
-                    <p class="scene-description" id="sceneDescription"></p>
-                    <div class="info-label">可用点位</div>
-                    <div class="positions-list" id="scenePositions"></div>
+                    <div class="scene-info-scroll">
+                        <div class="info-label">场景描述</div>
+                        <p class="scene-description" id="sceneDescription"></p>
+                        <div class="info-label">可用点位</div>
+                        <div class="positions-list" id="scenePositions"></div>
+                    </div>
                 </div>
             </section>
 
@@ -60,11 +62,18 @@
                     <h2 class="step-title">CHARACTER COUNT</h2>
                     <div class="step-line"></div>
                 </div>
+                <input type="file" id="castJsonInput" accept=".json" style="display:none">
+                <div class="cast-dropzone" id="castDropzone">
+                    <span class="dropzone-icon">📂</span>
+                    <span class="dropzone-main">点击选择 或 拖入 JSON 文件</span>
+                    <span class="dropzone-sub">支持与 characters_resource.json 相同格式 · 自动填充角色数量与信息</span>
+                </div>
+                <div class="cast-import-feedback" id="castImportFeedback" style="display:none"></div>
                 <div class="count-selector">
                     <label class="count-label">需要几位演员：</label>
                     <div class="number-input-wrapper">
                         <button class="num-btn" id="decreaseBtn">−</button>
-                        <input type="number" id="characterCount" class="number-input" 
+                        <input type="number" id="characterCount" class="number-input"
                                min="1" max="10" value="2">
                         <button class="num-btn" id="increaseBtn">+</button>
                     </div>

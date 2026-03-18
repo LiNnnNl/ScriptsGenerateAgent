@@ -205,6 +205,80 @@ function setupEventListeners() {
             addCharacterToLibrary(index);
         }
     });
+
+    // 导入 JSON 角色文件
+    document.getElementById('castImportBtn').addEventListener('click', () => {
+        document.getElementById('castJsonInput').click();
+    });
+
+    document.getElementById('castJsonInput').addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            importCharactersFromJSON(ev.target.result, file.name);
+        };
+        reader.readAsText(file, 'utf-8');
+        // 清空 input 以便同一文件可再次选择
+        e.target.value = '';
+    });
+}
+
+// 从 JSON 文件导入角色
+function importCharactersFromJSON(text, filename) {
+    const feedback = document.getElementById('castImportFeedback');
+
+    let data;
+    try {
+        data = JSON.parse(text);
+    } catch {
+        showImportFeedback('error', `解析失败：文件不是合法的 JSON`);
+        return;
+    }
+
+    if (!Array.isArray(data) || data.length === 0) {
+        showImportFeedback('error', '文件格式错误：需要一个角色对象数组');
+        return;
+    }
+
+    // 检查每个元素是否有 name 字段
+    const valid = data.filter(c => c && typeof c.name === 'string' && c.name.trim());
+    if (valid.length === 0) {
+        showImportFeedback('error', '未找到有效角色（每个对象需要 name 字段）');
+        return;
+    }
+
+    const count = valid.length;
+
+    // 重置 castSlots 为 custom 模式并填入数据
+    APP_STATE.castSlots = valid.map(char => ({
+        mode: 'custom',
+        selectedName: '',
+        customName: char.name.trim(),
+        customDesc: buildImportDesc(char)
+    }));
+
+    // 更新角色数量 UI
+    updateCount(count);
+
+    showImportFeedback('success', `已从「${filename}」导入 ${count} 个角色`);
+}
+
+// 从导入的角色对象构建描述文本
+function buildImportDesc(char) {
+    const parts = [];
+    if (char.personality_traits && char.personality_traits !== '未知') parts.push(char.personality_traits);
+    if (char.background && char.background !== '未知') parts.push(char.background);
+    if (char.Faction && char.Faction !== '未知') parts.push(`阵营：${char.Faction}`);
+    if (char.ip && char.ip !== '自定义') parts.push(`IP《${char.ip}》`);
+    return parts.join(' · ');
+}
+
+function showImportFeedback(type, message) {
+    const el = document.getElementById('castImportFeedback');
+    el.className = `cast-import-feedback ${type}`;
+    el.textContent = message;
+    el.style.display = 'block';
 }
 
 // 更新角色数量
