@@ -341,6 +341,89 @@ class DirectorAI:
                 "exception": str(e)
             }
     
+    def generate_script_stream(
+        self,
+        characters: List[Character],
+        scene: Scene,
+        plot_outline: str,
+        required_character_count: int = 0,
+        temperature: float = 0.7,
+        model: str = None
+    ):
+        """
+        流式生成剧本（生成器）。
+        yields dict:
+          {'type': 'thinking_chunk', 'text': str}  — 思考过程片段
+          {'type': 'thinking_done'}                 — 思考阶段结束
+          {'type': 'result', 'data': dict}          — 最终解析好的 JSON
+          {'type': 'error', 'message': str, ...}    — 错误
+        """
+        import json
+        import re
+
+        system_prompt = self._build_context_prompt(
+            characters, scene, plot_outline, required_character_count
+        )
+
+        if model is None:
+            model = os.getenv("MODEL", "deepseek-v3-241226")
+
+        full_content = ""
+        thinking_active = False
+
+        try:
+            stream = self.client.chat.completions.create(
+                model=model,
+                max_tokens=8000,
+                temperature=temperature,
+                stream=True,
+                messages=[
+                    {"role": "system",  "content": system_prompt},
+                    {"role": "user",    "content": "请开始生成剧本，直接输出JSON格式，不要有其他说明文字。"}
+                ]
+            )
+
+            for chunk in stream:
+                if not chunk.choices:
+                    continue
+                delta = chunk.choices[0].delta
+
+                # 思考内容（reasoning models，如 deepseek-reasoner）
+                reasoning = getattr(delta, 'reasoning_content', None)
+                if reasoning:
+                    thinking_active = True
+                    yield {'type': 'thinking_chunk', 'text': reasoning}
+
+                # 正式输出内容
+                content = getattr(delta, 'content', None)
+                if content:
+                    if thinking_active:
+                        thinking_active = False
+                        yield {'type': 'thinking_done'}
+                    full_content += content
+
+        except Exception as e:
+            yield {'type': 'error', 'message': str(e)}
+            return
+
+        if thinking_active:
+            yield {'type': 'thinking_done'}
+
+        # 解析最终 JSON
+        json_match = re.search(r'```json\s*([\[\{].*?[\]\}])\s*```', full_content, re.DOTALL)
+        json_str = json_match.group(1) if json_match else full_content.strip()
+
+        try:
+            result = json.loads(json_str)
+            yield {'type': 'result', 'data': result}
+        except json.JSONDecodeError as e:
+            yield {
+                'type': 'error',
+                'message': 'JSON解析失败',
+                'raw_response': full_content,
+                'exception': str(e)
+            }
+
     def validate_script_output(self, script, scene: Scene) -> Dict[str, any]:
         """
         验证AI生成的剧本是否有效

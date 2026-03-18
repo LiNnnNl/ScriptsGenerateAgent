@@ -693,9 +693,19 @@ body {
 .log-entry.success { border-left-color: #4caf50; }
 .log-entry.warning { border-left-color: #ff9800; }
 .log-entry.error { border-left-color: #f44336; }
-.log-entry.thinking { 
-    border-left-color: #9c27b0; 
+.log-entry.thinking {
+    border-left-color: #9c27b0;
     background: linear-gradient(90deg, #2a1a2e, var(--dark-gray));
+}
+.log-entry.thinking-live::after {
+    content: '▋';
+    color: #9c27b0;
+    animation: blink 0.8s step-end infinite;
+    margin-left: 2px;
+}
+@keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
 }
 
 .log-timestamp {

@@ -126,6 +126,11 @@ function handleStreamData(data) {
         UI.addLog(data.level || 'info', data.message);
     } else if (data.type === 'thinking') {
         UI.addLog('thinking', '💭 ' + data.message);
+    } else if (data.type === 'thinking_chunk') {
+        UI.appendThinkingChunk(data.text);
+    } else if (data.type === 'thinking_done') {
+        UI.endThinkingStream();
+        UI.addLog('thinking', '✅ 思考完成，开始生成剧本...');
     } else if (data.type === 'success') {
         UI.addLog('success', '✅ 剧本生成成功！');
         UI.addLog('success', `📁 剧本文件: ${data.filename}`);

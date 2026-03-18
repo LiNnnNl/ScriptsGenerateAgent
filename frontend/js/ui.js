@@ -1,5 +1,28 @@
 // UI控制模块
 const UI = {
+    // 追加思考流式片段（复用或新建一个 thinking-live 条目）
+    appendThinkingChunk(text) {
+        const logContent = document.getElementById('logContent');
+        let entry = logContent.querySelector('.thinking-live');
+        if (!entry) {
+            const timestamp = new Date().toLocaleTimeString('zh-CN', {
+                hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit'
+            });
+            entry = document.createElement('div');
+            entry.className = 'log-entry thinking thinking-live';
+            entry.innerHTML = `<span class="log-timestamp">[${timestamp}]</span><span class="thinking-text">💭 </span>`;
+            logContent.appendChild(entry);
+        }
+        entry.querySelector('.thinking-text').textContent += text;
+        logContent.scrollTop = logContent.scrollHeight;
+    },
+
+    // 结束思考流（移除 live 标记）
+    endThinkingStream() {
+        const entry = document.getElementById('logContent').querySelector('.thinking-live');
+        if (entry) entry.classList.remove('thinking-live');
+    },
+
     // 添加日志
     addLog(type, message) {
         const logPanel = document.getElementById('logPanel');

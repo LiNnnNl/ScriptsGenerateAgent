@@ -263,34 +263,47 @@ def generate_script():
                     'message': f'💭 AI 将完全自由创作剧情'
                 }) + '\n'
             
-            # 生成剧本
+            # 流式生成剧本
             yield json.dumps({
                 'type': 'log',
                 'level': 'info',
-                'message': '🎬 正在调用 DeepSeek AI 生成剧本...'
+                'message': '🎬 正在调用 AI 生成剧本（流式输出）...'
             }) + '\n'
-            
-            yield json.dumps({
-                'type': 'thinking',
-                'message': 'AI 正在思考角色对白、走位和动作...'
-            }) + '\n'
-            
-            ai_script = director.generate_script(
+
+            ai_script = None
+            for event in director.generate_script_stream(
                 characters=characters,
                 scene=scene,
                 plot_outline=plot_outline,
                 required_character_count=required_character_count
-            )
-            
+            ):
+                if event['type'] == 'thinking_chunk':
+                    yield json.dumps({'type': 'thinking_chunk', 'text': event['text']}) + '\n'
+                elif event['type'] == 'thinking_done':
+                    yield json.dumps({'type': 'thinking_done'}) + '\n'
+                elif event['type'] == 'result':
+                    ai_script = event['data']
+                elif event['type'] == 'error':
+                    yield json.dumps({
+                        'type': 'error',
+                        'message': event.get('message', 'AI 生成失败'),
+                        'details': {k: v for k, v in event.items() if k != 'type'}
+                    }) + '\n'
+                    return
+
+            if ai_script is None:
+                yield json.dumps({'type': 'error', 'message': 'AI 未返回有效结果'}) + '\n'
+                return
+
             # 检查AI输出
-            if 'error' in ai_script:
+            if isinstance(ai_script, dict) and 'error' in ai_script:
                 yield json.dumps({
                     'type': 'error',
                     'message': 'AI 生成失败',
                     'details': ai_script
                 }) + '\n'
                 return
-            
+
             yield json.dumps({
                 'type': 'log',
                 'level': 'success',
