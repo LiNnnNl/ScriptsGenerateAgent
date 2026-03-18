@@ -72,7 +72,7 @@ async function addCharacterToLibrary(index) {
 // 检查表单完整性
 function checkFormComplete() {
     if (APP_STATE.selectedScene) {
-        UI.enableStep('step4');
+        UI.enableStep('step3');
         UI.enableGenerateBtn();
     } else {
         UI.disableGenerateBtn();
@@ -148,8 +148,7 @@ function setupEventListeners() {
             }
 
             UI.enableStep('step2');
-            UI.enableStep('step3');
-            
+
             const count = parseInt(document.getElementById('characterCount').value) || 2;
             APP_STATE.requiredCharacterCount = count;
             UI.updateCharacterCount(count);
@@ -206,9 +205,40 @@ function setupEventListeners() {
         }
     });
 
-    // 导入 JSON 角色文件
-    document.getElementById('castImportBtn').addEventListener('click', () => {
+    // 导入 JSON 角色文件 - 点击"选择文件"按钮
+    document.getElementById('castImportBtn').addEventListener('click', (e) => {
+        e.stopPropagation();
         document.getElementById('castJsonInput').click();
+    });
+
+    // 点击拖放区任意位置也触发文件选择
+    document.getElementById('castDropzone').addEventListener('click', () => {
+        document.getElementById('castJsonInput').click();
+    });
+
+    // 拖放支持
+    const dropzone = document.getElementById('castDropzone');
+    dropzone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropzone.classList.add('drag-over');
+    });
+    dropzone.addEventListener('dragleave', () => {
+        dropzone.classList.remove('drag-over');
+    });
+    dropzone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropzone.classList.remove('drag-over');
+        const file = e.dataTransfer.files[0];
+        if (!file) return;
+        if (!file.name.endsWith('.json')) {
+            showImportFeedback('error', '请拖入 .json 格式的文件');
+            return;
+        }
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            importCharactersFromJSON(ev.target.result, file.name);
+        };
+        reader.readAsText(file, 'utf-8');
     });
 
     document.getElementById('castJsonInput').addEventListener('change', (e) => {

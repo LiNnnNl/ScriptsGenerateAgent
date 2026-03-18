@@ -51,21 +51,24 @@
                         <div class="positions-list" id="scenePositions"></div>
                     </div>
                 </div>
+
             </section>
 
-            <!-- 步骤2: 角色数量 -->
+            <!-- 步骤2: 角色数量 & 角色设置 -->
             <section class="step disabled" id="step2" data-step="2">
                 <div class="step-header">
                     <div class="step-number">
                         <span class="number-inner">02</span>
                     </div>
-                    <h2 class="step-title">CHARACTER COUNT</h2>
+                    <h2 class="step-title">CHARACTER & CAST</h2>
                     <div class="step-line"></div>
+                    <span class="step-optional">CAST OPTIONAL</span>
                 </div>
                 <input type="file" id="castJsonInput" accept=".json" style="display:none">
                 <div class="cast-dropzone" id="castDropzone">
                     <span class="dropzone-icon">📂</span>
-                    <span class="dropzone-main">点击选择 或 拖入 JSON 文件</span>
+                    <span class="dropzone-main">拖入 JSON 文件，或</span>
+                    <button type="button" class="dropzone-select-btn" id="castImportBtn">选择文件</button>
                     <span class="dropzone-sub">支持与 characters_resource.json 相同格式 · 自动填充角色数量与信息</span>
                 </div>
                 <div class="cast-import-feedback" id="castImportFeedback" style="display:none"></div>
@@ -79,27 +82,15 @@
                     </div>
                     <span class="count-unit">位</span>
                 </div>
-            </section>
-
-            <!-- 步骤3: 自定义角色 -->
-            <section class="step disabled" id="step3" data-step="3">
-                <div class="step-header">
-                    <div class="step-number">
-                        <span class="number-inner">03</span>
-                    </div>
-                    <h2 class="step-title">CAST SETTING</h2>
-                    <div class="step-line"></div>
-                    <span class="step-optional">OPTIONAL</span>
-                </div>
                 <div class="cast-form" id="castForm"></div>
                 <p class="cast-hint">留空则由 AI 自由决定角色</p>
             </section>
 
-            <!-- 步骤4: 创作想法 -->
-            <section class="step disabled" id="step4" data-step="4">
+            <!-- 步骤3: 创作想法 -->
+            <section class="step disabled" id="step3" data-step="3">
                 <div class="step-header">
                     <div class="step-number">
-                        <span class="number-inner">04</span>
+                        <span class="number-inner">03</span>
                     </div>
                     <h2 class="step-title">CREATIVE CONCEPT</h2>
                     <div class="step-line"></div>

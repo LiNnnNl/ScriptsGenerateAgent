@@ -316,9 +316,27 @@ body {
 /* 场景信息 */
 .scene-info {
     margin-top: 25px;
-    padding: 25px;
     background: rgba(42, 42, 42, 0.5);
     border-left: 4px solid var(--gold);
+}
+
+.scene-info-scroll {
+    max-height: 220px;
+    overflow-y: auto;
+    padding: 25px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--gold) var(--dark-gray);
+}
+
+.scene-info-scroll::-webkit-scrollbar {
+    width: 6px;
+}
+.scene-info-scroll::-webkit-scrollbar-track {
+    background: var(--dark-gray);
+}
+.scene-info-scroll::-webkit-scrollbar-thumb {
+    background: var(--gold);
+    border-radius: 3px;
 }
 
 .info-label {
@@ -372,6 +390,7 @@ body {
     display: flex;
     align-items: center;
     gap: 20px;
+    margin-bottom: 24px;
 }
 
 .count-label {
@@ -1000,40 +1019,55 @@ body {
     cursor: not-allowed;
 }
 
-/* ── JSON 导入区 ── */
-.cast-import-area {
+/* ── JSON 导入拖放区 ── */
+.cast-dropzone {
     display: flex;
-    align-items: center;
-    gap: 14px;
-    margin-bottom: 16px;
-    flex-wrap: wrap;
-}
-
-.cast-import-btn {
-    display: flex;
+    flex-direction: column;
     align-items: center;
     gap: 8px;
-    padding: 8px 18px;
+    padding: 22px 24px;
+    margin-bottom: 22px;
+    border: 2px dashed rgba(212, 175, 55, 0.35);
+    background: rgba(42, 42, 42, 0.35);
+    cursor: pointer;
+    transition: border-color 0.25s, background 0.25s;
+    text-align: center;
+}
+.cast-dropzone:hover,
+.cast-dropzone.drag-over {
+    border-color: var(--gold);
+    background: rgba(212, 175, 55, 0.06);
+}
+.dropzone-icon {
+    font-size: 2em;
+    line-height: 1;
+}
+.dropzone-main {
+    font-family: 'Roboto Mono', monospace;
+    font-size: 0.88em;
+    color: var(--text-light);
+    opacity: 0.65;
+}
+.dropzone-sub {
+    font-family: 'Roboto Mono', monospace;
+    font-size: 0.72em;
+    color: var(--text-light);
+    opacity: 0.35;
+}
+.dropzone-select-btn {
+    padding: 6px 22px;
     background: transparent;
-    border: 1px solid rgba(212, 175, 55, 0.4);
+    border: 1px solid rgba(212, 175, 55, 0.5);
     color: var(--gold);
     font-family: 'Roboto Mono', monospace;
     font-size: 0.82em;
-    letter-spacing: 0.5px;
+    letter-spacing: 1px;
     cursor: pointer;
     transition: all 0.2s;
 }
-.cast-import-btn:hover {
-    background: rgba(212, 175, 55, 0.1);
+.dropzone-select-btn:hover {
+    background: rgba(212, 175, 55, 0.12);
     border-color: var(--gold);
-}
-.import-icon { font-size: 1em; }
-
-.cast-import-hint {
-    font-family: 'Roboto Mono', monospace;
-    font-size: 0.75em;
-    color: var(--text-light);
-    opacity: 0.4;
 }
 
 .cast-import-feedback {
@@ -1042,6 +1076,7 @@ body {
     font-size: 0.82em;
     padding: 6px 12px;
     border-left: 3px solid;
+    margin-bottom: 16px;
 }
 .cast-import-feedback.success {
     color: #7ec98a;
