@@ -203,13 +203,52 @@ const UI = {
                 </div>
             </div>
             <div class="cast-custom-panel"${customDisplay}>
-                <div class="cast-custom-inputs">
-                    <input type="text" class="cast-name" data-index="${i}" placeholder="角色名称" value="${slot.customName}">
-                    <input type="text" class="cast-desc" data-index="${i}" placeholder="性格/描述（可选）" value="${slot.customDesc}">
+                <div class="cast-custom-form">
+                    <div class="cast-field-row">
+                        <div class="cast-field cast-field-name">
+                            <label class="cast-field-label">姓名 <span class="cast-field-required">*</span></label>
+                            <input type="text" class="cast-input cast-name" data-index="${i}" placeholder="角色名称" value="${slot.customName}">
+                        </div>
+                        <div class="cast-field cast-field-gender">
+                            <label class="cast-field-label">性别</label>
+                            <select class="cast-input cast-gender" data-index="${i}">
+                                <option value="未知"${slot.customGender === '未知' || !slot.customGender ? ' selected' : ''}>未知</option>
+                                <option value="男"${slot.customGender === '男' ? ' selected' : ''}>男</option>
+                                <option value="女"${slot.customGender === '女' ? ' selected' : ''}>女</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="cast-field">
+                        <label class="cast-field-label">性格特征</label>
+                        <input type="text" class="cast-input cast-personality" data-index="${i}" placeholder="如：沉稳、理性、话少" value="${slot.customPersonality}">
+                    </div>
+                    <div class="cast-field">
+                        <label class="cast-field-label">背景故事</label>
+                        <input type="text" class="cast-input cast-background" data-index="${i}" placeholder="如：一个计算机研究生，喜欢独处" value="${slot.customBackground}">
+                    </div>
+                    <div class="cast-field-row">
+                        <div class="cast-field">
+                            <label class="cast-field-label">阵营</label>
+                            <input type="text" class="cast-input cast-faction" data-index="${i}" placeholder="如：未知" value="${slot.customFaction}">
+                        </div>
+                        <div class="cast-field">
+                            <label class="cast-field-label">IP / 来源</label>
+                            <input type="text" class="cast-input cast-ip" data-index="${i}" placeholder="如：自定义" value="${slot.customIp}">
+                        </div>
+                    </div>
                 </div>
                 <button class="add-to-library-btn" data-index="${i}">＋ 保存到角色库</button>
             </div>
         </div>`;
+    },
+
+    // 空的自定义槽默认值
+    _emptyCustomSlot() {
+        return {
+            mode: 'library', selectedName: '',
+            customName: '', customGender: '未知', customPersonality: '',
+            customBackground: '', customFaction: '', customIp: '自定义'
+        };
     },
 
     // 渲染角色表单
@@ -220,7 +259,7 @@ const UI = {
         if (!APP_STATE.castSlots || APP_STATE.castSlots.length !== count) {
             const prev = APP_STATE.castSlots || [];
             APP_STATE.castSlots = Array.from({length: count}, (_, i) =>
-                prev[i] || {mode: 'library', selectedName: '', customName: '', customDesc: ''}
+                prev[i] || this._emptyCustomSlot()
             );
         }
 
@@ -229,11 +268,20 @@ const UI = {
             const slot = APP_STATE.castSlots[i];
             if (slot.mode === 'library' && slot.selectedName) {
                 const char = APP_STATE.characters.find(c => c.name === slot.selectedName);
-                if (char) return {name: char.name, description: this._buildCharDesc(char)};
+                if (char) return {
+                    name: char.name, gender: char.gender, ip: char.ip,
+                    personality_traits: char.personality_traits,
+                    background: char.background, Faction: char.Faction
+                };
             } else if (slot.mode === 'custom' && slot.customName) {
-                return {name: slot.customName, description: slot.customDesc};
+                return {
+                    name: slot.customName, gender: slot.customGender || '未知',
+                    ip: slot.customIp || '自定义',
+                    personality_traits: slot.customPersonality,
+                    background: slot.customBackground, Faction: slot.customFaction || '未知'
+                };
             }
-            return {name: '', description: ''};
+            return {name: '', gender: '', ip: '', personality_traits: '', background: '', Faction: ''};
         });
 
         container.innerHTML = Array.from({length: count}, (_, i) => this._buildCastSlotHTML(i)).join('');
@@ -284,18 +332,27 @@ const UI = {
             });
         });
 
-        // 自定义输入
-        container.querySelectorAll('.cast-name').forEach(input => {
-            input.addEventListener('input', () => {
-                const i = parseInt(input.dataset.index);
-                APP_STATE.castSlots[i].customName = input.value;
-                this._syncSlot(i, container);
+        // 自定义输入 - 所有字段统一处理
+        const customFieldMap = {
+            'cast-name':        'customName',
+            'cast-personality': 'customPersonality',
+            'cast-background':  'customBackground',
+            'cast-faction':     'customFaction',
+            'cast-ip':          'customIp',
+        };
+        for (const [cls, key] of Object.entries(customFieldMap)) {
+            container.querySelectorAll(`.${cls}`).forEach(input => {
+                input.addEventListener('input', () => {
+                    const i = parseInt(input.dataset.index);
+                    APP_STATE.castSlots[i][key] = input.value;
+                    this._syncSlot(i, container);
+                });
             });
-        });
-        container.querySelectorAll('.cast-desc').forEach(input => {
-            input.addEventListener('input', () => {
-                const i = parseInt(input.dataset.index);
-                APP_STATE.castSlots[i].customDesc = input.value;
+        }
+        container.querySelectorAll('.cast-gender').forEach(select => {
+            select.addEventListener('change', () => {
+                const i = parseInt(select.dataset.index);
+                APP_STATE.castSlots[i].customGender = select.value;
                 this._syncSlot(i, container);
             });
         });
@@ -306,13 +363,20 @@ const UI = {
         const slot = APP_STATE.castSlots[i];
         if (slot.mode === 'library' && slot.selectedName) {
             const char = APP_STATE.characters.find(c => c.name === slot.selectedName);
-            APP_STATE.customCharacters[i] = char
-                ? {name: char.name, description: this._buildCharDesc(char)}
-                : {name: '', description: ''};
+            APP_STATE.customCharacters[i] = char ? {
+                name: char.name, gender: char.gender, ip: char.ip,
+                personality_traits: char.personality_traits,
+                background: char.background, Faction: char.Faction
+            } : {name: '', gender: '', ip: '', personality_traits: '', background: '', Faction: ''};
         } else if (slot.mode === 'custom') {
-            APP_STATE.customCharacters[i] = {name: slot.customName, description: slot.customDesc};
+            APP_STATE.customCharacters[i] = {
+                name: slot.customName, gender: slot.customGender || '未知',
+                ip: slot.customIp || '自定义',
+                personality_traits: slot.customPersonality,
+                background: slot.customBackground, Faction: slot.customFaction || '未知'
+            };
         } else {
-            APP_STATE.customCharacters[i] = {name: '', description: ''};
+            APP_STATE.customCharacters[i] = {name: '', gender: '', ip: '', personality_traits: '', background: '', Faction: ''};
         }
     },
 

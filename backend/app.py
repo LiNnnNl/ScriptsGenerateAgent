@@ -127,12 +127,12 @@ def add_character():
 
         new_char = {
             "name": name,
-            "gender": "未知",
-            "ip": "自定义",
+            "gender": (data.get('gender') or '未知').strip(),
+            "ip": (data.get('ip') or '自定义').strip(),
             "manufacturer": "用户创建",
-            "background": description if description else f"用户自定义角色：{name}",
-            "Faction": "未知",
-            "personality_traits": description if description else "性格由AI自由发挥",
+            "background": (data.get('background') or description or f"用户自定义角色：{name}").strip(),
+            "Faction": (data.get('Faction') or '未知').strip(),
+            "personality_traits": (data.get('personality_traits') or description or '性格由AI自由发挥').strip(),
             "role_position": "未知",
             "important_relationships": []
         }
@@ -184,6 +184,7 @@ def generate_script():
             custom_characters_input = data.get('custom_characters', [])
             scene_id = data.get('scene_id')
             creative_idea = data.get('creative_idea', '').strip()
+            required_character_count = int(data.get('required_character_count', 0) or 0)
 
             # 使用用户的创作想法（如果提供）
             plot_outline = creative_idea if creative_idea else ''
@@ -277,7 +278,8 @@ def generate_script():
             ai_script = director.generate_script(
                 characters=characters,
                 scene=scene,
-                plot_outline=plot_outline
+                plot_outline=plot_outline,
+                required_character_count=required_character_count
             )
             
             # 检查AI输出
@@ -408,17 +410,16 @@ def generate_script():
                     actors_profile.append(char_map[name])
                 elif name in custom_char_map:
                     item = custom_char_map[name]
-                    desc = (item.get('description') or '').strip()
                     actors_profile.append({
                         "name": name,
-                        "gender": "未知",
-                        "ip": "自定义",
+                        "gender": item.get('gender') or '未知',
+                        "ip": item.get('ip') or '自定义',
                         "manufacturer": "用户创建",
-                        "background": desc if desc else f"用户自定义角色：{name}",
-                        "Faction": "未知",
-                        "personality_traits": desc if desc else "性格由AI自由发挥",
-                        "role_position": "未知",
-                        "important_relationships": []
+                        "background": item.get('background') or item.get('description') or f"用户自定义角色：{name}",
+                        "Faction": item.get('Faction') or '未知',
+                        "personality_traits": item.get('personality_traits') or item.get('description') or '性格由AI自由发挥',
+                        "role_position": item.get('role_position') or '未知',
+                        "important_relationships": item.get('important_relationships') or []
                     })
                 else:
                     actors_profile.append({

@@ -48,7 +48,11 @@ async function addCharacterToLibrary(index) {
     try {
         const result = await API.addCharacter({
             name: slot.customName.trim(),
-            description: slot.customDesc.trim()
+            gender: slot.customGender || '未知',
+            ip: slot.customIp || '自定义',
+            personality_traits: slot.customPersonality || '',
+            background: slot.customBackground || '',
+            Faction: slot.customFaction || '未知'
         });
 
         if (result.success) {
@@ -104,7 +108,8 @@ async function generateScript() {
         await API.generateScript({
             custom_characters: validChars,
             scene_id: APP_STATE.selectedScene,
-            creative_idea: document.getElementById('creativeIdea').value.trim()
+            creative_idea: document.getElementById('creativeIdea').value.trim(),
+            required_character_count: APP_STATE.requiredCharacterCount
         }, handleStreamData);
 
     } catch (error) {
@@ -294,8 +299,12 @@ function importCharactersFromJSON(text, filename) {
     APP_STATE.castSlots = valid.map(char => ({
         mode: 'custom',
         selectedName: '',
-        customName: char.name.trim(),
-        customDesc: buildImportDesc(char)
+        customName: (char.name || '').trim(),
+        customGender: char.gender || '未知',
+        customIp: char.ip || '自定义',
+        customPersonality: char.personality_traits || '',
+        customBackground: char.background || '',
+        customFaction: char.Faction || '未知'
     }));
 
     // 更新角色数量 UI

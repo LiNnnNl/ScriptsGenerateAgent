@@ -30,21 +30,39 @@ class DirectorAI:
         )
     
     def _build_context_prompt(
-        self, 
-        characters: List[Character], 
-        scene: Scene, 
-        plot_outline: str
+        self,
+        characters: List[Character],
+        scene: Scene,
+        plot_outline: str,
+        required_character_count: int = 0
     ) -> str:
         """
         构建给AI的上下文提示词
         包含：角色性格、场景地图、可用动作、剧情大纲
         """
-        
-        # 1. 角色信息
-        char_info = "## 角色信息\n\n"
+
+        # 确定本场景实际需要的角色总数
+        total_count = required_character_count if required_character_count > 0 else len(characters)
+        if total_count == 0:
+            total_count = 2  # 默认最少2人
+
+        extra_count = max(0, total_count - len(characters))
+
+        # 1. 角色信息 + 数量限制声明
+        char_info = "## 角色配置\n\n"
+        if len(characters) > 0:
+            char_info += f"本场景共需要 **{total_count}** 位角色"
+            if extra_count == 0:
+                char_info += f"，以下 {len(characters)} 位角色已全部指定，**不得出现任何其他角色**。\n\n"
+            else:
+                char_info += f"，其中 {len(characters)} 位已指定，另需 AI 自行创作 **{extra_count}** 位新角色。\n\n"
+        else:
+            char_info += f"本场景共需要 **{total_count}** 位角色，全部由 AI 自由创作。\n\n"
+
+        char_info += "### 已指定角色\n\n" if characters else ""
         for char in characters:
-            char_info += f"### {char.name} (ID: {char.id})\n"
-            char_info += f"- 描述: {char.description}\n"
+            char_info += f"#### {char.name}\n"
+            char_info += f"- 背景: {char.description}\n"
             char_info += f"- 性格: {char.personality}\n\n"
         
         # 2. 场景信息
@@ -112,31 +130,38 @@ class DirectorAI:
 """
         
         # 5. 任务说明
-        task_info = """
-## 你的任务
+        # 动态生成角色数量限制规则
+        if len(characters) > 0 and extra_count == 0:
+            char_count_rule = f"1. **角色数量（最高优先级）**: 剧本中出现的角色总数必须恰好为 **{total_count}** 位，即上文指定的 {', '.join(c.name for c in characters)}，**绝对不得引入任何其他角色**。"
+        elif len(characters) > 0 and extra_count > 0:
+            char_count_rule = f"1. **角色数量（最高优先级）**: 剧本中出现的角色总数必须恰好为 **{total_count}** 位：指定角色 {', '.join(c.name for c in characters)} 必须全部出现，另外还需自由创作 {extra_count} 位新角色。"
+        else:
+            char_count_rule = f"1. **角色数量（最高优先级）**: 剧本中出现的角色总数必须恰好为 **{total_count}** 位，全部由 AI 自由创作，但数量严格固定。"
 
-你是一位专业的剧本导演AI。请根据上述信息，将剧情大纲转化为详细的场景剧本JSON。
-
-**核心要求:**
-
-1. **走位决策**:
+        task_info = (
+            "\n## 你的任务\n\n"
+            "你是一位专业的剧本导演AI。请根据上述信息，将剧情大纲转化为详细的场景剧本JSON。\n\n"
+            "**核心要求:**\n\n"
+            + char_count_rule + "\n\n"
+            "2. **走位决策**:"
+        ) + """
    - 角色只能出现在"可用点位"列表中的位置
    - 根据剧情需要选择语义匹配的点位
    - 如果剧情未明确位置，根据场景描述和角色关系合理推断
    - 同一镜头中出现的所有角色，必须位于同一camera_group的点位内
    - 如需同时展示不同组的角色，应使用移动片段先将角色集中到同组点位，再进行对白
 
-2. **动作决策**:
+3. **动作决策**:
    - 只能使用"可用动作库"中的动作名称
    - 根据动作的description描述选择最贴切的动作
    - 注意动作的compatible_states，确保角色状态匹配（如坐着的人不能执行standing动作）
 
-3. **对白生成**:
+4. **对白生成**:
    - 严格遵循角色的性格描述
    - 对白要符合人物性格和场景氛围
    - 理性的角色说话简洁明确，感性的角色可以更有情绪
 
-4. **镜头设计**:
+5. **镜头设计**:
    - 对白场景用"character"镜头聚焦说话者（配合 shot_anchors）
    - 移动场景用"scene"镜头展示全局（配合 camera 编号）
    - 氛围营造用"scene"镜头配合 motion_description
@@ -247,25 +272,27 @@ class DirectorAI:
         characters: List[Character],
         scene: Scene,
         plot_outline: str,
+        required_character_count: int = 0,
         temperature: float = 0.7,
         model: str = None
     ) -> Dict:
         """
         生成剧本
-        
+
         Args:
             characters: 参与角色列表
             scene: 场景对象
             plot_outline: 剧情大纲
+            required_character_count: 剧本中角色总数（0表示用len(characters)或默认值）
             temperature: AI创作温度 (0-1)
             model: 使用的模型名称
-        
+
         Returns:
             包含scene_sequence的字典
         """
-        
+
         # 构建提示词
-        system_prompt = self._build_context_prompt(characters, scene, plot_outline)
+        system_prompt = self._build_context_prompt(characters, scene, plot_outline, required_character_count)
 
         # 从环境变量读取模型名，参数优先
         if model is None:

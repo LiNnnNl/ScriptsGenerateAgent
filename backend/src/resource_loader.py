@@ -184,19 +184,21 @@ class ResourceLoader:
         }
     
     def build_custom_characters(self, custom_chars_input: List[Dict]) -> List[Character]:
-        """根据用户输入构建自定义角色列表"""
+        """根据用户输入构建自定义角色列表，兼容新格式（含全部字段）和旧格式（name+description）"""
         result = []
         for item in custom_chars_input:
             name = (item.get('name') or '').strip()
             if not name:
                 continue
-            desc = (item.get('description') or '').strip()
+            # 新格式字段优先，回退到旧 description 字段
+            personality = (item.get('personality_traits') or item.get('description') or '').strip()
+            background  = (item.get('background')         or item.get('description') or '').strip()
             char = Character({
                 'id': name,
                 'name': name,
-                'style_tag': '',
-                'description': desc if desc else f'用户自定义角色：{name}',
-                'personality': desc if desc else '性格由AI自由发挥',
+                'style_tag': item.get('ip', '自定义'),
+                'description': background  if background  else f'用户自定义角色：{name}',
+                'personality': personality if personality else '性格由AI自由发挥',
             })
             result.append(char)
         return result
