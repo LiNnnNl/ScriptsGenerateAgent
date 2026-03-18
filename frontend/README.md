@@ -18,24 +18,27 @@ frontend/
 
 ## 🚀 启动方式
 
-确保后端已启动（默认 `http://localhost:5000`），然后：
+确保后端已启动，然后：
 
 ```bash
 # Python 3
 python -m http.server 8080
 ```
 
-访问 `http://localhost:8080`
+- 本机访问：`http://localhost:8080`
+- 局域网访问：`http://<本机IP>:8080`
 
 ## ⚙️ 配置
 
-修改后端地址：编辑 `js/config.js`
+`js/config.js` 使用动态 IP，**无需手动修改**：
 
 ```javascript
 const API_CONFIG = {
-    BASE_URL: 'http://localhost:5000',  // 改为你的后端地址
+    BASE_URL: `http://${window.location.hostname}:5000`,  // 自动适配局域网IP
 };
 ```
+
+局域网设备通过 `http://<服务器IP>:8080` 访问时，前端会自动连接 `http://<服务器IP>:5000`。
 
 ## 🎨 使用流程
 
@@ -57,7 +60,7 @@ const API_CONFIG = {
 
 ## 🐛 常见问题
 
-**页面无法加载场景**：检查后端是否启动，`config.js` 中 `BASE_URL` 是否正确。
+**页面无法加载场景**：检查后端是否启动；局域网访问时确认防火墙已开放 5000 和 8080 端口。
 
 **样式显示异常**：清除浏览器缓存，使用 Chrome 90+ / Firefox 88+ / Safari 14+。
 

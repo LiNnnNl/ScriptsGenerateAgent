@@ -1,6 +1,6 @@
 // API配置
 const API_CONFIG = {
-    BASE_URL: 'http://localhost:5000',  // 后端API地址
+    BASE_URL: `http://${window.location.hostname}:5000`,  // 自动适配局域网IP
     ENDPOINTS: {
         SCENES: '/api/scenes',
         GENERATE: '/api/generate',

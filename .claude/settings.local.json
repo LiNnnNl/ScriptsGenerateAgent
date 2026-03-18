@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(du:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(ipconfig)"
     ]
   }
 }

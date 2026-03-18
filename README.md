@@ -74,7 +74,7 @@ cd backend
 python app.py
 ```
 
-后端运行在 `http://localhost:5000`
+后端运行在 `http://0.0.0.0:5000`（本机及局域网均可访问）
 
 ### 4. 启动前端
 
@@ -83,7 +83,10 @@ cd frontend
 python -m http.server 8080
 ```
 
-访问 `http://localhost:8080`
+- 本机访问：`http://localhost:8080`
+- 局域网访问：`http://<本机IP>:8080`（前端会自动连接同一 IP 的后端）
+
+> **获取本机 IP**：Windows 运行 `ipconfig`，找 WLAN 或以太网适配器的 IPv4 地址。
 
 ## 🎨 使用流程
 
@@ -252,7 +255,13 @@ python -m http.server 8080
 
 **跨域问题**：确保后端已安装并启用 `flask-cors`
 
-**API 连接失败**：检查 `frontend/js/config.js` 中的 `BASE_URL` 是否与后端地址一致
+**API 连接失败**：前端会自动使用访问前端时的 IP 连接后端，无需手动配置。若仍失败，检查防火墙是否开放 5000 端口
+
+**局域网其他设备无法访问**：以管理员身份运行以下命令开放防火墙端口：
+```powershell
+netsh advfirewall firewall add rule name="ScriptAgent Backend" dir=in action=allow protocol=TCP localport=5000
+netsh advfirewall firewall add rule name="ScriptAgent Frontend" dir=in action=allow protocol=TCP localport=8080
+```
 
 **生成失败**：检查 `backend/.env` 中的 API Key 是否正确配置
 

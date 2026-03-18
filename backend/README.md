@@ -50,7 +50,7 @@ MODEL=ark-code-latest
 python app.py
 ```
 
-服务器运行在 `http://localhost:5000`
+服务器运行在 `http://0.0.0.0:5000`，本机和局域网均可访问
 
 ## 📡 API 接口
 
