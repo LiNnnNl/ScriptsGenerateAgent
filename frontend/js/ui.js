@@ -28,14 +28,20 @@ const UI = {
     },
 
     // 显示成功结果
-    showSuccess(filename, warnings = []) {
+    showSuccess(filename, actorsProfileFilename, warnings = []) {
         const resultPanel = document.getElementById('resultPanel');
         const messageEl = document.getElementById('resultMessage');
-        
-        messageEl.textContent = `文件已保存: ${filename}`;
+
+        messageEl.textContent = `剧本：${filename}`;
         resultPanel.style.display = 'block';
-        
+
         APP_STATE.currentFilename = filename;
+        APP_STATE.currentActorsProfileFilename = actorsProfileFilename || null;
+
+        const actorsBtn = document.getElementById('downloadActorsBtn');
+        if (actorsBtn) {
+            actorsBtn.style.display = actorsProfileFilename ? '' : 'none';
+        }
     },
 
     // 显示错误

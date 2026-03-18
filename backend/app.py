@@ -377,14 +377,81 @@ def generate_script():
             filepath = output_dir / filename
             
             generator.export_to_file(final_json, str(filepath))
-            
+
+            # 提取剧本中出现的角色，生成 actors_profile.json
+            actor_names = []
+            seen = set()
+            if isinstance(ai_script, list):
+                for scene_obj in ai_script:
+                    info = scene_obj.get('scene information', {})
+                    for name in info.get('who', []):
+                        if name and name not in seen:
+                            seen.add(name)
+                            actor_names.append(name)
+
+            # 读取角色库原始数据
+            char_file_raw = Path('resources/characters_resource.json')
+            with open(char_file_raw, 'r', encoding='utf-8-sig') as f:
+                all_chars_raw = json.load(f)
+            char_map = {c['name']: c for c in all_chars_raw}
+
+            # 自定义角色索引（按名称）
+            custom_char_map = {
+                (item.get('name') or '').strip(): item
+                for item in custom_characters_input
+                if (item.get('name') or '').strip()
+            }
+
+            actors_profile = []
+            for name in actor_names:
+                if name in char_map:
+                    actors_profile.append(char_map[name])
+                elif name in custom_char_map:
+                    item = custom_char_map[name]
+                    desc = (item.get('description') or '').strip()
+                    actors_profile.append({
+                        "name": name,
+                        "gender": "未知",
+                        "ip": "自定义",
+                        "manufacturer": "用户创建",
+                        "background": desc if desc else f"用户自定义角色：{name}",
+                        "Faction": "未知",
+                        "personality_traits": desc if desc else "性格由AI自由发挥",
+                        "role_position": "未知",
+                        "important_relationships": []
+                    })
+                else:
+                    actors_profile.append({
+                        "name": name,
+                        "gender": "未知",
+                        "ip": "AI创作",
+                        "manufacturer": "AI生成",
+                        "background": f"AI自由创作角色：{name}",
+                        "Faction": "未知",
+                        "personality_traits": "由AI自由发挥",
+                        "role_position": "未知",
+                        "important_relationships": []
+                    })
+
+            actors_profile_filename = f"actors_profile_{int(time.time())}.json"
+            actors_filepath = output_dir / actors_profile_filename
+            with open(actors_filepath, 'w', encoding='utf-8') as f:
+                json.dump(actors_profile, f, ensure_ascii=False, indent=2)
+
+            yield json.dumps({
+                'type': 'log',
+                'level': 'success',
+                'message': f'✅ 已生成角色档案：{len(actors_profile)} 位演员'
+            }) + '\n'
+
             # 收集警告
             all_warnings = validation.get('warnings', []) + spec_validation.get('warnings', [])
-            
+
             # 发送成功消息
             yield json.dumps({
                 'type': 'success',
                 'filename': filename,
+                'actors_profile_filename': actors_profile_filename,
                 'warnings': all_warnings
             }) + '\n'
             

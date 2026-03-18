@@ -123,9 +123,12 @@ function handleStreamData(data) {
         UI.addLog('thinking', '💭 ' + data.message);
     } else if (data.type === 'success') {
         UI.addLog('success', '✅ 剧本生成成功！');
-        UI.addLog('success', `📁 文件保存: ${data.filename}`);
-        
-        UI.showSuccess(data.filename);
+        UI.addLog('success', `📁 剧本文件: ${data.filename}`);
+        if (data.actors_profile_filename) {
+            UI.addLog('success', `👥 演员档案: ${data.actors_profile_filename}`);
+        }
+
+        UI.showSuccess(data.filename, data.actors_profile_filename);
     } else if (data.type === 'error') {
         UI.addLog('error', '❌ ' + data.message);
         if (data.details) {
@@ -187,10 +190,17 @@ function setupEventListeners() {
     // 生成按钮
     document.getElementById('generateBtn').addEventListener('click', generateScript);
 
-    // 下载按钮
+    // 下载按钮 - 剧本
     document.getElementById('downloadBtn').addEventListener('click', () => {
         if (APP_STATE.currentFilename) {
             API.downloadFile(APP_STATE.currentFilename);
+        }
+    });
+
+    // 下载按钮 - 演员档案
+    document.getElementById('downloadActorsBtn').addEventListener('click', () => {
+        if (APP_STATE.currentActorsProfileFilename) {
+            API.downloadFile(APP_STATE.currentActorsProfileFilename);
         }
     });
 

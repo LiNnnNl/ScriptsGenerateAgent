@@ -17,5 +17,6 @@ const APP_STATE = {
     requiredCharacterCount: 2,
     scenes: [],
     characters: [],         // 角色库完整数据
-    currentFilename: null
+    currentFilename: null,
+    currentActorsProfileFilename: null
 };

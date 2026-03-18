@@ -321,7 +321,7 @@ body {
 }
 
 .scene-info-scroll {
-    max-height: 220px;
+    max-height: 440px;
     overflow-y: auto;
     padding: 25px;
     scrollbar-width: thin;
@@ -773,6 +773,23 @@ body {
 .download-btn:hover {
     transform: translateY(-3px);
     box-shadow: 0 10px 30px rgba(212, 175, 55, 0.4);
+}
+
+.download-btn-group {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.download-btn-secondary {
+    background: transparent;
+    border-color: rgba(212, 175, 55, 0.5);
+    color: var(--gold);
+}
+.download-btn-secondary:hover {
+    background: rgba(212, 175, 55, 0.12);
+    box-shadow: 0 10px 30px rgba(212, 175, 55, 0.2);
 }
 
 /* 底部 */
