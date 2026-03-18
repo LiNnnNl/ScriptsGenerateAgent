@@ -11,11 +11,12 @@ from pathlib import Path
 class Character:
     """角色资源"""
     def __init__(self, data: dict):
-        self.id = data['id']
         self.name = data['name']
-        self.style_tag = data['style_tag']
-        self.description = data['description']
-        self.personality = data['personality']
+        # 兼容新格式（characters_resource.json）与旧格式
+        self.id = data.get('id', self.name)
+        self.style_tag = data.get('style_tag', data.get('ip', ''))
+        self.description = data.get('description', data.get('background', f'角色：{self.name}'))
+        self.personality = data.get('personality', data.get('personality_traits', ''))
     
     def __repr__(self):
         return f"Character({self.name}, {self.style_tag})"

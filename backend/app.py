@@ -59,7 +59,8 @@ def get_all_scenes():
                 'id': scene.id,
                 'name': scene.name,
                 'description': scene.description,
-                'positions': scene.valid_positions
+                'positions': scene.valid_positions,
+                'camera_groups': scene.camera_groups
             }
             for scene in scenes
         ]
@@ -94,9 +95,61 @@ def get_scenes(style_tag):
         }), 500
 
 
+@app.route('/api/characters', methods=['GET'])
+def get_all_characters():
+    """获取所有角色"""
+    try:
+        char_file = Path('resources/characters_resource.json')
+        with open(char_file, 'r', encoding='utf-8-sig') as f:
+            characters = json.load(f)
+        return jsonify({'success': True, 'data': characters})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/characters', methods=['POST'])
+def add_character():
+    """永久添加角色到角色库"""
+    try:
+        data = request.json
+        name = (data.get('name') or '').strip()
+        if not name:
+            return jsonify({'success': False, 'error': '角色名称不能为空'}), 400
+
+        description = (data.get('description') or '').strip()
+
+        char_file = Path('resources/characters_resource.json')
+        with open(char_file, 'r', encoding='utf-8-sig') as f:
+            characters = json.load(f)
+
+        if any(c['name'] == name for c in characters):
+            return jsonify({'success': False, 'error': f'角色「{name}」已存在于角色库中'}), 400
+
+        new_char = {
+            "name": name,
+            "gender": "未知",
+            "ip": "自定义",
+            "manufacturer": "用户创建",
+            "background": description if description else f"用户自定义角色：{name}",
+            "Faction": "未知",
+            "personality_traits": description if description else "性格由AI自由发挥",
+            "role_position": "未知",
+            "important_relationships": []
+        }
+
+        characters.append(new_char)
+
+        with open(char_file, 'w', encoding='utf-8') as f:
+            json.dump(characters, f, ensure_ascii=False, indent=2)
+
+        return jsonify({'success': True, 'data': new_char})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @app.route('/api/characters/<style_tag>', methods=['GET'])
 def get_characters(style_tag):
-    """根据画风获取角色列表"""
+    """根据画风获取角色列表（旧接口保留）"""
     try:
         characters = resource_loader.get_characters_by_style(style_tag)
         characters_data = [

@@ -3,7 +3,9 @@
     "allow": [
       "Bash(du:*)",
       "Bash(python:*)",
-      "Bash(ipconfig)"
+      "Bash(ipconfig)",
+      "Bash(find . -type f \\\\\\(-name *.ts -o -name *.tsx -o -name *.js -o -name *.jsx -o -name *.json -o -name *.html -o -name *.css \\\\\\))",
+      "Bash(find . -type f \\\\\\(-name *.py -o -name *.md \\\\\\))"
     ]
   }
 }

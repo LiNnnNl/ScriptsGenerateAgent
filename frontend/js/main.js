@@ -2,7 +2,7 @@
 document.addEventListener('DOMContentLoaded', init);
 
 async function init() {
-    await loadScenes();
+    await Promise.all([loadScenes(), loadCharacters()]);
     setupEventListeners();
 }
 
@@ -17,6 +17,55 @@ async function loadScenes() {
     } catch (error) {
         console.error('加载场景失败:', error);
         UI.showError('加载场景失败: ' + error.message);
+    }
+}
+
+// 加载角色库
+async function loadCharacters() {
+    try {
+        const result = await API.getCharacters();
+        if (result.success) {
+            APP_STATE.characters = result.data;
+        }
+    } catch (error) {
+        console.error('加载角色库失败:', error);
+    }
+}
+
+// 添加角色到角色库
+async function addCharacterToLibrary(index) {
+    const slot = APP_STATE.castSlots[index];
+    const name = (slot.customName || '').trim();
+    if (!name) {
+        alert('请先填写角色名称');
+        return;
+    }
+
+    const btn = document.querySelector(`.add-to-library-btn[data-index="${index}"]`);
+    btn.disabled = true;
+    btn.textContent = '保存中…';
+
+    try {
+        const result = await API.addCharacter({
+            name: slot.customName.trim(),
+            description: slot.customDesc.trim()
+        });
+
+        if (result.success) {
+            APP_STATE.characters.push(result.data);
+            // 切换到库选模式并选中新角色
+            APP_STATE.castSlots[index].mode = 'library';
+            APP_STATE.castSlots[index].selectedName = result.data.name;
+            UI.renderCastForm(APP_STATE.requiredCharacterCount);
+        } else {
+            btn.disabled = false;
+            btn.textContent = '＋ 保存到角色库';
+            alert(result.error || '添加失败');
+        }
+    } catch (e) {
+        btn.disabled = false;
+        btn.textContent = '＋ 保存到角色库';
+        alert('网络错误，请重试');
     }
 }
 
@@ -148,6 +197,14 @@ function setupEventListeners() {
 
     // 清空日志按钮
     document.getElementById('clearLogBtn').addEventListener('click', UI.clearLog);
+
+    // 保存到角色库（事件委托）
+    document.getElementById('castForm').addEventListener('click', (e) => {
+        if (e.target.classList.contains('add-to-library-btn')) {
+            const index = parseInt(e.target.dataset.index);
+            addCharacterToLibrary(index);
+        }
+    });
 }
 
 // 更新角色数量

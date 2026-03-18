@@ -1,59 +1,857 @@
 [
   {
-    "id": "char_001_xu",
-    "name": "序一号",
-    "style_tag": "Cyberpunk_Realism",
-    "description": "冷静的指挥官，半机械人。",
-    "personality": "理智、冷漠、讲究逻辑，说话不带感情色彩，习惯用简洁明确的语言发号施令。"
+    "name": "符玄",
+    "gender": "女",
+    "ip": "崩坏：星穹铁道",
+    "manufacturer": "米哈游",
+    "background": "仙舟「罗浮」太卜司之首，自信耿直的智者。凭借第三眼与穷观阵为仙舟占卜算卦，预卜吉凶。",
+    "Faction": "仙舟「罗浮」",
+    "personality_traits": "自信, 耿直, 严谨负责",
+    "role_position": "存护命途 / 量子属性",
+    "important_relationships": [
+      {
+        "object": "景元",
+        "relationship": "上下级/被景元看重的继任者"
+      }
+    ]
   },
   {
-    "id": "char_002_lan",
-    "name": "澜二号",
-    "style_tag": "Cyberpunk_Realism",
-    "description": "年轻的技术分析员，机械改造程度较低。",
-    "personality": "谨慎、理性，但偶尔会流露出对人类的同情，说话时会用数据和事实支撑观点。"
+    "name": "花火",
+    "gender": "女",
+    "ip": "崩坏：星穹铁道",
+    "manufacturer": "米哈游",
+    "background": "「假面愚者」的成员之一，难以捉摸，不择手段。危险的戏剧大师，沉迷于扮演，身怀千张假面。",
+    "Faction": "假面愚者",
+    "personality_traits": "难以捉摸, 癫狂, 喜欢乐子",
+    "role_position": "同谐命途 / 量子属性",
+    "important_relationships": [
+      {
+        "object": "桑博",
+        "relationship": "同属「假面愚者」的同僚"
+      }
+    ]
   },
   {
-    "id": "char_003_shou",
-    "name": "守三号",
-    "style_tag": "Cyberpunk_Realism",
-    "description": "安保机器人，执行力强。",
-    "personality": "严谨、遵守规则、不苟言笑，说话直接且带有军事化风格。"
+    "name": "卡芙卡",
+    "gender": "女",
+    "ip": "崩坏：星穹铁道",
+    "manufacturer": "米哈游",
+    "background": "「星核猎手」的成员，潇洒从容的职业杀手。将星核载入开拓者体内的引导者。",
+    "Faction": "星核猎手",
+    "personality_traits": "从容, 优雅, 神秘",
+    "role_position": "虚无命途 / 雷属性",
+    "important_relationships": [
+      {
+        "object": "女主(开拓者)",
+        "relationship": "引导者与被引导者/有着深厚的渊源"
+      },
+      {
+        "object": "艾利欧",
+        "relationship": "追随的首领"
+      }
+    ]
   },
   {
-    "id": "char_004_xian",
-    "name": "弦四号",
-    "style_tag": "Cyberpunk_Realism",
-    "description": "医疗支援机器人，具有人文关怀。",
-    "personality": "温和、富有同理心，说话柔和但坚定，经常从道德角度思考问题。"
+    "name": "流萤",
+    "gender": "女",
+    "ip": "崩坏：星穹铁道",
+    "manufacturer": "米哈游",
+    "background": "星核猎手成员，身着机械装甲「萨姆」的少女。作为克隆人诞生，饱受「失熵」症的痛苦，渴望以普通人的身份生活。",
+    "Faction": "星核猎手",
+    "personality_traits": "温柔, 坚强, 渴望自由",
+    "role_position": "毁灭命途 / 火属性",
+    "important_relationships": [
+      {
+        "object": "女主(开拓者)",
+        "relationship": "在匹诺康尼结识的挚友/特殊羁绊"
+      }
+    ]
   },
   {
-    "id": "char_005_lin",
-    "name": "魔法少女·林",
-    "style_tag": "Anime_2D",
-    "description": "元气满满的高中生魔法少女。",
-    "personality": "热血、冲动、充满正义感，喜欢用拟声词和感叹词，说话时带有夸张的语气。"
+    "name": "女主",
+    "gender": "女",
+    "ip": "崩坏：星穹铁道",
+    "manufacturer": "米哈游",
+    "background": "星穹列车的乘客之一，体内被植入星核的「开拓者」。失忆后被列车组接纳，踏上开拓星神的旅途。",
+    "Faction": "星穹列车",
+    "personality_traits": "勇敢, 幽默, 热爱翻垃圾桶(玩家向设定)",
+    "role_position": "多命途 / 多属性切换",
+    "important_relationships": [
+      {
+        "object": "三月七",
+        "relationship": "生死与共的列车同伴与挚友"
+      },
+      {
+        "object": "卡芙卡",
+        "relationship": "将自己唤醒的神秘人物"
+      }
+    ]
   },
   {
-    "id": "char_006_sakura",
-    "name": "樱",
-    "style_tag": "Anime_2D",
-    "description": "冷静的学生会长，擅长分析。",
-    "personality": "理智、优雅、善于思考，说话时条理清晰，但偶尔会露出温柔的一面。"
+    "name": "三月七",
+    "gender": "女",
+    "ip": "崩坏：星穹铁道",
+    "manufacturer": "米哈游",
+    "background": "精灵古怪的少女，被列车组从六相冰中唤醒，因为失去了过去的记忆，便以自己重获新生的日期为自己命名。",
+    "Faction": "星穹列车",
+    "personality_traits": "活泼, 乐观, 喜欢拍照",
+    "role_position": "存护命途 / 冰属性 (另有巡猎命途虚数属性)",
+    "important_relationships": [
+      {
+        "object": "女主(开拓者)",
+        "relationship": "最好的朋友与冒险搭档"
+      }
+    ]
   },
   {
-    "id": "char_007_knight",
-    "name": "暗影骑士",
-    "style_tag": "Fantasy_3D",
-    "description": "神秘的黑甲骑士，来历不明。",
-    "personality": "沉默寡言、威严、带有骑士道精神，说话简短有力，充满威慑力。"
+    "name": "遐蝶",
+    "gender": "未知",
+    "ip": "崩坏：星穹铁道",
+    "manufacturer": "米哈游",
+    "background": "游戏内暂无详细官方设定的NPC或未实装角色。",
+    "Faction": "未知",
+    "personality_traits": "未知",
+    "role_position": "未知",
+    "important_relationships": []
   },
   {
-    "id": "char_008_mage",
-    "name": "星辰法师",
-    "style_tag": "Fantasy_3D",
-    "description": "古老的魔法研究者。",
-    "personality": "睿智、神秘、喜欢用隐喻说话，语气缓慢而深沉，充满哲理。"
+    "name": "银狼",
+    "gender": "女",
+    "ip": "崩坏：星穹铁道",
+    "manufacturer": "米哈游",
+    "background": "「星核猎手」成员，将宇宙视为大型游戏的超级黑客。掌握着名为「以太编辑」修改现实数据的能力。",
+    "Faction": "星核猎手",
+    "personality_traits": "随性, 热爱游戏, 胜负欲强",
+    "role_position": "虚无命途 / 量子属性",
+    "important_relationships": [
+      {
+        "object": "卡芙卡",
+        "relationship": "同属星核猎手的搭档"
+      },
+      {
+        "object": "黑塔",
+        "relationship": "在网络与现实中多次交锋的对手"
+      }
+    ]
+  },
+  {
+    "name": "芙宁娜",
+    "gender": "女",
+    "ip": "原神",
+    "manufacturer": "米哈游",
+    "background": "枫丹的前任水之神（以人类身份扮演神明）。为拯救枫丹人民免于预言的毁灭，独自承受了五百年的孤独与诅咒。",
+    "Faction": "枫丹",
+    "personality_traits": "极具表演欲, 内心脆弱孤独, 善良",
+    "role_position": "单手剑 / 水元素",
+    "important_relationships": [
+      {
+        "object": "那维莱特",
+        "relationship": "曾经的最高审判官与合作者"
+      }
+    ]
+  },
+  {
+    "name": "雷电将军",
+    "gender": "女",
+    "ip": "原神",
+    "manufacturer": "米哈游",
+    "background": "稻妻的统治者，雷之神巴尔泽布制造的人偶。本尊影则在净土中追求着绝对的「永恒」。",
+    "Faction": "稻妻",
+    "personality_traits": "冷酷, 威严, 执着于永恒(人偶) / 略显迟钝, 温柔(本尊)",
+    "role_position": "长柄武器 / 雷元素",
+    "important_relationships": [
+      {
+        "object": "八重神子",
+        "relationship": "多年的眷属与挚友"
+      }
+    ]
+  },
+  {
+    "name": "纳西妲",
+    "gender": "女",
+    "ip": "原神",
+    "manufacturer": "米哈游",
+    "background": "须弥的草之神「小吉祥草王」。曾被贤者囚禁于净善宫五百年，重获自由后致力于引导须弥的知识与未来。",
+    "Faction": "须弥",
+    "personality_traits": "智慧, 温柔, 充满好奇心",
+    "role_position": "法器 / 草元素",
+    "important_relationships": [
+      {
+        "object": "流浪者(散兵)",
+        "relationship": "将其收留并引导其赎罪"
+      }
+    ]
+  },
+  {
+    "name": "希格雯",
+    "gender": "女",
+    "ip": "原神",
+    "manufacturer": "米哈游",
+    "background": "梅洛彼得堡的护士长，美露莘一族。外表可爱却总给人带来难以言喻的压迫感，极其关心囚犯的健康。",
+    "Faction": "枫丹 (梅洛彼得堡)",
+    "personality_traits": "体贴, 腹黑, 具有专业精神",
+    "role_position": "弓箭 / 水元素",
+    "important_relationships": [
+      {
+        "object": "莱欧斯利",
+        "relationship": "梅洛彼得堡的同事与上司"
+      }
+    ]
+  },
+  {
+    "name": "钟离",
+    "gender": "男",
+    "ip": "原神",
+    "manufacturer": "米哈游",
+    "background": "往生堂的客卿，真实身份是璃月的岩之神「摩拉克斯」。卸下神明之责后，以凡人身份体验璃月港的生活。",
+    "Faction": "璃月",
+    "personality_traits": "沉稳, 博学, 缺乏金钱观念",
+    "role_position": "长柄武器 / 岩元素",
+    "important_relationships": [
+      {
+        "object": "胡桃",
+        "relationship": "往生堂的现任堂主(上司)"
+      },
+      {
+        "object": "达达利亚",
+        "relationship": "经常为他买单的“钱包”"
+      }
+    ]
+  },
+  {
+    "name": "甘雨",
+    "gender": "女",
+    "ip": "原神",
+    "manufacturer": "米哈游",
+    "background": "月海亭的秘书，体内流淌着人类与仙兽的血脉。千年如一日地处理着璃月港的繁杂政务。",
+    "Faction": "璃月",
+    "personality_traits": "勤勉, 认真, 容易害羞",
+    "role_position": "弓箭 / 冰元素",
+    "important_relationships": [
+      {
+        "object": "钟离(摩拉克斯)",
+        "relationship": "追随千年的帝君"
+      },
+      {
+        "object": "留云借风真君",
+        "relationship": "抚养她长大的师傅"
+      }
+    ]
+  },
+  {
+    "name": "丝柯克",
+    "gender": "女",
+    "ip": "原神",
+    "manufacturer": "米哈游",
+    "background": "隐居于深渊的神秘剑客，达达利亚的师父。掌握着超越提瓦特常理的力量。",
+    "Faction": "深渊",
+    "personality_traits": "冷漠, 实力至上, 神秘",
+    "role_position": "未知",
+    "important_relationships": [
+      {
+        "object": "达达利亚",
+        "relationship": "教授其深渊武艺的徒弟"
+      }
+    ]
+  },
+  {
+    "name": "提米",
+    "gender": "男",
+    "ip": "原神",
+    "manufacturer": "米哈游",
+    "background": "蒙德城门桥上的小男孩，每天都在桥上喂鸽子，极度讨厌吓跑鸽子的人。",
+    "Faction": "蒙德",
+    "personality_traits": "孤单, 喜爱动物, 敏感",
+    "role_position": "NPC",
+    "important_relationships": [
+      {
+        "object": "鸽子",
+        "relationship": "最重要的朋友"
+      }
+    ]
+  },
+  {
+    "name": "瓦雷莎",
+    "gender": "女",
+    "ip": "原神",
+    "manufacturer": "米哈游",
+    "background": "蒙德历史上的英雄，角斗士出身。推翻了旧贵族的统治，建立了西风骑士团，后登上天空岛化为神明。",
+    "Faction": "蒙德",
+    "personality_traits": "勇敢, 坚韧, 具有领袖气质",
+    "role_position": "历史人物 / 英雄",
+    "important_relationships": [
+      {
+        "object": "温迪(巴巴托斯)",
+        "relationship": "受其指引和帮助建立新蒙德"
+      }
+    ]
+  },
+  {
+    "name": "温迪",
+    "gender": "男",
+    "ip": "原神",
+    "manufacturer": "米哈游",
+    "background": "蒙德城中来路不明的吟游诗人，真实身份是风之神「巴巴托斯」。热爱自由、诗歌和苹果酒。",
+    "Faction": "蒙德",
+    "personality_traits": "自由, 随性, 嗜酒",
+    "role_position": "弓箭 / 风元素",
+    "important_relationships": [
+      {
+        "object": "特瓦林",
+        "relationship": "昔日的眷属与老友"
+      }
+    ]
+  },
+  {
+    "name": "爱芮",
+    "gender": "女",
+    "ip": "绝区零",
+    "manufacturer": "米哈游",
+    "background": "游戏内出现的平民NPC，常见于新艾利都的街头或地铁站场景。",
+    "Faction": "新艾利都市民",
+    "personality_traits": "普通",
+    "role_position": "NPC",
+    "important_relationships": []
+  },
+  {
+    "name": "千夏",
+    "gender": "女",
+    "ip": "绝区零",
+    "manufacturer": "米哈游",
+    "background": "游戏场景中出现的角色/NPC。",
+    "Faction": "新艾利都市民",
+    "personality_traits": "未知",
+    "role_position": "NPC",
+    "important_relationships": []
+  },
+  {
+    "name": "安比",
+    "gender": "女",
+    "ip": "绝区零",
+    "manufacturer": "米哈游",
+    "background": "「狡兔屋」的成员，从不谈论自己的过去，战斗风格利落干练。平时总是缺乏常识，对汉堡情有独钟。",
+    "Faction": "狡兔屋",
+    "personality_traits": "冷静, 天然呆, 缺乏常识",
+    "role_position": "击破 / 电属性",
+    "important_relationships": [
+      {
+        "object": "妮可",
+        "relationship": "收留她的老板与同伴"
+      }
+    ]
+  },
+  {
+    "name": "铃",
+    "gender": "女",
+    "ip": "绝区零",
+    "manufacturer": "米哈游",
+    "background": "游戏的女主角，与哥哥哲共同经营录像店「Random Play」，真实身份是传奇绳匠「法厄同」。",
+    "Faction": "绳匠 (Random Play)",
+    "personality_traits": "活泼, 机敏, 充满活力",
+    "role_position": "主角 / 绳匠",
+    "important_relationships": [
+      {
+        "object": "哲",
+        "relationship": "相依为命且配合默契的哥哥"
+      }
+    ]
+  },
+  {
+    "name": "叶瞬光",
+    "gender": "未知",
+    "ip": "绝区零",
+    "manufacturer": "米哈游",
+    "background": "绝区零测试阶段或剧情中的人物，暂无详细背景展开。",
+    "Faction": "未知",
+    "personality_traits": "未知",
+    "role_position": "未知",
+    "important_relationships": []
+  },
+  {
+    "name": "薇薇安",
+    "gender": "女",
+    "ip": "绝区零",
+    "manufacturer": "米哈游",
+    "background": "新艾利都的NPC角色。",
+    "Faction": "新艾利都市民",
+    "personality_traits": "未知",
+    "role_position": "NPC",
+    "important_relationships": []
+  },
+  {
+    "name": "艾莲",
+    "gender": "女",
+    "ip": "绝区零",
+    "manufacturer": "米哈游",
+    "background": "维多利亚家政的员工，拥有鲨鱼特征的少女。总是显得没精打采，但工作时会展现出极高的战斗素养。",
+    "Faction": "维多利亚家政",
+    "personality_traits": "慵懒, 怕麻烦, 外冷内热",
+    "role_position": "强攻 / 冰属性",
+    "important_relationships": [
+      {
+        "object": "莱卡恩",
+        "relationship": "尊敬的上司与同事"
+      }
+    ]
+  },
+  {
+    "name": "星见雅",
+    "gender": "女",
+    "ip": "绝区零",
+    "manufacturer": "米哈游",
+    "background": "对空洞特别行动部第六课的课长，新艾利都知名的武术世家继承人。极具责任感，剑术高超。",
+    "Faction": "对空洞特别行动部第六课",
+    "personality_traits": "认真, 严谨, 武德充沛",
+    "role_position": "异常 / 冰属性 (待定)",
+    "important_relationships": [
+      {
+        "object": "苍角",
+        "relationship": "第六课的部下"
+      }
+    ]
+  },
+  {
+    "name": "洛茜",
+    "gender": "女",
+    "ip": "明日方舟：终末地",
+    "manufacturer": "鹰角网络",
+    "background": "终末地工业相关角色，目前官方公开的背景资料较少。",
+    "Faction": "终末地工业",
+    "personality_traits": "未知",
+    "role_position": "干员",
+    "important_relationships": []
+  },
+  {
+    "name": "赛希",
+    "gender": "女",
+    "ip": "明日方舟：终末地",
+    "manufacturer": "鹰角网络",
+    "background": "终末地工业相关角色，目前官方披露的信息有限。",
+    "Faction": "终末地工业",
+    "personality_traits": "未知",
+    "role_position": "干员",
+    "important_relationships": []
+  },
+  {
+    "name": "KO",
+    "gender": "男 (机械体)",
+    "ip": "无畏契约",
+    "manufacturer": "拳头游戏",
+    "background": "一台为压制辐射人而制造的战争机器。他能让对手丧失技能，为队伍取得战术优势。",
+    "Faction": "VALORANT协议",
+    "personality_traits": "冷酷, 执行力强, 敌视辐射人",
+    "role_position": "先锋",
+    "important_relationships": [
+      {
+        "object": "芮娜(肉娜)",
+        "relationship": "在另一条时间线中的宿敌"
+      }
+    ]
+  },
+  {
+    "name": "一决",
+    "gender": "男",
+    "ip": "无畏契约",
+    "manufacturer": "拳头游戏",
+    "background": "来自中国的雇佣杀手“壹决”。他能将环境重塑为防弹玻璃，在单挑中击溃对手。",
+    "Faction": "VALORANT协议",
+    "personality_traits": "专注, 孤傲, 绝对自信",
+    "role_position": "决斗",
+    "important_relationships": [
+      {
+        "object": "幽影",
+        "relationship": "曾被派去刺杀的目标，后成为同事"
+      }
+    ]
+  },
+  {
+    "name": "保安",
+    "gender": "男",
+    "ip": "无畏契约",
+    "manufacturer": "拳头游戏",
+    "background": "“零”(玩家俗称保安)，来自摩洛哥的情报贩子。他是一张监控网络，没有秘密能瞒过他的眼睛。",
+    "Faction": "VALORANT协议",
+    "personality_traits": "神秘, 掌控欲强, 谨慎",
+    "role_position": "守卫",
+    "important_relationships": [
+      {
+        "object": "猎枭",
+        "relationship": "同为情报获取者的竞争与合作关系"
+      }
+    ]
+  },
+  {
+    "name": "夜露",
+    "gender": "男",
+    "ip": "无畏契约",
+    "manufacturer": "拳头游戏",
+    "background": "来自日本的辐射人，能够撕裂现实空间并在维度之间穿梭，神出鬼没地击杀敌人。",
+    "Faction": "VALORANT协议",
+    "personality_traits": "桀骜不驯, 傲慢, 独来独往",
+    "role_position": "决斗",
+    "important_relationships": [
+      {
+        "object": "斯凯",
+        "relationship": "经常在言语上互相较劲的队友"
+      }
+    ]
+  },
+  {
+    "name": "奇乐",
+    "gender": "女",
+    "ip": "无畏契约",
+    "manufacturer": "拳头游戏",
+    "background": "来自德国的天才发明家，利用各式各样的机器人和防御装置控制战场。",
+    "Faction": "VALORANT协议",
+    "personality_traits": "聪明, 自信, 科技狂热",
+    "role_position": "守卫",
+    "important_relationships": [
+      {
+        "object": "雷兹",
+        "relationship": "技术上的搭档与亲密的伴侣"
+      }
+    ]
+  },
+  {
+    "name": "幻棱",
+    "gender": "未知",
+    "ip": "无畏契约",
+    "manufacturer": "拳头游戏",
+    "background": "非标准官方译名，可能指代某位擅长操控幻象或屏障的辐射人特工。",
+    "Faction": "VALORANT协议",
+    "personality_traits": "未知",
+    "role_position": "未知",
+    "important_relationships": []
+  },
+  {
+    "name": "幽影",
+    "gender": "男",
+    "ip": "无畏契约",
+    "manufacturer": "拳头游戏",
+    "background": "失去记忆的幽灵，在阴影中穿梭。能够剥夺敌人的视野并进行全图传送。",
+    "Faction": "VALORANT协议",
+    "personality_traits": "阴郁, 痛苦, 探寻真相",
+    "role_position": "控场",
+    "important_relationships": [
+      {
+        "object": "蝰蛇",
+        "relationship": "似乎知晓他过去秘密的旧识"
+      }
+    ]
+  },
+  {
+    "name": "慕蝶",
+    "gender": "非二元性别",
+    "ip": "无畏契约",
+    "manufacturer": "拳头游戏",
+    "background": "来自苏格兰的捣蛋鬼，拥有汲取生命精华为己用并死而复生的能力。",
+    "Faction": "VALORANT协议",
+    "personality_traits": "调皮, 不惧死亡, 活泼",
+    "role_position": "控场",
+    "important_relationships": [
+      {
+        "object": "幽影",
+        "relationship": "经常捉弄和搭话的“阴郁同伴”"
+      }
+    ]
+  },
+  {
+    "name": "捷风",
+    "gender": "女",
+    "ip": "无畏契约",
+    "manufacturer": "拳头游戏",
+    "background": "来自韩国，以敏捷和高机动性著称。她能利用风的力量在战场上飞檐走壁，用飞刀撕裂敌人。",
+    "Faction": "VALORANT协议",
+    "personality_traits": "张扬, 自信, 行动如风",
+    "role_position": "决斗",
+    "important_relationships": [
+      {
+        "object": "火男(不死鸟)",
+        "relationship": "默契的决斗者搭档与损友"
+      }
+    ]
+  },
+  {
+    "name": "斯凯",
+    "gender": "女",
+    "ip": "无畏契约",
+    "manufacturer": "拳头游戏",
+    "background": "来自澳洲的环保主义者，能召唤各种野兽图腾进行侦察和致盲，并具备治疗队友的能力。",
+    "Faction": "VALORANT协议",
+    "personality_traits": "亲近自然, 豪爽, 坚强",
+    "role_position": "先锋",
+    "important_relationships": [
+      {
+        "object": "贤者",
+        "relationship": "同为队伍提供恢复能力的同僚"
+      }
+    ]
+  },
+  {
+    "name": "星坠",
+    "gender": "女",
+    "ip": "无畏契约",
+    "manufacturer": "拳头游戏",
+    "background": "“星礈”，来自加纳，掌控宇宙力量的辐射人。能进入星体形态在地图任意角落布置技能。",
+    "Faction": "VALORANT协议",
+    "personality_traits": "充满活力, 高瞻远瞩",
+    "role_position": "控场",
+    "important_relationships": [
+      {
+        "object": "海神",
+        "relationship": "共同寻找神器的好友"
+      }
+    ]
+  },
+  {
+    "name": "海神",
+    "gender": "男",
+    "ip": "无畏契约",
+    "manufacturer": "拳头游戏",
+    "background": "来自印度的特工，利用古代遗物控制水流的力量。能召唤巨浪和水穹顶来保护盟友并阻挡子弹。",
+    "Faction": "VALORANT协议",
+    "personality_traits": "从容, 具有正义感, 沉稳",
+    "role_position": "控场",
+    "important_relationships": [
+      {
+        "object": "星坠(星礈)",
+        "relationship": "探寻遗迹的可靠盟友"
+      }
+    ]
+  },
+  {
+    "name": "火男",
+    "gender": "男",
+    "ip": "无畏契约",
+    "manufacturer": "拳头游戏",
+    "background": "“不死鸟”，来自英国的辐射人。掌控着火焰的力量，不仅能用火烧尽敌人，还能在灰烬中重生。",
+    "Faction": "VALORANT协议",
+    "personality_traits": "极度自信, 喜欢出风头, 幽默",
+    "role_position": "决斗",
+    "important_relationships": [
+      {
+        "object": "捷风",
+        "relationship": "经常互相吹嘘的竞争对手"
+      }
+    ]
+  },
+  {
+    "name": "炼狱",
+    "gender": "男",
+    "ip": "无畏契约",
+    "manufacturer": "拳头游戏",
+    "background": "来自美国的战术指挥官，VALORANT协议的创始人之一。利用轨道武器提供精确的火力覆盖与烟幕支援。",
+    "Faction": "VALORANT协议",
+    "personality_traits": "稳重, 富有领袖魅力, 护短",
+    "role_position": "控场",
+    "important_relationships": [
+      {
+        "object": "蝰蛇",
+        "relationship": "共同建立VALORANT的联合创始人"
+      }
+    ]
+  },
+  {
+    "name": "猎枭",
+    "gender": "男",
+    "ip": "无畏契约",
+    "manufacturer": "拳头游戏",
+    "background": "来自俄罗斯的顶尖猎手，使用特制弓箭和无人机进行索敌。只要敌人在地图上，就绝对逃不出他的追捕。",
+    "Faction": "VALORANT协议",
+    "personality_traits": "冷静, 精准, 忠诚",
+    "role_position": "先锋",
+    "important_relationships": [
+      {
+        "object": "保安(零)",
+        "relationship": "互相欣赏的情报专家"
+      }
+    ]
+  },
+  {
+    "name": "盖克",
+    "gender": "男",
+    "ip": "无畏契约",
+    "manufacturer": "拳头游戏",
+    "background": "来自洛杉矶的特工，身边带着四只神奇的辐射生物小队，能让它们帮忙致盲、侦察甚至安放爆能器。",
+    "Faction": "VALORANT协议",
+    "personality_traits": "随和, 充满街头气息, 关爱伙伴",
+    "role_position": "先锋",
+    "important_relationships": [
+      {
+        "object": "芮娜(肉娜)",
+        "relationship": "被其视作导师般的长辈"
+      }
+    ]
+  },
+  {
+    "name": "禁灭",
+    "gender": "女",
+    "ip": "无畏契约",
+    "manufacturer": "拳头游戏",
+    "background": "“尚勃勒/死锁”，来自挪威。在一次任务中失去手臂并被植入纳米线技术，能布下天罗地网封锁战场。",
+    "Faction": "VALORANT协议",
+    "personality_traits": "严阵以待, 仇视辐射生物, 坚韧",
+    "role_position": "守卫",
+    "important_relationships": [
+      {
+        "object": "猎枭",
+        "relationship": "救她一命的恩人兼队友"
+      }
+    ]
+  },
+  {
+    "name": "维斯",
+    "gender": "女",
+    "ip": "无畏契约",
+    "manufacturer": "拳头游戏",
+    "background": "精通液态金属操控的辐射人特工。能将金属化为陷阱、致盲墙和缴械装置，掌控战局。",
+    "Faction": "VALORANT协议",
+    "personality_traits": "精于算计, 冷静, 狡黠",
+    "role_position": "守卫",
+    "important_relationships": [
+      {
+        "object": "蝰蛇",
+        "relationship": "在暗中有着复杂的利益纠葛"
+      }
+    ]
+  },
+  {
+    "name": "肉娜",
+    "gender": "女",
+    "ip": "无畏契约",
+    "manufacturer": "拳头游戏",
+    "background": "“芮娜”，来自墨西哥的辐射人。能在击杀敌人后吞噬其灵魂，以此恢复生命或短时间内变得无法被击中。",
+    "Faction": "VALORANT协议",
+    "personality_traits": "嗜血, 傲慢, 极具攻击性",
+    "role_position": "决斗",
+    "important_relationships": [
+      {
+        "object": "蝰蛇",
+        "relationship": "理念不合但相互忌惮的同僚"
+      }
+    ]
+  },
+  {
+    "name": "蝰蛇",
+    "gender": "女",
+    "ip": "无畏契约",
+    "manufacturer": "拳头游戏",
+    "background": "来自美国的化学家，VALORANT的二把手。擅长使用毒气和化学物质切割战场，令敌人窒息倒地。",
+    "Faction": "VALORANT协议",
+    "personality_traits": "无情, 严厉, 隐藏着内心的创伤",
+    "role_position": "控场",
+    "important_relationships": [
+      {
+        "object": "炼狱",
+        "relationship": "共同领导组织的搭档"
+      }
+    ]
+  },
+  {
+    "name": "贤者",
+    "gender": "女",
+    "ip": "无畏契约",
+    "manufacturer": "拳头游戏",
+    "background": "来自中国的辐射人，队伍中的核心医疗保障。能用玉石阻挡敌军攻势、治疗队友，甚至复活倒下的战士。",
+    "Faction": "VALORANT协议",
+    "personality_traits": "慈悲, 坚定, 顾全大局",
+    "role_position": "守卫",
+    "important_relationships": [
+      {
+        "object": "幽影",
+        "relationship": "试图用治愈能力帮助其寻找平衡"
+      }
+    ]
+  },
+  {
+    "name": "钛狐",
+    "gender": "未知",
+    "ip": "无畏契约",
+    "manufacturer": "拳头游戏",
+    "background": "游戏非标准译名或未公开详细设定的特工/背景角色。",
+    "Faction": "未知",
+    "personality_traits": "未知",
+    "role_position": "未知",
+    "important_relationships": []
+  },
+  {
+    "name": "钱包",
+    "gender": "男",
+    "ip": "无畏契约",
+    "manufacturer": "拳头游戏",
+    "background": "“尚勃勒”(玩家戏称钱包)，来自法国的武器设计师。衣着光鲜，能召唤专属的高精度定制武器掌控防线。",
+    "Faction": "VALORANT协议",
+    "personality_traits": "优雅, 自私, 精致利己",
+    "role_position": "守卫",
+    "important_relationships": [
+      {
+        "object": "蝰蛇",
+        "relationship": "互相利用且暗中防备的合作者"
+      }
+    ]
+  },
+  {
+    "name": "铁臂",
+    "gender": "男",
+    "ip": "无畏契约",
+    "manufacturer": "拳头游戏",
+    "background": "来自瑞典的仿生罪犯，双臂装配了强力的火炮。他的攻击能够穿透墙壁，引发地震并眩晕敌人。",
+    "Faction": "VALORANT协议",
+    "personality_traits": "暴躁, 粗犷, 喜欢爆破",
+    "role_position": "先锋",
+    "important_relationships": [
+      {
+        "object": "雷兹",
+        "relationship": "同样热爱爆炸破坏的好友"
+      }
+    ]
+  },
+  {
+    "name": "雷兹",
+    "gender": "女",
+    "ip": "无畏契约",
+    "manufacturer": "拳头游戏",
+    "background": "来自巴西的炸弹狂人。她喜欢用各种爆破武器开路，火力猛烈且机动性强。",
+    "Faction": "VALORANT协议",
+    "personality_traits": "热情, 疯癫, 破坏狂",
+    "role_position": "决斗",
+    "important_relationships": [
+      {
+        "object": "奇乐",
+        "relationship": "亲密的伴侣兼技术搭档"
+      }
+    ]
+  },
+  {
+    "name": "霓虹",
+    "gender": "女",
+    "ip": "无畏契约",
+    "manufacturer": "拳头游戏",
+    "background": "来自菲律宾的特工，体内蕴藏着极不稳定的生物电流。能以惊人的速度在战场穿梭并释放闪电击溃对手。",
+    "Faction": "VALORANT协议",
+    "personality_traits": "急躁, 充满干劲, 略带叛逆",
+    "role_position": "决斗",
+    "important_relationships": [
+      {
+        "object": "贤者",
+        "relationship": "深受其关照的晚辈"
+      }
+    ]
+  },
+  {
+    "name": "黑梦",
+    "gender": "女",
+    "ip": "无畏契约",
+    "manufacturer": "拳头游戏",
+    "background": "来自土耳其的赏金猎人，能唤醒人们内心深处的恐惧。利用梦魇之力搜寻、标记并致盲敌人。",
+    "Faction": "VALORANT协议",
+    "personality_traits": "阴沉, 敏锐, 令人畏惧",
+    "role_position": "先锋",
+    "important_relationships": [
+      {
+        "object": "保安(零)",
+        "relationship": "曾在情报战中交锋过的对手"
+      }
+    ]
   }
 ]
-

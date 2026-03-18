@@ -6,6 +6,22 @@ const API = {
         return await response.json();
     },
 
+    // 获取角色库
+    async getCharacters() {
+        const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.CHARACTERS}`);
+        return await response.json();
+    },
+
+    // 永久添加角色到角色库
+    async addCharacter(charData) {
+        const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.CHARACTERS}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(charData)
+        });
+        return await response.json();
+    },
+
     // 生成剧本（流式）
     async generateScript(data, onStream) {
         const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.GENERATE}`, {

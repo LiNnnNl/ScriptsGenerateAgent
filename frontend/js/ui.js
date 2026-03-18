@@ -76,17 +76,44 @@ const UI = {
         let html = '';
 
         if (scene.camera_groups && scene.camera_groups.length > 0) {
-            html += '<div class="camera-groups-info"><strong>镜头分组（同组点位可同框拍摄）：</strong><ul>';
+            // Build a map from group id to group info
+            const groupMap = {};
             for (const group of scene.camera_groups) {
-                html += `<li><strong>${group.id}组 - ${group.name}</strong>: ${group.position_ids.join(', ')}</li>`;
+                groupMap[group.id] = group;
             }
-            html += '</ul></div>';
-        }
+            // Build a map from position id to position object
+            const posMap = {};
+            for (const pos of scene.positions) {
+                posMap[pos.id] = pos;
+            }
+            // Track which positions have been rendered
+            const rendered = new Set();
 
-        html += scene.positions.map(pos => {
-            const groupTag = pos.camera_group ? ` <span class="group-tag">[组${pos.camera_group}]</span>` : '';
-            return `<p><strong>${pos.id}</strong>${groupTag}: ${pos.description}</p>`;
-        }).join('');
+            for (const group of scene.camera_groups) {
+                html += `<div class="position-group">`;
+                html += `<div class="position-group-title">${group.id}组 · ${group.name}</div>`;
+                for (const posId of group.position_ids) {
+                    const pos = posMap[posId];
+                    if (pos) {
+                        html += `<p><strong>${pos.id}</strong>: ${pos.description}</p>`;
+                        rendered.add(posId);
+                    }
+                }
+                html += `</div>`;
+            }
+
+            // Render ungrouped positions
+            const ungrouped = scene.positions.filter(pos => !rendered.has(pos.id));
+            if (ungrouped.length > 0) {
+                html += `<div class="position-group">`;
+                html += `<div class="position-group-title">独立点位</div>`;
+                html += ungrouped.map(pos => `<p><strong>${pos.id}</strong>: ${pos.description}</p>`).join('');
+                html += `</div>`;
+            }
+        } else {
+            // No groups, list all positions directly
+            html += scene.positions.map(pos => `<p><strong>${pos.id}</strong>: ${pos.description}</p>`).join('');
+        }
 
         positions.innerHTML = html;
 
@@ -100,28 +127,187 @@ const UI = {
         this.renderCastForm(count);
     },
 
-    // 渲染自定义角色输入表单
+    // 构建角色的描述字符串（用于发送给AI）
+    _buildCharDesc(char) {
+        const parts = [];
+        if (char.personality_traits && char.personality_traits !== '未知') parts.push(char.personality_traits);
+        if (char.background && char.background !== '未知' && !char.background.startsWith('用户自定义')) parts.push(char.background);
+        if (char.Faction && char.Faction !== '未知') parts.push(`阵营：${char.Faction}`);
+        if (char.ip && char.ip !== '自定义') parts.push(`IP《${char.ip}》`);
+        return parts.join(' · ');
+    },
+
+    // 构建角色库选择器的 options HTML（按IP分组）
+    _buildCharSelectOptions(selectedName) {
+        const grouped = {};
+        for (const char of APP_STATE.characters) {
+            const ip = char.ip || '其他';
+            if (!grouped[ip]) grouped[ip] = [];
+            grouped[ip].push(char);
+        }
+        let html = '<option value="">请选择角色…</option>';
+        for (const [ip, chars] of Object.entries(grouped)) {
+            html += `<optgroup label="${ip}">`;
+            for (const char of chars) {
+                const gender = char.gender && char.gender !== '未知' ? ` · ${char.gender}` : '';
+                const sel = char.name === selectedName ? ' selected' : '';
+                html += `<option value="${char.name}"${sel}>${char.name}${gender}</option>`;
+            }
+            html += '</optgroup>';
+        }
+        return html;
+    },
+
+    // 构建单个角色槽的 HTML
+    _buildCastSlotHTML(i) {
+        const slot = APP_STATE.castSlots[i];
+        const isLibrary = slot.mode === 'library';
+        const libraryDisplay = isLibrary ? '' : ' style="display:none"';
+        const customDisplay = isLibrary ? ' style="display:none"' : '';
+        const libraryActive = isLibrary ? ' active' : '';
+        const customActive = isLibrary ? '' : ' active';
+
+        const selectOptions = this._buildCharSelectOptions(slot.selectedName);
+
+        // 预览卡片
+        const previewChar = APP_STATE.characters.find(c => c.name === slot.selectedName);
+        const previewDisplay = previewChar ? '' : ' style="display:none"';
+        const previewHTML = previewChar ? `
+            <div class="char-preview-name">${previewChar.name}</div>
+            <div class="char-preview-ip">${previewChar.ip}${previewChar.Faction && previewChar.Faction !== '未知' ? ' · ' + previewChar.Faction : ''}</div>
+            <div class="char-preview-traits">${previewChar.personality_traits !== '未知' ? previewChar.personality_traits : ''}</div>
+            <div class="char-preview-bg">${previewChar.background !== '未知' ? previewChar.background : ''}</div>
+        ` : '';
+
+        return `
+        <div class="cast-slot" data-index="${i}">
+            <div class="cast-slot-header">
+                <span class="cast-index">角色 ${i + 1}</span>
+                <div class="cast-mode-toggle">
+                    <button class="mode-btn${libraryActive}" data-mode="library" data-index="${i}">从角色库选</button>
+                    <button class="mode-btn${customActive}" data-mode="custom" data-index="${i}">自定义输入</button>
+                </div>
+            </div>
+            <div class="cast-library-panel"${libraryDisplay}>
+                <select class="cast-select" data-index="${i}">
+                    ${selectOptions}
+                </select>
+                <div class="cast-char-preview"${previewDisplay}>
+                    ${previewHTML}
+                </div>
+            </div>
+            <div class="cast-custom-panel"${customDisplay}>
+                <div class="cast-custom-inputs">
+                    <input type="text" class="cast-name" data-index="${i}" placeholder="角色名称" value="${slot.customName}">
+                    <input type="text" class="cast-desc" data-index="${i}" placeholder="性格/描述（可选）" value="${slot.customDesc}">
+                </div>
+                <button class="add-to-library-btn" data-index="${i}">＋ 保存到角色库</button>
+            </div>
+        </div>`;
+    },
+
+    // 渲染角色表单
     renderCastForm(count) {
         const container = document.getElementById('castForm');
-        container.innerHTML = '';
-        APP_STATE.customCharacters = Array.from({length: count}, () => ({name: '', description: ''}));
-        for (let i = 0; i < count; i++) {
-            const row = document.createElement('div');
-            row.className = 'cast-row';
-            row.innerHTML = `
-                <span class="cast-index">角色 ${i + 1}</span>
-                <input type="text" class="cast-name" data-index="${i}" placeholder="角色名称">
-                <input type="text" class="cast-desc" data-index="${i}" placeholder="性格/描述（可选）">
-            `;
-            container.appendChild(row);
+
+        // 初始化或调整 castSlots 长度
+        if (!APP_STATE.castSlots || APP_STATE.castSlots.length !== count) {
+            const prev = APP_STATE.castSlots || [];
+            APP_STATE.castSlots = Array.from({length: count}, (_, i) =>
+                prev[i] || {mode: 'library', selectedName: '', customName: '', customDesc: ''}
+            );
         }
-        container.querySelectorAll('.cast-name, .cast-desc').forEach(input => {
-            input.addEventListener('input', () => {
-                const idx = parseInt(input.dataset.index);
-                const isName = input.classList.contains('cast-name');
-                APP_STATE.customCharacters[idx][isName ? 'name' : 'description'] = input.value.trim();
+
+        // 重建 customCharacters 同步
+        APP_STATE.customCharacters = Array.from({length: count}, (_, i) => {
+            const slot = APP_STATE.castSlots[i];
+            if (slot.mode === 'library' && slot.selectedName) {
+                const char = APP_STATE.characters.find(c => c.name === slot.selectedName);
+                if (char) return {name: char.name, description: this._buildCharDesc(char)};
+            } else if (slot.mode === 'custom' && slot.customName) {
+                return {name: slot.customName, description: slot.customDesc};
+            }
+            return {name: '', description: ''};
+        });
+
+        container.innerHTML = Array.from({length: count}, (_, i) => this._buildCastSlotHTML(i)).join('');
+        this._attachCastListeners(container);
+    },
+
+    // 挂载角色表单事件
+    _attachCastListeners(container) {
+        // 模式切换
+        container.querySelectorAll('.mode-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const i = parseInt(btn.dataset.index);
+                const mode = btn.dataset.mode;
+                APP_STATE.castSlots[i].mode = mode;
+
+                const slot = container.querySelector(`.cast-slot[data-index="${i}"]`);
+                slot.querySelector('.cast-library-panel').style.display = mode === 'library' ? '' : 'none';
+                slot.querySelector('.cast-custom-panel').style.display = mode === 'custom' ? '' : 'none';
+                slot.querySelectorAll('.mode-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+
+                // 切换后同步 customCharacters
+                this._syncSlot(i, container);
             });
         });
+
+        // 库选择变化
+        container.querySelectorAll('.cast-select').forEach(select => {
+            select.addEventListener('change', () => {
+                const i = parseInt(select.dataset.index);
+                const name = select.value;
+                APP_STATE.castSlots[i].selectedName = name;
+
+                const slot = container.querySelector(`.cast-slot[data-index="${i}"]`);
+                const preview = slot.querySelector('.cast-char-preview');
+                const char = APP_STATE.characters.find(c => c.name === name);
+                if (char) {
+                    preview.innerHTML = `
+                        <div class="char-preview-name">${char.name}</div>
+                        <div class="char-preview-ip">${char.ip}${char.Faction && char.Faction !== '未知' ? ' · ' + char.Faction : ''}</div>
+                        <div class="char-preview-traits">${char.personality_traits !== '未知' ? char.personality_traits : ''}</div>
+                        <div class="char-preview-bg">${char.background !== '未知' ? char.background : ''}</div>
+                    `;
+                    preview.style.display = '';
+                } else {
+                    preview.style.display = 'none';
+                }
+                this._syncSlot(i, container);
+            });
+        });
+
+        // 自定义输入
+        container.querySelectorAll('.cast-name').forEach(input => {
+            input.addEventListener('input', () => {
+                const i = parseInt(input.dataset.index);
+                APP_STATE.castSlots[i].customName = input.value;
+                this._syncSlot(i, container);
+            });
+        });
+        container.querySelectorAll('.cast-desc').forEach(input => {
+            input.addEventListener('input', () => {
+                const i = parseInt(input.dataset.index);
+                APP_STATE.castSlots[i].customDesc = input.value;
+                this._syncSlot(i, container);
+            });
+        });
+    },
+
+    // 同步单个槽到 customCharacters
+    _syncSlot(i, container) {
+        const slot = APP_STATE.castSlots[i];
+        if (slot.mode === 'library' && slot.selectedName) {
+            const char = APP_STATE.characters.find(c => c.name === slot.selectedName);
+            APP_STATE.customCharacters[i] = char
+                ? {name: char.name, description: this._buildCharDesc(char)}
+                : {name: '', description: ''};
+        } else if (slot.mode === 'custom') {
+            APP_STATE.customCharacters[i] = {name: slot.customName, description: slot.customDesc};
+        } else {
+            APP_STATE.customCharacters[i] = {name: '', description: ''};
+        }
     },
 
     // 启用/禁用步骤
