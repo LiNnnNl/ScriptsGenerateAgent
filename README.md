@@ -67,26 +67,72 @@ BASE_URL=https://ark.cn-beijing.volces.com/api/coding/v3
 MODEL=ark-code-latest
 ```
 
-### 3. 启动后端
+### 3. 启动服务
+
+需要同时启动后端、前端和 Nginx 反向代理。
+
+**① 启动后端（Flask，端口 5000）**
 
 ```bash
 cd backend
 python app.py
 ```
 
-后端运行在 `http://0.0.0.0:5000`（本机及局域网均可访问）
-
-### 4. 启动前端
+**② 启动前端静态服务（端口 8080）**
 
 ```bash
 cd frontend
 python -m http.server 8080
 ```
 
-- 本机访问：`http://localhost:8080`
-- 局域网访问：`http://<本机IP>:8080`（前端会自动连接同一 IP 的后端）
+**③ 启动 Nginx 反向代理（聚合到端口 8888）**
 
-> **获取本机 IP**：Windows 运行 `ipconfig`，找 WLAN 或以太网适配器的 IPv4 地址。
+Nginx 配置文件（`conf/nginx.conf`）中的 `server` 块：
+
+```nginx
+server {
+    listen 8888;
+
+    location / {
+        proxy_pass http://localhost:8080;
+        proxy_set_header Host $host;
+    }
+
+    location /api/ {
+        proxy_pass http://localhost:5000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_read_timeout 300s;
+        chunked_transfer_encoding on;
+    }
+}
+```
+
+```bash
+# Windows 启动
+cd C:\nginx
+nginx.exe
+
+# 重载配置
+nginx.exe -s reload
+
+# 停止
+nginx.exe -s stop
+```
+
+访问 `http://localhost:8888` 即可使用。
+
+### 4. 内网穿透（可选）
+
+使用 [ngrok](https://ngrok.com) 将服务暴露到公网，只需穿透 Nginx 的 8888 端口：
+
+```bash
+ngrok http 8888
+```
+
+运行后获得公网地址，发给对方直接访问即可。
 
 ## 🎨 使用流程
 
@@ -255,12 +301,11 @@ python -m http.server 8080
 
 **跨域问题**：确保后端已安装并启用 `flask-cors`
 
-**API 连接失败**：前端会自动使用访问前端时的 IP 连接后端，无需手动配置。若仍失败，检查防火墙是否开放 5000 端口
+**API 连接失败**：前端通过 Nginx 代理访问后端，无需手动配置地址。若失败，确认 Nginx 和 Flask 均已启动。
 
-**局域网其他设备无法访问**：以管理员身份运行以下命令开放防火墙端口：
+**局域网其他设备无法访问**：以管理员身份开放 Nginx 端口的防火墙：
 ```powershell
-netsh advfirewall firewall add rule name="ScriptAgent Backend" dir=in action=allow protocol=TCP localport=5000
-netsh advfirewall firewall add rule name="ScriptAgent Frontend" dir=in action=allow protocol=TCP localport=8080
+netsh advfirewall firewall add rule name="ScriptAgent Nginx" dir=in action=allow protocol=TCP localport=8888
 ```
 
 **生成失败**：检查 `backend/.env` 中的 API Key 是否正确配置

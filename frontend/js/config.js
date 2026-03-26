@@ -1,6 +1,6 @@
 // API配置
 const API_CONFIG = {
-    BASE_URL: `http://${window.location.hostname}:5000`,  // 自动适配局域网IP
+    BASE_URL: window.location.port ? `${window.location.protocol}//${window.location.hostname}:${window.location.port}` : `${window.location.protocol}//${window.location.hostname}`,
     ENDPOINTS: {
         SCENES: '/api/scenes',
         CHARACTERS: '/api/characters',

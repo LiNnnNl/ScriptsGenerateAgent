@@ -39,6 +39,10 @@ test_output.json
 outputs/
 *.log
 
+# Logs
+logs/*
+!logs/.gitkeep
+
 # OS
 .DS_Store
 Thumbs.db
