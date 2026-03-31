@@ -26,16 +26,20 @@ from .autogen_agents import (
     create_critic_agent,
     create_dialogue_agent,
     create_validation_agent,
+    create_position_agent,
 )
 from .autogen_tools import validate_script_constraints, validate_json_spec
+from .position_agent_wrapper import run_position_agent
 from .resource_loader import ResourceLoader, Character, Scene
 from .json_generator import ScriptJSONGenerator
 
 
 # 最大审查轮次（超限后强制进入验证阶段）
-MAX_REVIEW_ROUNDS = 2
+MAX_REVIEW_ROUNDS = 3
 # 技术验证失败后最大修复次数
-MAX_FIX_ROUNDS = 1
+MAX_FIX_ROUNDS = 3
+# PositionAgent 映射失败后最大重试次数
+MAX_POSITION_FIX_ROUNDS = 3
 
 
 def _extract_json_from_text(text: str) -> Optional[list]:
@@ -159,8 +163,9 @@ async def run_autogen_pipeline(
     critic = create_critic_agent()
     dialogue = create_dialogue_agent()
     validator = create_validation_agent(resource_loader, scene) if model_supports_tools else None
+    position_agent = create_position_agent(scene)
 
-    bridge.put_event({'type': 'log', 'level': 'success', 'message': '✅ Agents 初始化完成（导演、批评家、对白专家、技术验证）'})
+    bridge.put_event({'type': 'log', 'level': 'success', 'message': '✅ Agents 初始化完成（导演、批评家、对白专家、技术验证、位置映射）'})
 
     # ════════════════════════════════════════════════
     # 阶段①：DirectorAgent 生成初稿
@@ -382,7 +387,129 @@ async def run_autogen_pipeline(
             break
 
     # ════════════════════════════════════════════════
-    # 阶段④：OutputAgent（纯 Python，生成最终 JSON 文件）
+    # 阶段④：PositionAgent 位置映射（抽象 Position N → 真实点位 ID）
+    # ════════════════════════════════════════════════
+    bridge.put_event({'type': 'log', 'level': 'info', 'message': '📍 [PositionAgent] 开始位置映射...'})
+
+    for pos_round in range(MAX_POSITION_FIX_ROUNDS):
+        mapping_prompt = (
+            f"请将以下剧本中的抽象位置（Position 1/2/3...）映射到真实点位：\n\n"
+            f"```json\n{json.dumps(draft_script, ensure_ascii=False, indent=2)}\n```"
+        )
+        mapped_script = None
+        unresolved = []
+        pos_raw_content = None
+
+        async for event in position_agent.on_messages_stream(
+            [TextMessage(content=mapping_prompt, source="user")],
+            cancellation_token=CancellationToken()
+        ):
+            if hasattr(event, 'chat_message') and event.chat_message:
+                pos_raw_content = event.chat_message.content
+                unresolved = re.findall(r'POSITION_UNRESOLVED:\s*(.+)', pos_raw_content)
+                mapped_script = _extract_json_from_text(pos_raw_content)
+
+        if mapped_script and not unresolved:
+            draft_script = mapped_script
+            bridge.put_event({'type': 'log', 'level': 'success', 'message': '✅ [PositionAgent] 位置映射完成'})
+            break
+
+        if unresolved:
+            logger.warning("[PositionAgent] 无法解析的位置（轮次%d）: %s", pos_round + 1, unresolved)
+            for u in unresolved:
+                bridge.put_event({'type': 'log', 'level': 'warning', 'message': f'⚠️  [PositionAgent] 无法映射: {u}'})
+
+            if mapped_script:
+                # 部分映射成功，仍更新 draft
+                draft_script = mapped_script
+
+            if pos_round < MAX_POSITION_FIX_ROUNDS - 1:
+                # 请 DirectorAgent 修改无法映射的位置戏剧意图
+                fix_prompt = (
+                    "以下站位在场景中找不到合理匹配，请修改剧本，"
+                    "调整这些位置的 position_descriptions（换用场景实际存在的空间特征描述）：\n\n"
+                    + "\n".join(f"- {u}" for u in unresolved)
+                    + f"\n\n当前剧本：\n```json\n{json.dumps(draft_script, ensure_ascii=False, indent=2)}\n```"
+                    + "\n\n直接输出修改后的完整 JSON，不要有其他说明文字。"
+                )
+                bridge.put_event({
+                    'type': 'log', 'level': 'info',
+                    'message': f'✏️  [DirectorAgent] 根据位置反馈修改剧本（轮次{pos_round + 1}）...'
+                })
+                async for event in director.on_messages_stream(
+                    [TextMessage(content=fix_prompt, source="user")],
+                    cancellation_token=CancellationToken()
+                ):
+                    if hasattr(event, 'chat_message') and event.chat_message:
+                        revised = _extract_json_from_text(event.chat_message.content)
+                        if revised:
+                            draft_script = revised
+            else:
+                bridge.put_event({
+                    'type': 'log', 'level': 'warning',
+                    'message': '⚠️  [PositionAgent] 已达映射上限，使用当前最优结果继续'
+                })
+                break
+        else:
+            # mapped_script 为 None，解析失败
+            logger.warning("[PositionAgent] JSON 解析失败（轮次%d），原始输出: %s",
+                           pos_round + 1, pos_raw_content[:300] if pos_raw_content else "None")
+            if pos_round >= MAX_POSITION_FIX_ROUNDS - 1:
+                bridge.put_event({
+                    'type': 'log', 'level': 'warning',
+                    'message': '⚠️  [PositionAgent] 解析失败，跳过位置映射，使用抽象位置继续'
+                })
+            # 不更新 draft_script，继续重试
+
+    # ════════════════════════════════════════════════
+    # 阶段④b：position_agent_standalone 坐标生成（可选，需 scene_export + template 文件）
+    # ════════════════════════════════════════════════
+    position_filename = None
+    import asyncio as _asyncio
+    timestamp = int(time.time())
+    output_dir = Path('outputs')
+    output_dir.mkdir(exist_ok=True)
+    temp_script_path = None
+    try:
+        temp_script_path = output_dir / f"_temp_script_{timestamp}.json"
+        with open(temp_script_path, 'w', encoding='utf-8') as _f:
+            json.dump(draft_script, _f, ensure_ascii=False, indent=2)
+
+        position_output_filename = f"position_{timestamp}.json"
+        pos_result = await _asyncio.get_event_loop().run_in_executor(
+            None,
+            run_position_agent,
+            str(temp_script_path),
+            scene.id,
+            str(output_dir),
+            position_output_filename,
+        )
+
+        if pos_result.get("ok"):
+            position_filename = position_output_filename
+            bridge.put_event({
+                'type': 'log', 'level': 'success',
+                'message': f'✅ [PositionAgent] 坐标文件生成完成：{position_output_filename}'
+            })
+        elif pos_result.get("skip"):
+            bridge.put_event({
+                'type': 'log', 'level': 'info',
+                'message': f'⏭️  [PositionAgent] 跳过坐标生成（{pos_result.get("error", "缺少资源文件")}）'
+            })
+        else:
+            bridge.put_event({
+                'type': 'log', 'level': 'warning',
+                'message': f'⚠️  [PositionAgent] 坐标生成失败：{pos_result.get("error", "未知错误")}'
+            })
+    except Exception as _e:
+        logger.exception("[PositionAgent] 坐标生成异常")
+        bridge.put_event({'type': 'log', 'level': 'warning', 'message': f'⚠️  [PositionAgent] 坐标生成异常：{_e}'})
+    finally:
+        if temp_script_path and temp_script_path.exists():
+            temp_script_path.unlink(missing_ok=True)
+
+    # ════════════════════════════════════════════════
+    # 阶段⑤：OutputAgent（纯 Python，生成最终 JSON 文件）
     # ════════════════════════════════════════════════
     bridge.put_event({'type': 'log', 'level': 'info', 'message': '💾 正在生成最终 JSON 并保存文件...'})
 
@@ -397,10 +524,6 @@ async def run_autogen_pipeline(
 
     final_json = generator.generate_final_json(draft_script, plot_summary)
 
-    output_dir = Path('outputs')
-    output_dir.mkdir(exist_ok=True)
-
-    timestamp = int(time.time())
     filename = f"script_{timestamp}.json"
     filepath = output_dir / filename
     generator.export_to_file(final_json, str(filepath))
@@ -460,10 +583,12 @@ async def run_autogen_pipeline(
         'message': f'✅ 已生成角色档案：{len(actors_profile)} 位演员'
     })
 
-    logger.info("Pipeline 完成 | 剧本=%s 角色档案=%s", filename, actors_profile_filename)
+    logger.info("Pipeline 完成 | 剧本=%s 角色档案=%s 坐标=%s",
+                filename, actors_profile_filename, position_filename or "（未生成）")
     bridge.put_event({
         'type': 'success',
         'filename': filename,
         'actors_profile_filename': actors_profile_filename,
+        'position_filename': position_filename,
         'warnings': validation_result.get('warnings', []) if validation_result else []
     })

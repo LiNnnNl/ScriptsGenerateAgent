@@ -137,8 +137,11 @@ function handleStreamData(data) {
         if (data.actors_profile_filename) {
             UI.addLog('success', `👥 演员档案: ${data.actors_profile_filename}`);
         }
+        if (data.position_filename) {
+            UI.addLog('success', `📍 坐标文件: ${data.position_filename}`);
+        }
 
-        UI.showSuccess(data.filename, data.actors_profile_filename);
+        UI.showSuccess(data.filename, data.actors_profile_filename, data.position_filename);
     } else if (data.type === 'error') {
         UI.addLog('error', '❌ ' + data.message);
         if (data.details) {
@@ -211,6 +214,13 @@ function setupEventListeners() {
     document.getElementById('downloadActorsBtn').addEventListener('click', () => {
         if (APP_STATE.currentActorsProfileFilename) {
             API.downloadFile(APP_STATE.currentActorsProfileFilename);
+        }
+    });
+
+    // 下载按钮 - 坐标文件
+    document.getElementById('downloadPositionBtn').addEventListener('click', () => {
+        if (APP_STATE.currentPositionFilename) {
+            API.downloadFile(APP_STATE.currentPositionFilename);
         }
     });
 

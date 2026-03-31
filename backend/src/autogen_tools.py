@@ -6,9 +6,15 @@ AutoGen FunctionTool 包装层
 """
 
 import json
+import re
 from typing import Any
 from .resource_loader import ResourceLoader, Scene
 from .json_generator import ScriptJSONGenerator
+
+
+def _is_abstract_position(pos_id: str) -> bool:
+    """检查是否是抽象位置占位符（如 'Position 1'），PositionAgent 处理后会替换为真实点位 ID"""
+    return bool(re.match(r'^Position\s+\d+$', pos_id or '', re.IGNORECASE))
 
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -52,10 +58,10 @@ def validate_script_constraints(
                     )
 
             if is_movement:
-                # ── 检查移动目标有效性 ──
+                # ── 检查移动目标有效性（抽象占位符跳过，由 PositionAgent 处理）──
                 for move in segment.get("move", []):
                     dest = move.get("destination")
-                    if dest and not scene.get_position(dest):
+                    if dest and not scene.get_position(dest) and not _is_abstract_position(dest):
                         errors.append(
                             f"场景{scene_idx} 片段{seg_idx}: "
                             f"移动目标 '{dest}' 不在场景可用点位中"
@@ -81,11 +87,17 @@ def validate_script_constraints(
                             )
 
                 # ── 【新增】camera_group 分组一致性检查 ──
-                # 同一对白片段中所有 actions 内角色的 current position 必须属于同一 camera_group
+                # 仅在所有位置都是真实点位时才检查（抽象位置由 PositionAgent 处理后才验证）
                 if scene.camera_groups:
-                    _check_camera_group_consistency(
-                        segment, scene_idx, seg_idx, scene, errors
-                    )
+                    all_positions = [
+                        p.get("position", "")
+                        for p in segment.get("current position", [])
+                    ]
+                    has_abstract = any(_is_abstract_position(p) for p in all_positions)
+                    if not has_abstract:
+                        _check_camera_group_consistency(
+                            segment, scene_idx, seg_idx, scene, errors
+                        )
 
     return {
         "valid": len(errors) == 0,

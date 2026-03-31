@@ -7,7 +7,9 @@
       "Bash(find . -type f \\\\\\(-name *.ts -o -name *.tsx -o -name *.js -o -name *.jsx -o -name *.json -o -name *.html -o -name *.css \\\\\\))",
       "Bash(find . -type f \\\\\\(-name *.py -o -name *.md \\\\\\))",
       "Bash(grep -E \"\\\\.\\(py|json\\)$\")",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "Bash(cp \"E:/xwechat_files/wxid_y6x3ucns06th22_07fb/msg/file/2026-03/SceneExport_SpaceStudio.json\" \"D:/Code/ScriptsGenerateAgent/backend/resources/scene_exports/SpaceStation.json\")",
+      "Bash(cp \"E:/xwechat_files/wxid_y6x3ucns06th22_07fb/msg/file/2026-03/position.e2e.test.json\" \"D:/Code/ScriptsGenerateAgent/backend/resources/position_templates/SpaceStation.json\")"
     ]
   }
 }

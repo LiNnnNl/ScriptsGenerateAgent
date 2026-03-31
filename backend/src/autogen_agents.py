@@ -17,7 +17,7 @@ def make_model_client(model: Optional[str] = None) -> OpenAIChatCompletionClient
     """创建 OpenAI 兼容的模型客户端（支持 DeepSeek / 火山引擎 ARK）"""
     api_key = os.getenv("API_KEY")
     base_url = os.getenv("BASE_URL", "https://api.deepseek.com")
-    model_name = model or os.getenv("MODEL", "deepseek-v3-241226")
+    model_name = model or os.getenv("MODEL", "doubao-seed-2-0-lite-260215")
 
     if not api_key:
         raise ValueError("需要提供 API_KEY，请在 .env 文件中设置")
@@ -78,19 +78,9 @@ def build_director_system_message(
     else:
         char_info += f"本场景共需要 **{total_count}** 位角色，全部由 AI 自由创作。\n\n"
 
-    # 2. 场景信息
+    # 2. 场景信息（不暴露具体点位，由 PositionAgent 处理映射）
     scene_info = f"## 场景信息\n\n### {scene.name} (ID: {scene.id})\n"
-    scene_info += f"- 描述: {scene.description}\n\n#### 可用点位:\n"
-    for pos in scene.valid_positions:
-        sittable = " [可坐]" if pos.get('is_sittable', False) else ""
-        group_tag = f" [组{pos['camera_group']}]" if pos.get('camera_group') else ""
-        scene_info += f"- **{pos['id']}**{sittable}{group_tag}: {pos['description']}\n"
-
-    if scene.camera_groups:
-        scene_info += "\n#### 镜头分组（同一镜头只能拍摄同组点位内的角色）:\n"
-        for group in scene.camera_groups:
-            pos_list = ", ".join(group['position_ids'])
-            scene_info += f"- **{group['id']}组 - {group['name']}**: {pos_list}\n"
+    scene_info += f"- 描述: {scene.description}\n\n"
 
     # 3. 动作库
     action_info = "## 可用动作库\n\n以下是所有可用的动作，请根据描述选择最合适的动作ID:\n\n"
@@ -127,10 +117,11 @@ def build_director_system_message(
         "**核心要求:**\n\n"
         + char_count_rule
         + "\n\n"
-        + "2. **走位决策**:\n"
-        + "   - 角色只能出现在\"可用点位\"列表中的位置\n"
-        + "   - 同一镜头中出现的所有角色，必须位于同一 camera_group 的点位内\n"
-        + "   - 如需同时展示不同组的角色，先用移动片段将角色集中到同组点位\n\n"
+        + "2. **走位设计（以演出效果为唯一标准）**:\n"
+        + "   - 根据演出需要决定角色站位，依次命名为 Position 1、Position 2...\n"
+        + "   - 在顶层 `position_descriptions` 字段中用自然语言描述每个位置的戏剧意图\n"
+        + "   - 例：\"Position 1\": \"近窗俯瞰，背靠星空，适合独白或凝望\"\n"
+        + "   - 位置映射将由专门的位置代理处理，你只需专注于演出效果\n\n"
         + "3. **动作决策**:\n"
         + "   - 只能使用\"可用动作库\"中的动作名称\n"
         + "   - 注意动作的 compatible_states，确保角色状态匹配\n\n"
@@ -144,6 +135,10 @@ def build_director_system_message(
         + "```json\n"
         + "[\n"
         + "  {\n"
+        + "    \"position_descriptions\": {\n"
+        + "      \"Position 1\": \"描述位置1的戏剧意图，如：近窗俯瞰，适合凝望或独白\",\n"
+        + "      \"Position 2\": \"描述位置2的戏剧意图，如：正中央，适合面对面对峙\"\n"
+        + "    },\n"
         + "    \"scene information\": {\n"
         + "      \"who\": [\"角色名1\", \"角色名2\"],\n"
         + "      \"where\": \"场景名称\",\n"
@@ -183,8 +178,8 @@ def build_director_system_message(
         + "- `shot` 为 \"character\" 时使用 `shot_anchors`，不使用 `camera`\n"
         + "- `shot` 为 \"scene\" 时使用 `camera`（整数），不使用 `shot_anchors`\n"
         + "- `current position` 须包含场景内所有在场角色\n"
-        + "- 对白片段中所有 actions 角色的 current position 必须属于同一 camera_group\n"
-        + "- 只使用可用点位列表中的 ID 和可用动作库中的动作名称\n"
+        + "- `position_descriptions` 必须包含剧本中所有使用到的 Position N 编号\n"
+        + "- 只使用可用动作库中的动作名称\n"
     )
 
     return char_info + scene_info + action_info + task_info
@@ -302,4 +297,52 @@ def create_validation_agent(
         model_client=make_model_client(model),
         system_message=build_validation_system_message(),
         tools=tools,
+    )
+
+
+def build_position_agent_system_message(scene: Scene) -> str:
+    """构建 PositionAgent 的 system_message，包含场景真实点位信息"""
+    positions_info = ""
+    for pos in scene.valid_positions:
+        sittable = " [可坐]" if pos.get('is_sittable', False) else ""
+        group_tag = f" [镜头组{pos['camera_group']}]" if pos.get('camera_group') else ""
+        positions_info += f"- **{pos['id']}**{sittable}{group_tag}: {pos['description']}\n"
+
+    camera_groups_info = ""
+    if scene.camera_groups:
+        camera_groups_info = "\n#### 镜头分组（同一对白片段内所有角色必须属于同一镜头组）:\n"
+        for group in scene.camera_groups:
+            pos_list = ", ".join(group['position_ids'])
+            camera_groups_info += f"- **{group['id']}组 - {group['name']}**: {pos_list}\n"
+
+    return (
+        "你是位置映射专家。你的任务是把剧本中的抽象站位（Position 1/2/3...）"
+        "映射到真实场景中已有的点位。\n\n"
+        f"## 当前场景：{scene.name} (ID: {scene.id})\n\n"
+        "### 可用真实点位:\n"
+        + positions_info
+        + camera_groups_info
+        + "\n\n## 你的工作步骤:\n\n"
+        "1. 读取剧本每个场景对象顶层的 `position_descriptions` 字段，了解每个抽象位置的戏剧意图\n"
+        "2. 对照上方可用真实点位，为每个抽象位置选择最匹配戏剧意图的真实点位 ID\n"
+        "3. **确保同一对白片段**中所有角色的映射点位属于同一镜头组\n"
+        "4. 将剧本中所有 `\"Position N\"` 替换为真实点位 ID（包括 `initial position`、`current position`、`move.destination`）\n"
+        "5. 删除每个场景对象中的 `position_descriptions` 字段\n"
+        "6. 输出修改后的完整剧本 JSON\n\n"
+        "## 无法映射时的处理:\n\n"
+        "如果某个抽象位置在现有点位中找不到合理匹配，"
+        "在输出 JSON **之前**用以下格式声明（每个无法映射的位置一行）：\n\n"
+        "```\n"
+        "POSITION_UNRESOLVED: Position X → 原因描述\n"
+        "```\n\n"
+        "然后再输出（尽力映射的）JSON。\n\n"
+        "**直接输出，无需额外解释。若有 POSITION_UNRESOLVED 声明，写在 JSON 之前。**"
+    )
+
+
+def create_position_agent(scene: Scene, model: Optional[str] = None) -> AssistantAgent:
+    return AssistantAgent(
+        name="PositionAgent",
+        model_client=make_model_client(model),
+        system_message=build_position_agent_system_message(scene),
     )

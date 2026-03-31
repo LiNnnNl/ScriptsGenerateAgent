@@ -1,0 +1,182 @@
+{
+  "where": "Space Station",
+  "center": [],
+  "positions": {
+    "Position 7": {
+      "fixed_angle": [],
+      "position": [],
+      "sit_angle": [],
+      "region": "太空舱1楼观察室",
+      "neartarget": "Crate_01",
+      "looktarget": ""
+    },
+    "Position 8": {
+      "fixed_angle": [],
+      "position": [],
+      "sit_angle": [],
+      "region": "太空舱1楼观察室",
+      "neartarget": "Crate_01",
+      "looktarget": ""
+    },
+    "Position 9": {
+      "fixed_angle": [],
+      "position": [],
+      "sit_angle": [],
+      "region": "太空舱1楼观察室",
+      "neartarget": "Wall_Simple_04_Long",
+      "looktarget": ""
+    },
+    "Position 10": {
+      "fixed_angle": [],
+      "position": [],
+      "sit_angle": [],
+      "region": "太空舱1楼观察室",
+      "neartarget": "Wall_Simple_04_Long",
+      "looktarget": ""
+    },
+    "Position 11": {
+      "fixed_angle": [],
+      "position": [],
+      "sit_angle": [],
+      "region": "太空舱1楼观察室",
+      "neartarget": "Column_01_Big",
+      "looktarget": ""
+    },
+    "Position 12": {
+      "fixed_angle": [],
+      "position": [],
+      "sit_angle": [],
+      "region": "太空舱1楼观察室",
+      "neartarget": "Column_01_Big",
+      "looktarget": ""
+    },
+    "Position 13": {
+      "fixed_angle": [],
+      "position": [],
+      "sit_angle": [],
+      "region": "太空舱1楼观察室",
+      "neartarget": "Column_01_Big",
+      "looktarget": ""
+    },
+    "Position 17": {
+      "fixed_angle": [],
+      "position": [],
+      "sit_angle": [],
+      "region": "太空舱1楼观察室",
+      "neartarget": "Fence_Short_01",
+      "looktarget": ""
+    },
+    "Position 18": {
+      "fixed_angle": [],
+      "position": [],
+      "sit_angle": [],
+      "region": "太空舱1楼观察室",
+      "neartarget": "Fence_Short_01",
+      "looktarget": ""
+    },
+    "Position 19": {
+      "fixed_angle": [],
+      "position": [],
+      "sit_angle": [],
+      "region": "太空舱1楼观察室",
+      "neartarget": "Fence_Short_01",
+      "looktarget": ""
+    },
+    "Position 20": {
+      "fixed_angle": [],
+      "position": [],
+      "sit_angle": [],
+      "region": "太空舱1楼观察室",
+      "neartarget": "Fence_Short_01",
+      "looktarget": ""
+    },
+    "Position 21": {
+      "fixed_angle": [],
+      "position": [],
+      "sit_angle": [],
+      "region": "太空舱1楼观察室",
+      "neartarget": "Fence_Short_01",
+      "looktarget": ""
+    },
+    "Position 26": {
+      "fixed_angle": [],
+      "position": [],
+      "sit_angle": [],
+      "region": "太空舱2楼观察室",
+      "neartarget": "Fence_Short_01",
+      "looktarget": "巡逻单元 A09"
+    },
+    "Position 27": {
+      "fixed_angle": [],
+      "position": [],
+      "sit_angle": [],
+      "region": "太空舱2楼观察室",
+      "neartarget": "Fence_Short_01",
+      "looktarget": "巡逻单元 A09"
+    },
+    "Position 28": {
+      "fixed_angle": [],
+      "position": [],
+      "sit_angle": [],
+      "region": "太空舱2楼观察室",
+      "neartarget": "Fence_Short_01",
+      "looktarget": "巡逻单元 A09"
+    },
+    "Position 29": {
+      "fixed_angle": [],
+      "position": [],
+      "sit_angle": [],
+      "region": "太空舱2楼观察室",
+      "neartarget": "Crate_01",
+      "looktarget": "巡逻单元 A09"
+    },
+    "Position 30": {
+      "fixed_angle": [],
+      "position": [],
+      "sit_angle": [],
+      "region": "太空舱2楼观察室",
+      "neartarget": "Crate_01",
+      "looktarget": "巡逻单元 A09"
+    },
+    "Position 31": {
+      "fixed_angle": [],
+      "position": [],
+      "sit_angle": [],
+      "region": "太空舱2楼观察室",
+      "neartarget": "Wall_Simple_04_Long",
+      "looktarget": "巡逻单元 A09"
+    },
+    "Position 32": {
+      "fixed_angle": [],
+      "position": [],
+      "sit_angle": [],
+      "region": "太空舱2楼观察室",
+      "neartarget": "Wall_Simple_04_Long",
+      "looktarget": "巡逻单元 A09"
+    },
+    "Position 33": {
+      "fixed_angle": [],
+      "position": [],
+      "sit_angle": [],
+      "region": "太空舱2楼观察室",
+      "neartarget": "Wall_Simple_04_Long",
+      "looktarget": "巡逻单元 A09"
+    },
+    "Position 34": {
+      "fixed_angle": [],
+      "position": [],
+      "sit_angle": [],
+      "region": "太空舱2楼观察室",
+      "neartarget": "Wall_Simple_04_Long",
+      "looktarget": "巡逻单元 A09"
+    },
+    "Position 35": {
+      "fixed_angle": [],
+      "position": [],
+      "sit_angle": [],
+      "region": "太空舱2楼观察室",
+      "neartarget": "Wall_Simple_04_Long",
+      "looktarget": "巡逻单元 A09"
+    }
+  }
+}

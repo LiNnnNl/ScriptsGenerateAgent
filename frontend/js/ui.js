@@ -51,7 +51,7 @@ const UI = {
     },
 
     // 显示成功结果
-    showSuccess(filename, actorsProfileFilename, warnings = []) {
+    showSuccess(filename, actorsProfileFilename, positionFilename, warnings = []) {
         const resultPanel = document.getElementById('resultPanel');
         const messageEl = document.getElementById('resultMessage');
 
@@ -60,10 +60,16 @@ const UI = {
 
         APP_STATE.currentFilename = filename;
         APP_STATE.currentActorsProfileFilename = actorsProfileFilename || null;
+        APP_STATE.currentPositionFilename = positionFilename || null;
 
         const actorsBtn = document.getElementById('downloadActorsBtn');
         if (actorsBtn) {
             actorsBtn.style.display = actorsProfileFilename ? '' : 'none';
+        }
+
+        const positionBtn = document.getElementById('downloadPositionBtn');
+        if (positionBtn) {
+            positionBtn.style.display = positionFilename ? '' : 'none';
         }
     },
 
