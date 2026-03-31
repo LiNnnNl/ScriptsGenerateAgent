@@ -296,7 +296,7 @@ class DirectorAI:
 
         # 从环境变量读取模型名，参数优先
         if model is None:
-            model = os.getenv("MODEL", "deepseek-v3-241226")
+            model = os.getenv("MODEL", "doubao-seed-2-0-lite-260215")
 
         # 调用 ARK API (兼容 OpenAI 格式)
         response = self.client.chat.completions.create(
@@ -366,7 +366,7 @@ class DirectorAI:
         )
 
         if model is None:
-            model = os.getenv("MODEL", "deepseek-v3-241226")
+            model = os.getenv("MODEL", "doubao-seed-2-0-lite-260215")
 
         full_content = ""
         thinking_active = False

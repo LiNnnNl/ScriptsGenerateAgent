@@ -1,14 +1,14 @@
 # ScriptAgent - AI 剧本生成系统
 
-基于 DeepSeek AI 的智能剧本生成工具，电影胶片风格界面，前后端分离架构。
+基于火山引擎 ARK Doubao 的智能剧本生成工具，电影胶片风格界面，多 Agent 协作架构。
 
 ## 🎬 项目特色
 
 - **电影级 UI 设计**：模拟真实电影胶片的视觉效果
-- **智能剧本生成**：基于 DeepSeek AI 的创作引擎
+- **多 Agent 协作**：Director / Critic / Dialogue / Validation 四个 Agent 协同创作
 - **资源驱动架构**：场景和动作约束 AI 输出，保证可执行性
 - **实时生成日志**：观看 AI 的创作思考过程
-- **前后端分离**：现代化的系统架构
+- **单服务部署**：Flask 同时托管前端与 API，无需额外配置
 
 ## 🏗️ 架构设计
 
@@ -24,13 +24,17 @@ ScriptAgent/
 │   │   └── main.js
 │   └── README.md
 │
-├── backend/                       # 后端API
-│   ├── app.py                     # Flask应用
+├── backend/                       # 后端 API + 静态文件服务
+│   ├── app.py                     # Flask 应用（端口 8080）
 │   ├── requirements.txt
 │   ├── .env.example
 │   ├── .gitignore
 │   ├── src/
 │   │   ├── resource_loader.py
+│   │   ├── autogen_agents.py      # Agent 定义
+│   │   ├── autogen_pipeline.py    # 多 Agent 流程编排
+│   │   ├── autogen_bridge.py      # 异步→同步流式桥接
+│   │   ├── autogen_tools.py       # 验证工具
 │   │   ├── director_ai.py
 │   │   └── json_generator.py
 │   ├── resources/
@@ -63,73 +67,27 @@ copy .env.example .env
 
 ```
 API_KEY=your-api-key-here
-BASE_URL=https://ark.cn-beijing.volces.com/api/coding/v3
-MODEL=ark-code-latest
+BASE_URL=https://ark.cn-beijing.volces.com/api/v3
+MODEL=doubao-seed-2-0-lite-260215
 ```
 
+API Key 在 [火山引擎 ARK 控制台](https://console.volcengine.com/ark) 获取。
+
 ### 3. 启动服务
-
-需要同时启动后端、前端和 Nginx 反向代理。
-
-**① 启动后端（Flask，端口 5000）**
 
 ```bash
 cd backend
 python app.py
 ```
 
-**② 启动前端静态服务（端口 8080）**
-
-```bash
-cd frontend
-python -m http.server 8080
-```
-
-**③ 启动 Nginx 反向代理（聚合到端口 8888）**
-
-Nginx 配置文件（`conf/nginx.conf`）中的 `server` 块：
-
-```nginx
-server {
-    listen 8888;
-
-    location / {
-        proxy_pass http://localhost:8080;
-        proxy_set_header Host $host;
-    }
-
-    location /api/ {
-        proxy_pass http://localhost:5000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_buffering off;
-        proxy_cache off;
-        proxy_read_timeout 300s;
-        chunked_transfer_encoding on;
-    }
-}
-```
-
-```bash
-# Windows 启动
-cd C:\nginx
-nginx.exe
-
-# 重载配置
-nginx.exe -s reload
-
-# 停止
-nginx.exe -s stop
-```
-
-访问 `http://localhost:8888` 即可使用。
+访问 `http://localhost:8080` 即可使用。
 
 ### 4. 内网穿透（可选）
 
-使用 [ngrok](https://ngrok.com) 将服务暴露到公网，只需穿透 Nginx 的 8888 端口：
+使用 [ngrok](https://ngrok.com) 将服务暴露到公网：
 
 ```bash
-ngrok http 8888
+ngrok http 8080
 ```
 
 运行后获得公网地址，发给对方直接访问即可。
@@ -202,20 +160,13 @@ ngrok http 8888
 ### 后端
 - Python 3.8+
 - Flask + Flask-CORS
-- OpenAI SDK（兼容 DeepSeek / 火山引擎 ARK）
+- AutoGen（多 Agent 编排）
+- OpenAI SDK（兼容火山引擎 ARK）
 
 ### AI
-- DeepSeek API（火山引擎 ARK 托管）
+- 火山引擎 ARK / Doubao-1.5-Pro
+- 多 Agent 协作（Director → Critic → Dialogue → Validation → Output）
 - 流式响应（NDJSON）
-- 提示词工程
-
-## 🎬 电影风格设计元素
-
-- **胶片孔装饰**：左右边框模拟真实胶片
-- **金色主题**：好莱坞经典金色调
-- **八边形数字**：独特的步骤编号
-- **光泽扫过**：按钮悬停的光影效果
-- **等宽字体**：日志区域使用 Roboto Mono
 
 ## 🛠️ API 接口
 
@@ -266,6 +217,15 @@ ngrok http 8888
 ### GET /api/download/:filename
 下载生成的剧本文件
 
+## 📝 输出格式
+
+生成的剧本保存在 `backend/outputs/` 目录，JSON 格式包含：
+
+- **场景信息**：地点、剧情概述
+- **对白片段**：说话者、内容、动作、位置
+- **移动片段**：角色移动指令
+- **氛围描述**：场景氛围和运镜建议
+
 ## 🔧 扩展开发
 
 ### 添加新场景
@@ -284,38 +244,27 @@ ngrok http 8888
 }
 ```
 
-### 集成其他 AI 模型
+### 切换 AI 模型
 
-修改 `backend/src/director_ai.py` 中的 API 调用部分即可。
-
-## 📝 输出格式
-
-生成的剧本保存在 `backend/outputs/` 目录，JSON 格式包含：
-
-- **场景信息**：地点、剧情概述
-- **对白片段**：说话者、内容、动作、位置
-- **移动片段**：角色移动指令
-- **氛围描述**：场景氛围和运镜建议
+修改 `backend/.env` 中的 `MODEL` 和 `BASE_URL` 即可，无需改动代码。
 
 ## 🐛 故障排除
 
-**跨域问题**：确保后端已安装并启用 `flask-cors`
+**生成失败**：检查 `backend/.env` 中的 API Key 是否正确
 
-**API 连接失败**：前端通过 Nginx 代理访问后端，无需手动配置地址。若失败，确认 Nginx 和 Flask 均已启动。
+**端口占用**：若 8080 被占用，修改 `backend/app.py` 末尾的 `port=8080` 为其他端口
 
-**局域网其他设备无法访问**：以管理员身份开放 Nginx 端口的防火墙：
+**局域网其他设备无法访问**：以管理员身份开放防火墙端口：
 ```powershell
-netsh advfirewall firewall add rule name="ScriptAgent Nginx" dir=in action=allow protocol=TCP localport=8888
+netsh advfirewall firewall add rule name="ScriptAgent" dir=in action=allow protocol=TCP localport=8080
 ```
-
-**生成失败**：检查 `backend/.env` 中的 API Key 是否正确配置
 
 **样式异常**：清除浏览器缓存，使用 Chrome 90+ / Firefox 88+ / Safari 14+
 
 ## 🌟 致谢
 
 - UI 设计灵感来自经典好莱坞电影
-- AI 技术由 DeepSeek / 火山引擎 ARK 提供
+- AI 技术由火山引擎 ARK / Doubao 提供
 - 字体：Cinzel & Roboto Mono (Google Fonts)
 
 ## 📜 许可证

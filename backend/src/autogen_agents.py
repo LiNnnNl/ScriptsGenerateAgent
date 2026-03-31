@@ -14,15 +14,15 @@ from .autogen_tools import make_validation_tools
 
 
 def make_model_client(model: Optional[str] = None) -> OpenAIChatCompletionClient:
-    """创建 OpenAI 兼容的模型客户端（支持 DeepSeek / 火山引擎 ARK）"""
+    """创建 OpenAI 兼容的模型客户端（支持火山引擎 ARK Doubao）"""
     api_key = os.getenv("API_KEY")
-    base_url = os.getenv("BASE_URL", "https://api.deepseek.com")
-    model_name = model or os.getenv("MODEL", "deepseek-v3-241226")
+    base_url = os.getenv("BASE_URL", "https://ark.cn-beijing.volces.com/api/v3")
+    model_name = model or os.getenv("MODEL", "doubao-seed-2-0-lite-260215")
 
     if not api_key:
         raise ValueError("需要提供 API_KEY，请在 .env 文件中设置")
 
-    # 是否支持 function calling，默认 False（火山引擎 code plan 不支持）
+    # 是否支持 function calling，默认 False（如需开启，在 .env 中设置 MODEL_FUNCTION_CALLING=true）
     # 如需开启，在 .env 中设置 MODEL_FUNCTION_CALLING=true
     function_calling = os.getenv("MODEL_FUNCTION_CALLING", "false").lower() == "true"
 

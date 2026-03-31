@@ -3,7 +3,7 @@ ScriptAgent Web UI
 使用 Flask 提供简单的 Web 界面
 """
 
-from flask import Flask, request, jsonify, send_file, Response, stream_with_context
+from flask import Flask, request, jsonify, send_file, Response, stream_with_context, send_from_directory
 from flask_cors import CORS
 import json
 import logging
@@ -31,7 +31,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-app = Flask(__name__)
+FRONTEND_DIR = Path(__file__).parent.parent / "frontend"
+
+app = Flask(__name__, static_folder=None)
 app.config['JSON_AS_ASCII'] = False  # 支持中文
 
 # 启用CORS（跨域资源共享）
@@ -42,6 +44,16 @@ CORS(app, resources={
         "allow_headers": ["Content-Type"]
     }
 })
+
+
+@app.route('/')
+def index():
+    return send_from_directory(FRONTEND_DIR, 'index.html')
+
+
+@app.route('/<path:filename>')
+def static_files(filename):
+    return send_from_directory(FRONTEND_DIR, filename)
 
 # 初始化资源加载器
 resource_loader = ResourceLoader()
@@ -225,5 +237,5 @@ def download_file(filename):
 
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=True, host='0.0.0.0', port=8080)
 

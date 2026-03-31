@@ -40,8 +40,8 @@ copy .env.example .env
 
 ```
 API_KEY=your-actual-api-key
-BASE_URL=https://ark.cn-beijing.volces.com/api/coding/v3
-MODEL=ark-code-latest
+BASE_URL=https://ark.cn-beijing.volces.com/api/v3
+MODEL=doubao-seed-2-0-lite-260215
 ```
 
 ### 3. 启动服务器

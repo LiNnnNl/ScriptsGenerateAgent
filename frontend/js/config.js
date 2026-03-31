@@ -1,6 +1,6 @@
 // API配置
 const API_CONFIG = {
-    BASE_URL: window.location.port ? `${window.location.protocol}//${window.location.hostname}:${window.location.port}` : `${window.location.protocol}//${window.location.hostname}`,
+    BASE_URL: `${window.location.protocol}//${window.location.host}`,
     ENDPOINTS: {
         SCENES: '/api/scenes',
         CHARACTERS: '/api/characters',
