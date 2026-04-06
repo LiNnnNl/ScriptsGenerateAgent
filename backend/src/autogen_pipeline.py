@@ -42,6 +42,11 @@ MAX_FIX_ROUNDS = 3
 MAX_POSITION_FIX_ROUNDS = 3
 
 
+def _emit_output(bridge: "AutoGenStreamBridge", agent: str, content, fmt: str = 'script') -> None:
+    """将 agent 输出以结构化事件推送到前端"""
+    bridge.put_event({'type': 'log', 'level': 'output', 'format': fmt, 'agent': agent, 'data': content})
+
+
 def _extract_json_from_text(text: str) -> Optional[list]:
     """从 Agent 输出文本中提取 JSON 数组"""
     # 尝试提取 markdown 代码块
@@ -213,6 +218,7 @@ async def run_autogen_pipeline(
 
     logger.info("[DirectorAgent] 初稿生成完成，场景数=%d", len(draft_script))
     bridge.put_event({'type': 'log', 'level': 'success', 'message': '✅ [DirectorAgent] 剧本初稿生成完成'})
+    _emit_output(bridge, 'DirectorAgent', draft_script)
 
     # ════════════════════════════════════════════════
     # 阶段②：审查层（CriticAgent + DialogueAgent，循环修改）
@@ -234,6 +240,9 @@ async def run_autogen_pipeline(
             if hasattr(event, 'chat_message') and event.chat_message:
                 critic_feedback = _extract_feedback_json(event.chat_message.content)
 
+        if critic_feedback:
+            _emit_output(bridge, 'CriticAgent', critic_feedback, fmt='feedback')
+
         # DialogueAgent 审查
         dialogue_feedback = None
         async for event in dialogue.on_messages_stream(
@@ -242,6 +251,9 @@ async def run_autogen_pipeline(
         ):
             if hasattr(event, 'chat_message') and event.chat_message:
                 dialogue_feedback = _extract_feedback_json(event.chat_message.content)
+
+        if dialogue_feedback:
+            _emit_output(bridge, 'DialogueAgent', dialogue_feedback, fmt='feedback')
 
         # 判断是否需要修改
         critic_has_issues = critic_feedback and critic_feedback.get('has_issues', False)
@@ -298,6 +310,7 @@ async def run_autogen_pipeline(
         if revised_script:
             draft_script = revised_script
             bridge.put_event({'type': 'log', 'level': 'success', 'message': f'✅ 修改完成（轮次{review_round + 1}）'})
+            _emit_output(bridge, 'DirectorAgent（修改稿）', revised_script)
         else:
             bridge.put_event({'type': 'log', 'level': 'warning', 'message': f'⚠️  修改结果解析失败，保留上一版本'})
             break
@@ -343,6 +356,7 @@ async def run_autogen_pipeline(
             bridge.put_event({'type': 'log', 'level': 'success', 'message': '✅ 技术约束验证通过'})
             for w in validation_result.get('warnings', []):
                 bridge.put_event({'type': 'log', 'level': 'warning', 'message': f'⚠️  {w}'})
+            _emit_output(bridge, 'ValidationAgent', validation_result, fmt='validation')
             break
 
         errors = validation_result.get('errors', [])
@@ -412,6 +426,7 @@ async def run_autogen_pipeline(
         if mapped_script and not unresolved:
             draft_script = mapped_script
             bridge.put_event({'type': 'log', 'level': 'success', 'message': '✅ [PositionAgent] 位置映射完成'})
+            _emit_output(bridge, 'PositionAgent', mapped_script)
             break
 
         if unresolved:

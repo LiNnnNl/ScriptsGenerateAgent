@@ -9,17 +9,38 @@ from pathlib import Path
 
 
 class Character:
-    """角色资源"""
+    """角色资源（兼容新格式：appearance/traits/acting_style）"""
     def __init__(self, data: dict):
         self.name = data['name']
-        # 兼容新格式（characters_resource.json）与旧格式
         self.id = data.get('id', self.name)
-        self.style_tag = data.get('style_tag', data.get('ip', ''))
-        self.description = data.get('description', data.get('background', f'角色：{self.name}'))
-        self.personality = data.get('personality', data.get('personality_traits', ''))
-    
+        self.gameobject_name = data.get('gameobject_name', '')
+        self.gender = data.get('gender', '')
+        self.age = data.get('age', None)
+
+        # 用于 Director prompt 的外形描述：优先取 appearance 对象，回退旧 description 字段
+        appearance = data.get('appearance') or {}
+        if isinstance(appearance, dict):
+            parts = [v for v in [appearance.get('body_type'), appearance.get('face')] if v]
+            self.description = ' '.join(parts) or data.get('description', data.get('background', f'角色：{self.name}'))
+        else:
+            self.description = data.get('description', data.get('background', f'角色：{self.name}'))
+
+        # 性格/特质：优先取 traits 数组，回退旧 personality/personality_traits 字段
+        traits = data.get('traits') or []
+        if isinstance(traits, list) and traits:
+            self.personality = ', '.join(str(t) for t in traits)
+        else:
+            self.personality = data.get('personality', data.get('personality_traits', ''))
+
+        # acting_style 额外保留，Director 可能用到
+        self.acting_style = data.get('acting_style', '')
+        self.background = data.get('background', '')
+
+        # 兼容旧的 style_tag 分组字段
+        self.style_tag = data.get('style_tag', data.get('ip', self.gender or ''))
+
     def __repr__(self):
-        return f"Character({self.name}, {self.style_tag})"
+        return f"Character({self.name}, {self.gameobject_name})"
 
 
 class Scene:
@@ -83,11 +104,19 @@ class ResourceLoader:
     
     def _load_all_resources(self):
         """加载所有资源文件"""
+        import logging
+        _logger = logging.getLogger(__name__)
+
         # 加载角色
         char_file = self.resource_dir / "characters_resource.json"
         with open(char_file, 'r', encoding='utf-8-sig') as f:
             char_data = json.load(f)
-            self.characters = [Character(c) for c in char_data]
+        self.characters = []
+        for i, c in enumerate(char_data):
+            try:
+                self.characters.append(Character(c))
+            except Exception as e:
+                _logger.warning("跳过无效角色条目 [%d] %s: %s", i, c.get('name', '?'), e)
         
         # 加载场景
         scene_file = self.resource_dir / "scenes_resource.json"

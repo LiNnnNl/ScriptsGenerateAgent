@@ -22,6 +22,16 @@ const API = {
         return await response.json();
     },
 
+    // 生成角色档案
+    async generateCharacters(data) {
+        const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.GENERATE_CHARACTERS}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        return await response.json();
+    },
+
     // 生成剧本（流式）
     async generateScript(data, onStream) {
         const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.GENERATE}`, {
@@ -73,6 +83,12 @@ const API = {
                 console.error('解析最后的日志失败:', e, buffer);
             }
         }
+    },
+
+    // 获取剧本内容（供编辑器加载）
+    async getScriptContent(filename) {
+        const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.SCRIPT_CONTENT}/${filename}`);
+        return await response.json();
     },
 
     // 下载文件

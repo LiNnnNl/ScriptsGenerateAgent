@@ -53,3 +53,20 @@ Thumbs.db
 .env.*
 !.env.example
 
+# Local machine docs
+LOCAL_STARTUP.md
+CHANGELOG.md
+
+# Cursor / AI tooling local state
+.cursor/
+.claude/
+
+# Project runtime artifacts
+backend/outputs/
+backend/resources/Images/
+
+# Common temporary files
+*.tmp
+*.temp
+*.bak
+*.orig

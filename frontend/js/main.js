@@ -32,56 +32,65 @@ async function loadCharacters() {
     }
 }
 
-// 添加角色到角色库
-async function addCharacterToLibrary(index) {
-    const slot = APP_STATE.castSlots[index];
-    const name = (slot.customName || '').trim();
-    if (!name) {
-        alert('请先填写角色名称');
-        return;
-    }
-
-    const btn = document.querySelector(`.add-to-library-btn[data-index="${index}"]`);
-    btn.disabled = true;
-    btn.textContent = '保存中…';
-
-    try {
-        const result = await API.addCharacter({
-            name: slot.customName.trim(),
-            gender: slot.customGender || '未知',
-            ip: slot.customIp || '自定义',
-            personality_traits: slot.customPersonality || '',
-            background: slot.customBackground || '',
-            Faction: slot.customFaction || '未知'
-        });
-
-        if (result.success) {
-            APP_STATE.characters.push(result.data);
-            // 切换到库选模式并选中新角色
-            APP_STATE.castSlots[index].mode = 'library';
-            APP_STATE.castSlots[index].selectedName = result.data.name;
-            UI.renderCastForm(APP_STATE.requiredCharacterCount);
-        } else {
-            btn.disabled = false;
-            btn.textContent = '＋ 保存到角色库';
-            alert(result.error || '添加失败');
-        }
-    } catch (e) {
-        btn.disabled = false;
-        btn.textContent = '＋ 保存到角色库';
-        alert('网络错误，请重试');
-    }
-}
 
 // 检查表单完整性
 function checkFormComplete() {
+    const castGenBtn = document.getElementById('castGenerateBtn');
     if (APP_STATE.selectedScene) {
         UI.enableStep('step3');
+        castGenBtn.disabled = false;
+    } else {
+        castGenBtn.disabled = true;
+        UI.disableGenerateBtn();
+    }
+    // ACTION! 只在角色档案已生成后可用
+    if (APP_STATE.generatedCharacters) {
         UI.enableGenerateBtn();
     } else {
         UI.disableGenerateBtn();
     }
 }
+
+// 生成角色档案
+async function generateCast() {
+    const castGenBtn = document.getElementById('castGenerateBtn');
+    castGenBtn.disabled = true;
+    castGenBtn.querySelector('.btn-text').textContent = 'GENERATING...';
+
+    // 收集部分指定角色（作为 AI 创作提示）
+    const partialChars = (APP_STATE.castSlots || [])
+        .filter(s => (s.customName || s.selectedName || '').trim())
+        .map(s => ({
+            name: (s.customName || s.selectedName || '').trim(),
+            description: (s.customPersonality || s.customBackground || '').trim()
+        }));
+
+    let succeeded = false;
+    try {
+        const result = await API.generateCharacters({
+            scene_id: APP_STATE.selectedScene,
+            character_count: APP_STATE.requiredCharacterCount || 2,
+            creative_idea: document.getElementById('creativeIdea').value.trim(),
+            partial_characters: partialChars
+        });
+
+        if (result.success) {
+            succeeded = true;
+            APP_STATE.generatedCharacters = result.data;
+            APP_STATE.currentCharactersFilename = result.filename;
+            UI.renderCastPreview(result.data);
+            UI.enableGenerateBtn();
+        } else {
+            alert('生成角色失败：' + (result.error || '未知错误'));
+        }
+    } catch (e) {
+        alert('网络错误：' + e.message);
+    } finally {
+        castGenBtn.querySelector('.btn-text').textContent = 'GENERATE CAST';
+        if (!succeeded) castGenBtn.disabled = false;
+    }
+}
+
 
 // 生成剧本
 async function generateScript() {
@@ -94,35 +103,40 @@ async function generateScript() {
 
     // 开始日志
     UI.addLog('info', '🚀 开始生成剧本...');
-    const validChars = APP_STATE.customCharacters.filter(c => c.name !== '');
-    if (validChars.length > 0) {
-        UI.addLog('info', `自定义角色: ${validChars.map(c => c.name).join(', ')}`);
-    } else {
-        UI.addLog('info', 'AI 将自由创作角色');
+    if (APP_STATE.generatedCharacters && APP_STATE.generatedCharacters.length > 0) {
+        UI.addLog('info', `角色: ${APP_STATE.generatedCharacters.map(c => c.name).join(', ')}`);
     }
     UI.addLog('info', `场景: ${APP_STATE.scenes.find(s => s.id === APP_STATE.selectedScene)?.name || APP_STATE.selectedScene}`);
 
+    let succeeded = false;
     try {
         UI.addLog('info', '📡 正在连接 AI 服务...');
 
         await API.generateScript({
-            custom_characters: validChars,
+            custom_characters: APP_STATE.generatedCharacters || [],
             scene_id: APP_STATE.selectedScene,
             creative_idea: document.getElementById('creativeIdea').value.trim(),
             required_character_count: APP_STATE.requiredCharacterCount
-        }, handleStreamData);
+        }, (data) => {
+            if (data.type === 'success') succeeded = true;
+            handleStreamData(data);
+        });
 
     } catch (error) {
         UI.addLog('error', '❌ 生成失败: ' + error.message);
         UI.showError('生成失败: ' + error.message);
     } finally {
-        generateBtn.disabled = false;
+        if (!succeeded) generateBtn.disabled = false;
     }
 }
 
 // 处理流式数据
 function handleStreamData(data) {
     if (data.type === 'log') {
+        if (data.level === 'output') {
+            UI.addOutputBlock(data);
+            return;
+        }
         UI.addLog(data.level || 'info', data.message);
     } else if (data.type === 'thinking') {
         UI.addLog('thinking', '💭 ' + data.message);
@@ -142,6 +156,7 @@ function handleStreamData(data) {
         }
 
         UI.showSuccess(data.filename, data.actors_profile_filename, data.position_filename);
+        loadScriptEditor(data.filename);
     } else if (data.type === 'error') {
         UI.addLog('error', '❌ ' + data.message);
         if (data.details) {
@@ -200,21 +215,25 @@ function setupEventListeners() {
     // 创作想法输入
     document.getElementById('creativeIdea').addEventListener('input', checkFormComplete);
 
+    // 生成角色按钮
+    document.getElementById('castGenerateBtn').addEventListener('click', generateCast);
+
     // 生成按钮
     document.getElementById('generateBtn').addEventListener('click', generateScript);
 
-    // 下载按钮 - 剧本
-    document.getElementById('downloadBtn').addEventListener('click', () => {
-        if (APP_STATE.currentFilename) {
-            API.downloadFile(APP_STATE.currentFilename);
-        }
-    });
-
-    // 下载按钮 - 演员档案
-    document.getElementById('downloadActorsBtn').addEventListener('click', () => {
-        if (APP_STATE.currentActorsProfileFilename) {
-            API.downloadFile(APP_STATE.currentActorsProfileFilename);
-        }
+    // 下载按钮 - 角色档案（始终下载当前编辑后的内容）
+    document.getElementById('downloadCastBtn').addEventListener('click', () => {
+        if (!APP_STATE.generatedCharacters) return;
+        const blob = new Blob(
+            [JSON.stringify(APP_STATE.generatedCharacters, null, 2)],
+            { type: 'application/json' }
+        );
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = APP_STATE.currentCharactersFilename || 'characters.json';
+        a.click();
+        URL.revokeObjectURL(url);
     });
 
     // 下载按钮 - 坐标文件
@@ -227,122 +246,20 @@ function setupEventListeners() {
     // 清空日志按钮
     document.getElementById('clearLogBtn').addEventListener('click', UI.clearLog);
 
-    // 保存到角色库（事件委托）
-    document.getElementById('castForm').addEventListener('click', (e) => {
-        if (e.target.classList.contains('add-to-library-btn')) {
-            const index = parseInt(e.target.dataset.index);
-            addCharacterToLibrary(index);
-        }
+    // 下载修改后的剧本（从 APP_STATE.currentScriptData 序列化）
+    document.getElementById('downloadScriptEditedBtn').addEventListener('click', () => {
+        if (!APP_STATE.currentScriptData) return;
+        const blob = new Blob(
+            [JSON.stringify(APP_STATE.currentScriptData, null, 2)],
+            { type: 'application/json' }
+        );
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = APP_STATE.currentScriptFilename || 'script_edited.json';
+        a.click();
+        URL.revokeObjectURL(url);
     });
-
-    // 导入 JSON 角色文件 - 点击"选择文件"按钮
-    document.getElementById('castImportBtn').addEventListener('click', (e) => {
-        e.stopPropagation();
-        document.getElementById('castJsonInput').click();
-    });
-
-    // 点击拖放区任意位置也触发文件选择
-    document.getElementById('castDropzone').addEventListener('click', () => {
-        document.getElementById('castJsonInput').click();
-    });
-
-    // 拖放支持
-    const dropzone = document.getElementById('castDropzone');
-    dropzone.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        dropzone.classList.add('drag-over');
-    });
-    dropzone.addEventListener('dragleave', () => {
-        dropzone.classList.remove('drag-over');
-    });
-    dropzone.addEventListener('drop', (e) => {
-        e.preventDefault();
-        dropzone.classList.remove('drag-over');
-        const file = e.dataTransfer.files[0];
-        if (!file) return;
-        if (!file.name.endsWith('.json')) {
-            showImportFeedback('error', '请拖入 .json 格式的文件');
-            return;
-        }
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-            importCharactersFromJSON(ev.target.result, file.name);
-        };
-        reader.readAsText(file, 'utf-8');
-    });
-
-    document.getElementById('castJsonInput').addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-            importCharactersFromJSON(ev.target.result, file.name);
-        };
-        reader.readAsText(file, 'utf-8');
-        // 清空 input 以便同一文件可再次选择
-        e.target.value = '';
-    });
-}
-
-// 从 JSON 文件导入角色
-function importCharactersFromJSON(text, filename) {
-    const feedback = document.getElementById('castImportFeedback');
-
-    let data;
-    try {
-        data = JSON.parse(text);
-    } catch {
-        showImportFeedback('error', `解析失败：文件不是合法的 JSON`);
-        return;
-    }
-
-    if (!Array.isArray(data) || data.length === 0) {
-        showImportFeedback('error', '文件格式错误：需要一个角色对象数组');
-        return;
-    }
-
-    // 检查每个元素是否有 name 字段
-    const valid = data.filter(c => c && typeof c.name === 'string' && c.name.trim());
-    if (valid.length === 0) {
-        showImportFeedback('error', '未找到有效角色（每个对象需要 name 字段）');
-        return;
-    }
-
-    const count = valid.length;
-
-    // 重置 castSlots 为 custom 模式并填入数据
-    APP_STATE.castSlots = valid.map(char => ({
-        mode: 'custom',
-        selectedName: '',
-        customName: (char.name || '').trim(),
-        customGender: char.gender || '未知',
-        customIp: char.ip || '自定义',
-        customPersonality: char.personality_traits || '',
-        customBackground: char.background || '',
-        customFaction: char.Faction || '未知'
-    }));
-
-    // 更新角色数量 UI
-    updateCount(count);
-
-    showImportFeedback('success', `已从「${filename}」导入 ${count} 个角色`);
-}
-
-// 从导入的角色对象构建描述文本
-function buildImportDesc(char) {
-    const parts = [];
-    if (char.personality_traits && char.personality_traits !== '未知') parts.push(char.personality_traits);
-    if (char.background && char.background !== '未知') parts.push(char.background);
-    if (char.Faction && char.Faction !== '未知') parts.push(`阵营：${char.Faction}`);
-    if (char.ip && char.ip !== '自定义') parts.push(`IP《${char.ip}》`);
-    return parts.join(' · ');
-}
-
-function showImportFeedback(type, message) {
-    const el = document.getElementById('castImportFeedback');
-    el.className = `cast-import-feedback ${type}`;
-    el.textContent = message;
-    el.style.display = 'block';
 }
 
 // 更新角色数量
@@ -351,4 +268,25 @@ function updateCount(count) {
 
     UI.updateCharacterCount(count);
     checkFormComplete();
+}
+
+// 加载剧本内容到可读编辑器
+async function loadScriptEditor(filename) {
+    const panel = document.getElementById('scriptEditorPanel');
+    const viewer = document.getElementById('scriptViewer');
+
+    panel.style.display = 'block';
+    viewer.innerHTML = '<p style="padding:20px;color:rgba(224,224,224,0.5)">加载中…</p>';
+
+    try {
+        const result = await API.getScriptContent(filename);
+        if (result.success) {
+            APP_STATE.currentScriptFilename = filename;
+            UI.renderScriptViewer(result.data);
+        } else {
+            viewer.innerHTML = `<p style="padding:20px;color:#f44336">加载失败：${result.error}</p>`;
+        }
+    } catch (e) {
+        viewer.innerHTML = `<p style="padding:20px;color:#f44336">网络错误：${e.message}</p>`;
+    }
 }

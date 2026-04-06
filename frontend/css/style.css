@@ -693,6 +693,82 @@ body {
 .log-entry.success { border-left-color: #4caf50; }
 .log-entry.warning { border-left-color: #ff9800; }
 .log-entry.error { border-left-color: #f44336; }
+/* ── 结构化输出块 ── */
+.output-block-entry {
+    border-left-color: #546e7a;
+    background: rgba(0,0,0,0.2);
+    padding: 0;
+}
+.ob-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 12px;
+    flex-wrap: wrap;
+}
+.ob-header.ob-collapsible {
+    cursor: pointer;
+    user-select: none;
+}
+.ob-header.ob-collapsible:hover { background: rgba(255,255,255,0.04); }
+.ob-agent {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #90a4ae;
+    letter-spacing: 0.5px;
+}
+.ob-label {
+    font-size: 0.75rem;
+    padding: 2px 7px;
+    border-radius: 10px;
+    font-weight: 600;
+}
+.ob-label.ob-pass   { background: rgba(76,175,80,0.15);  color: #81c784; border: 1px solid rgba(76,175,80,0.3); }
+.ob-label.ob-issues { background: rgba(255,152,0,0.15);  color: #ffb74d; border: 1px solid rgba(255,152,0,0.3); }
+.ob-toggle { font-size: 0.65rem; color: #546e7a; margin-left: auto; }
+
+.ob-body {
+    padding: 4px 12px 10px 12px;
+    border-top: 1px solid rgba(84,110,122,0.2);
+}
+
+/* 剧本格式 */
+.ob-scene { margin-bottom: 10px; }
+.ob-scene-header {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: rgba(212,175,55,0.8);
+    margin-bottom: 4px;
+    padding: 3px 0;
+    border-bottom: 1px solid rgba(212,175,55,0.15);
+}
+.ob-where { color: rgba(224,224,224,0.7); }
+.ob-who   { color: #80cbc4; }
+.ob-what  { font-size: 0.74rem; color: rgba(224,224,224,0.5); margin-bottom: 4px; font-style: italic; }
+.ob-beat  { display: flex; gap: 8px; padding: 2px 0; font-size: 0.78rem; }
+.ob-beat.ob-dialogue { align-items: baseline; }
+.ob-beat.ob-move     { color: #78909c; font-style: italic; }
+.ob-speaker { color: #ffcc80; font-weight: 700; min-width: 60px; flex-shrink: 0; }
+.ob-content { color: rgba(224,224,224,0.8); }
+
+/* 反馈格式 */
+.ob-issue {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: baseline;
+    padding: 4px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    font-size: 0.78rem;
+}
+.ob-issue-type { background: rgba(255,152,0,0.2); color: #ffb74d; padding: 1px 6px; border-radius: 4px; font-size: 0.72rem; }
+.ob-issue-desc { color: rgba(224,224,224,0.85); }
+.ob-issue-loc  { color: rgba(224,224,224,0.4); font-size: 0.72rem; }
+.ob-revision   { margin-top: 6px; font-size: 0.78rem; color: #80cbc4; padding: 5px 8px; background: rgba(0,150,136,0.1); border-radius: 3px; }
+
+/* 验证格式 */
+.ob-val-error { font-size: 0.78rem; color: #ef9a9a; padding: 2px 0; }
+.ob-val-warn  { font-size: 0.78rem; color: #ffcc80; padding: 2px 0; }
 .log-entry.thinking {
     border-left-color: #9c27b0;
     background: linear-gradient(90deg, #2a1a2e, var(--dark-gray));
@@ -800,6 +876,369 @@ body {
 .download-btn-secondary:hover {
     background: rgba(212, 175, 55, 0.12);
     box-shadow: 0 10px 30px rgba(212, 175, 55, 0.2);
+}
+
+/* 角色档案预览面板 */
+.cast-preview-panel {
+    margin: 0 0 20px;
+    border: 1px solid rgba(212, 175, 55, 0.4);
+    border-radius: 4px;
+    background: rgba(212, 175, 55, 0.04);
+    overflow: hidden;
+}
+
+.cast-preview-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 20px;
+    border-bottom: 1px solid rgba(212, 175, 55, 0.2);
+    background: rgba(212, 175, 55, 0.06);
+}
+
+.cast-preview-title {
+    font-family: 'Cinzel', serif;
+    font-size: 0.85rem;
+    letter-spacing: 0.15em;
+    color: var(--gold);
+}
+
+.cast-preview-dl-btn {
+    padding: 12px 28px;
+    font-size: 0.9rem;
+}
+
+.cast-preview-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 16px;
+    padding: 16px;
+}
+
+.cast-card {
+    border: 1px solid rgba(212, 175, 55, 0.2);
+    border-radius: 4px;
+    padding: 14px;
+    background: rgba(0, 0, 0, 0.3);
+}
+
+.cast-card-name {
+    font-family: 'Cinzel', serif;
+    font-size: 0.95rem;
+    color: var(--gold);
+    margin-bottom: 6px;
+}
+
+.cast-card-meta {
+    font-family: 'Roboto Mono', monospace;
+    font-size: 0.72rem;
+    color: rgba(224, 224, 224, 0.6);
+    line-height: 1.6;
+}
+
+.cast-card-meta span {
+    display: block;
+}
+
+.cast-card-bg {
+    color: rgba(224, 224, 224, 0.45);
+    margin-top: 4px;
+}
+
+.cast-card-display {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.cast-replace-btn {
+    margin-top: 10px;
+    padding: 5px 14px;
+    background: transparent;
+    border: 1px solid rgba(212, 175, 55, 0.35);
+    color: var(--gold);
+    font-family: 'Roboto Mono', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: background 0.2s, border-color 0.2s;
+    align-self: flex-start;
+}
+
+.cast-replace-btn:hover {
+    background: rgba(212, 175, 55, 0.1);
+    border-color: var(--gold);
+}
+
+.cast-editor {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(212, 175, 55, 0.15);
+}
+
+.cast-confirm-btn {
+    margin-top: 12px;
+    padding: 8px 20px;
+    background: var(--gold);
+    color: var(--black);
+    border: none;
+    font-family: 'Roboto Mono', monospace;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: opacity 0.2s;
+}
+
+.cast-confirm-btn:hover {
+    opacity: 0.85;
+}
+
+/* 角色预览图 */
+.char-preview-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.char-preview-img {
+    width: 100%;
+    aspect-ratio: 3 / 4;
+    object-fit: cover;
+    border: 1px solid rgba(212, 175, 55, 0.3);
+    border-radius: 3px;
+    background: rgba(0,0,0,0.4);
+}
+
+.char-preview-info {
+    width: 100%;
+}
+
+/* 角色卡片（已确定/已替换）中的图片 */
+.cast-card-img {
+    width: 100%;
+    aspect-ratio: 3 / 4;
+    object-fit: cover;
+    border: 1px solid rgba(212, 175, 55, 0.3);
+    border-radius: 3px;
+    background: rgba(0,0,0,0.4);
+    margin-top: 10px;
+    display: block;
+}
+
+/* 剧本编辑器面板 */
+.script-editor-panel {
+    margin-top: 32px;
+    border: 1px solid rgba(212, 175, 55, 0.4);
+    border-radius: 4px;
+    background: rgba(0, 0, 0, 0.3);
+    overflow: hidden;
+}
+
+.script-editor-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 20px;
+    border-bottom: 1px solid rgba(212, 175, 55, 0.2);
+    background: rgba(212, 175, 55, 0.06);
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.script-editor-title {
+    font-family: 'Cinzel', serif;
+    font-size: 0.85rem;
+    letter-spacing: 0.15em;
+    color: var(--gold);
+}
+
+.script-editor-actions {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.script-editor-hint {
+    font-family: 'Roboto Mono', monospace;
+    font-size: 0.72rem;
+}
+
+.script-editor-hint.valid   { color: #4caf50; }
+.script-editor-hint.invalid { color: #f44336; }
+
+.script-dl-btn {
+    padding: 12px 28px;
+    font-size: 0.9rem;
+}
+
+/* 剧本可读渲染器 */
+.script-viewer {
+    padding: 24px 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+}
+
+.sv-scene {
+    border-left: 2px solid rgba(212, 175, 55, 0.4);
+    padding-left: 20px;
+}
+
+.sv-scene-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 6px;
+    flex-wrap: wrap;
+}
+
+.sv-scene-num {
+    font-family: 'Cinzel', serif;
+    font-size: 0.9rem;
+    color: var(--gold);
+    letter-spacing: 0.1em;
+}
+
+.sv-scene-where {
+    font-family: 'Roboto Mono', monospace;
+    font-size: 0.8rem;
+    color: var(--gold-light);
+}
+
+.sv-scene-who {
+    font-family: 'Roboto Mono', monospace;
+    font-size: 0.75rem;
+    color: rgba(224,224,224,0.5);
+}
+
+.sv-scene-what {
+    font-family: 'Roboto Mono', monospace;
+    font-size: 0.78rem;
+    color: rgba(224,224,224,0.65);
+    margin: 4px 0 10px;
+    font-style: italic;
+}
+
+.sv-init-pos {
+    font-family: 'Roboto Mono', monospace;
+    font-size: 0.72rem;
+    color: rgba(224,224,224,0.45);
+    margin-bottom: 16px;
+}
+
+.sv-beats {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+/* 对白幕 */
+.sv-beat-dialogue {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(212,175,55,0.12);
+    border-radius: 4px;
+    padding: 14px 16px;
+}
+
+.sv-speaker {
+    font-family: 'Cinzel', serif;
+    font-size: 0.85rem;
+    color: var(--gold);
+    margin-bottom: 8px;
+    letter-spacing: 0.05em;
+}
+
+.sv-content {
+    width: 100%;
+    background: rgba(0,0,0,0.25);
+    border: 1px solid rgba(212,175,55,0.2);
+    border-radius: 3px;
+    color: var(--text-light);
+    font-family: 'Roboto Mono', monospace;
+    font-size: 0.82rem;
+    line-height: 1.7;
+    padding: 8px 12px;
+    resize: vertical;
+    box-sizing: border-box;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.sv-content:focus {
+    border-color: rgba(212,175,55,0.5);
+}
+
+.sv-meta {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-top: 8px;
+    font-family: 'Roboto Mono', monospace;
+    font-size: 0.72rem;
+}
+
+.sv-label {
+    color: var(--gold);
+    opacity: 0.7;
+    white-space: nowrap;
+    padding-top: 1px;
+}
+
+.sv-value {
+    color: rgba(224,224,224,0.55);
+    line-height: 1.5;
+}
+
+.sv-atmosphere {
+    align-items: center;
+}
+
+.sv-motion-desc {
+    flex: 1;
+    background: rgba(0,0,0,0.2);
+    border: 1px solid rgba(212,175,55,0.15);
+    border-radius: 3px;
+    color: rgba(224,224,224,0.7);
+    font-family: 'Roboto Mono', monospace;
+    font-size: 0.72rem;
+    padding: 4px 8px;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.sv-motion-desc:focus {
+    border-color: rgba(212,175,55,0.4);
+}
+
+/* 移动幕 */
+.sv-beat-move {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 16px;
+    font-family: 'Roboto Mono', monospace;
+    font-size: 0.75rem;
+    color: rgba(224,224,224,0.45);
+}
+
+.sv-move-arrow {
+    color: var(--gold);
+    opacity: 0.6;
+    font-size: 0.65rem;
+}
+
+/* 生成角色按钮（暗金变体） */
+.cast-gen-btn {
+    background: linear-gradient(135deg, #5a4a1a, #8a6f2a, #a88530);
+    border-color: rgba(212, 175, 55, 0.6);
+    box-shadow: 0 10px 40px rgba(212, 175, 55, 0.2);
+}
+
+.cast-gen-btn:hover:not(:disabled) {
+    box-shadow: 0 15px 60px rgba(212, 175, 55, 0.35);
 }
 
 /* 底部 */

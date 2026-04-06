@@ -110,17 +110,24 @@ server {
 }
 ```
 
-```bash
-# Windows 启动
-cd C:\nginx
-nginx.exe
+```powershell
+# Windows 启动（先进入你的 Nginx 安装目录）
+# 示例：cd C:\tools\nginx-1.28.3
+cd <你的-nginx-安装目录>
+.\nginx.exe
+
+# 检查配置是否正确
+.\nginx.exe -t
 
 # 重载配置
-nginx.exe -s reload
+.\nginx.exe -s reload
 
 # 停止
-nginx.exe -s stop
+.\nginx.exe -s stop
 ```
+
+> 请将 `<你的-nginx-安装目录>` 替换为你的实际路径。  
+> PowerShell 下若直接输入 `nginx.exe` 可能提示“找不到命令”，请使用 `.\nginx.exe`。
 
 访问 `http://localhost:8888` 即可使用。
 

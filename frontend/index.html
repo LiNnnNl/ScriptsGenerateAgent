@@ -54,24 +54,15 @@
 
             </section>
 
-            <!-- 步骤2: 角色数量 & 角色设置 -->
+            <!-- 步骤2: 角色数量 -->
             <section class="step disabled" id="step2" data-step="2">
                 <div class="step-header">
                     <div class="step-number">
                         <span class="number-inner">02</span>
                     </div>
-                    <h2 class="step-title">CHARACTER & CAST</h2>
+                    <h2 class="step-title">CHARACTER COUNT</h2>
                     <div class="step-line"></div>
-                    <span class="step-optional">CAST OPTIONAL</span>
                 </div>
-                <input type="file" id="castJsonInput" accept=".json" style="display:none">
-                <div class="cast-dropzone" id="castDropzone">
-                    <span class="dropzone-icon">📂</span>
-                    <span class="dropzone-main">拖入 JSON 文件，或</span>
-                    <button type="button" class="dropzone-select-btn" id="castImportBtn">选择文件</button>
-                    <span class="dropzone-sub">支持与 characters_resource.json 相同格式 · 自动填充角色数量与信息</span>
-                </div>
-                <div class="cast-import-feedback" id="castImportFeedback" style="display:none"></div>
                 <div class="count-selector">
                     <label class="count-label">需要几位演员：</label>
                     <div class="number-input-wrapper">
@@ -82,8 +73,7 @@
                     </div>
                     <span class="count-unit">位</span>
                 </div>
-                <div class="cast-form" id="castForm"></div>
-                <p class="cast-hint">留空则由 AI 自由决定角色</p>
+                <p class="cast-hint">AI 将根据场景和创作灵感自动设计角色，生成后可逐一替换</p>
             </section>
 
             <!-- 步骤3: 创作想法 -->
@@ -104,7 +94,27 @@
                 </div>
             </section>
 
-            <!-- 生成按钮 -->
+            <!-- 生成角色按钮 -->
+            <div class="action-section">
+                <button class="generate-btn cast-gen-btn" id="castGenerateBtn" disabled>
+                    <span class="btn-icon">👥</span>
+                    <span class="btn-text">GENERATE CAST</span>
+                    <span class="btn-subtitle">AI 生成角色档案</span>
+                </button>
+            </div>
+
+            <!-- 角色档案预览面板 -->
+            <div class="cast-preview-panel" id="castPreviewPanel" style="display: none;">
+                <div class="cast-preview-header">
+                    <span class="cast-preview-title">👥 CAST PROFILE</span>
+                    <button class="download-btn download-btn-secondary cast-preview-dl-btn" id="downloadCastBtn">
+                        <span>📥</span><span>下载角色档案</span>
+                    </button>
+                </div>
+                <div class="cast-preview-list" id="castPreviewList"></div>
+            </div>
+
+            <!-- 生成剧本按钮 -->
             <div class="action-section">
                 <button class="generate-btn" id="generateBtn" disabled>
                     <span class="btn-icon">🎬</span>
@@ -131,19 +141,22 @@
                 <h3 class="result-title">剧本生成完成！</h3>
                 <p class="result-message" id="resultMessage"></p>
                 <div class="download-btn-group">
-                    <button class="download-btn" id="downloadBtn">
-                        <span>📥</span>
-                        <span>下载剧本文件</span>
-                    </button>
-                    <button class="download-btn download-btn-secondary" id="downloadActorsBtn">
-                        <span>👥</span>
-                        <span>下载演员档案</span>
-                    </button>
                     <button class="download-btn download-btn-secondary" id="downloadPositionBtn" style="display:none;">
                         <span>📍</span>
                         <span>下载坐标文件</span>
                     </button>
                 </div>
+            </div>
+
+            <!-- 剧本编辑器 -->
+            <div class="script-editor-panel" id="scriptEditorPanel" style="display: none;">
+                <div class="script-editor-header">
+                    <span class="script-editor-title">✏️ SCRIPT EDITOR</span>
+                    <button class="download-btn download-btn-secondary script-dl-btn" id="downloadScriptEditedBtn">
+                        <span>📥</span><span>下载剧本/下载修改后的剧本</span>
+                    </button>
+                </div>
+                <div class="script-viewer" id="scriptViewer"></div>
             </div>
 
             <!-- 错误区域 -->
