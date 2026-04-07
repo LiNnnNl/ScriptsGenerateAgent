@@ -13,7 +13,7 @@ import os
 import re
 import time
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +22,10 @@ from autogen_core import CancellationToken
 
 from .autogen_bridge import AutoGenStreamBridge
 from .autogen_agents import (
+    create_concept_agent,
+    create_synopsis_agent,
+    create_character_bios_agent,
+    create_treatment_agent,
     create_director_agent,
     create_critic_agent,
     create_dialogue_agent,
@@ -45,6 +49,23 @@ MAX_POSITION_FIX_ROUNDS = 3
 def _emit_output(bridge: "AutoGenStreamBridge", agent: str, content, fmt: str = 'script') -> None:
     """将 agent 输出以结构化事件推送到前端"""
     bridge.put_event({'type': 'log', 'level': 'output', 'format': fmt, 'agent': agent, 'data': content})
+
+
+def _emit_stage_log(
+    bridge: "AutoGenStreamBridge",
+    level: str,
+    stage: str,
+    phase: str,
+    message: str,
+) -> None:
+    """输出带 stage/phase 的结构化日志事件（兼容现有日志字段）。"""
+    bridge.put_event({
+        'type': 'log',
+        'level': level,
+        'message': message,
+        'stage': stage,
+        'phase': phase,
+    })
 
 
 def _extract_json_from_text(text: str) -> Optional[list]:
@@ -75,6 +96,21 @@ def _extract_json_from_text(text: str) -> Optional[list]:
 
         result = json.loads(json_str)
         return result if isinstance(result, list) else None
+    except json.JSONDecodeError:
+        return None
+
+
+def _extract_json_object_from_text(text: str) -> Optional[dict]:
+    """从 Agent 输出中提取 JSON 对象。"""
+    match = re.search(r'```json\s*([\s\S]*?)\s*```', text, re.DOTALL)
+    json_str = match.group(1).strip() if match else text.strip()
+    try:
+        start = json_str.find('{')
+        end = json_str.rfind('}')
+        if start == -1 or end == -1:
+            return None
+        parsed = json.loads(json_str[start:end + 1])
+        return parsed if isinstance(parsed, dict) else None
     except json.JSONDecodeError:
         return None
 
@@ -119,6 +155,20 @@ def _filter_script_for_review(script: list) -> str:
     return json.dumps(filtered, ensure_ascii=False, indent=2)
 
 
+async def _run_stage_agent_json_object(agent, prompt: str) -> Optional[dict]:
+    """执行阶段 Agent 并提取 JSON 对象结果。"""
+    raw_content = None
+    async for event in agent.on_messages_stream(
+        [TextMessage(content=prompt, source="user")],
+        cancellation_token=CancellationToken()
+    ):
+        if hasattr(event, 'chat_message') and event.chat_message:
+            raw_content = event.chat_message.content
+    if not raw_content:
+        return None
+    return _extract_json_object_from_text(raw_content)
+
+
 async def run_autogen_pipeline(
     bridge: AutoGenStreamBridge,
     resource_loader: ResourceLoader,
@@ -149,40 +199,112 @@ async def run_autogen_pipeline(
     # ── 构建角色列表 ──
     if custom_characters_input:
         characters = resource_loader.build_custom_characters(custom_characters_input)
-        bridge.put_event({
-            'type': 'log', 'level': 'success',
-            'message': f'✅ 已构建 {len(characters)} 个自定义角色'
-        })
+        _emit_stage_log(bridge, 'success', 'setup', 'characters', f'✅ 已构建 {len(characters)} 个自定义角色')
     else:
         characters = []
-        bridge.put_event({
-            'type': 'log', 'level': 'info',
-            'message': '💭 未指定角色，AI 将自由创作'
-        })
+        _emit_stage_log(bridge, 'info', 'setup', 'characters', '💭 未指定角色，AI 将自由创作')
 
     # ── 初始化 Agents ──
     model_supports_tools = os.getenv("MODEL_FUNCTION_CALLING", "false").lower() == "true"
-    bridge.put_event({'type': 'log', 'level': 'info', 'message': '🤖 初始化多 Agent 系统...'})
+    _emit_stage_log(bridge, 'info', 'setup', 'init', '🤖 初始化多 Agent 系统...')
 
+    concept = create_concept_agent(characters, scene, required_character_count)
+    synopsis = create_synopsis_agent()
+    bios = create_character_bios_agent()
+    treatment = create_treatment_agent()
     director = create_director_agent(characters, scene, resource_loader, required_character_count)
     critic = create_critic_agent()
     dialogue = create_dialogue_agent()
     validator = create_validation_agent(resource_loader, scene) if model_supports_tools else None
     position_agent = create_position_agent(scene)
 
-    bridge.put_event({'type': 'log', 'level': 'success', 'message': '✅ Agents 初始化完成（导演、批评家、对白专家、技术验证、位置映射）'})
+    _emit_stage_log(bridge, 'success', 'setup', 'ready', '✅ Agents 初始化完成（概念、梗概、人物、大纲、导演、审查、验证、位置）')
+
+    # 阶段化上下文（内存态，不落盘）
+    stage_context: Dict[str, Dict[str, Any]] = {
+        "concept": {},
+        "synopsis": {},
+        "character_bios": {},
+        "treatment": {},
+    }
 
     # ════════════════════════════════════════════════
-    # 阶段①：DirectorAgent 生成初稿
+    # 阶段①-④：概念链路（Logline → Synopsis → Bios → Treatment）
     # ════════════════════════════════════════════════
-    bridge.put_event({
-        'type': 'log', 'level': 'info',
-        'message': '🎬 [DirectorAgent] 开始生成剧本初稿...'
-    })
+    _emit_stage_log(bridge, 'info', 'concept', 'start', '🧠 [概念孵化期] ConceptAgent 生成 Logline...')
+    concept_prompt = (
+        f"创作想法：{plot_outline or '（无）'}\n"
+        "请产出 Logline 结果。"
+    )
+    concept_result = await _run_stage_agent_json_object(concept, concept_prompt)
+    if concept_result:
+        stage_context["concept"] = concept_result
+        _emit_output(bridge, 'ConceptAgent', concept_result, fmt='stage')
+        _emit_stage_log(bridge, 'success', 'concept', 'summary', '✅ [概念孵化期] Logline 已生成')
+    else:
+        _emit_stage_log(bridge, 'warning', 'concept', 'fallback', '⚠️ [概念孵化期] 输出解析失败，使用最小上下文继续')
+        stage_context["concept"] = {"logline": plot_outline or scene.description}
+
+    _emit_stage_log(bridge, 'info', 'synopsis', 'start', '📚 [故事梗概期] SynopsisAgent 扩展梗概...')
+    synopsis_prompt = (
+        f"创作想法：{plot_outline or '（无）'}\n\n"
+        f"Concept 结果：\n{json.dumps(stage_context['concept'], ensure_ascii=False, indent=2)}\n\n"
+        "请输出故事梗概。"
+    )
+    synopsis_result = await _run_stage_agent_json_object(synopsis, synopsis_prompt)
+    if synopsis_result:
+        stage_context["synopsis"] = synopsis_result
+        _emit_output(bridge, 'SynopsisAgent', synopsis_result, fmt='stage')
+        _emit_stage_log(bridge, 'success', 'synopsis', 'summary', '✅ [故事梗概期] Synopsis 已生成')
+    else:
+        _emit_stage_log(bridge, 'warning', 'synopsis', 'fallback', '⚠️ [故事梗概期] 输出解析失败，使用最小上下文继续')
+        stage_context["synopsis"] = {"synopsis": plot_outline or scene.description}
+
+    _emit_stage_log(bridge, 'info', 'character_bios', 'start', '👥 [人物塑形期] CharacterBiosAgent 生成人物小传...')
+    bios_prompt = (
+        f"创作想法：{plot_outline or '（无）'}\n\n"
+        f"Concept：\n{json.dumps(stage_context['concept'], ensure_ascii=False, indent=2)}\n\n"
+        f"Synopsis：\n{json.dumps(stage_context['synopsis'], ensure_ascii=False, indent=2)}\n\n"
+        f"指定角色：\n{json.dumps(custom_characters_input, ensure_ascii=False, indent=2)}\n\n"
+        f"角色总数要求：{required_character_count or len(characters) or 2}"
+    )
+    bios_result = await _run_stage_agent_json_object(bios, bios_prompt)
+    if bios_result:
+        stage_context["character_bios"] = bios_result
+        _emit_output(bridge, 'CharacterBiosAgent', bios_result, fmt='stage')
+        _emit_stage_log(bridge, 'success', 'character_bios', 'summary', '✅ [人物塑形期] Character Bios 已生成')
+    else:
+        _emit_stage_log(bridge, 'warning', 'character_bios', 'fallback', '⚠️ [人物塑形期] 输出解析失败，使用最小上下文继续')
+        stage_context["character_bios"] = {"character_bios": custom_characters_input}
+
+    _emit_stage_log(bridge, 'info', 'treatment', 'start', '🗂️ [分场规划期] TreatmentAgent 生成分场大纲...')
+    treatment_prompt = (
+        f"Concept：\n{json.dumps(stage_context['concept'], ensure_ascii=False, indent=2)}\n\n"
+        f"Synopsis：\n{json.dumps(stage_context['synopsis'], ensure_ascii=False, indent=2)}\n\n"
+        f"Character Bios：\n{json.dumps(stage_context['character_bios'], ensure_ascii=False, indent=2)}\n\n"
+        "请生成分场大纲。"
+    )
+    treatment_result = await _run_stage_agent_json_object(treatment, treatment_prompt)
+    if treatment_result:
+        stage_context["treatment"] = treatment_result
+        _emit_output(bridge, 'TreatmentAgent', treatment_result, fmt='stage')
+        _emit_stage_log(bridge, 'success', 'treatment', 'summary', '✅ [分场规划期] Treatment 已生成')
+    else:
+        _emit_stage_log(bridge, 'warning', 'treatment', 'fallback', '⚠️ [分场规划期] 输出解析失败，使用最小上下文继续')
+        stage_context["treatment"] = {"draft_guidance": "保持冲突递进，保证角色动机一致。"}
+
+    # ════════════════════════════════════════════════
+    # 阶段⑤：DirectorAgent 生成初稿
+    # ════════════════════════════════════════════════
+    _emit_stage_log(bridge, 'info', 'draft', 'start', '🎬 [剧本起草期] DirectorAgent 开始生成剧本初稿...')
 
     user_prompt = "请开始生成剧本，直接输出 JSON 格式，不要有其他说明文字。"
     if plot_outline:
-        user_prompt = f"创作想法：{plot_outline}\n\n请根据以上创作想法生成剧本，直接输出 JSON 格式，不要有其他说明文字。"
+        user_prompt = (
+            f"创作想法：{plot_outline}\n\n"
+            f"阶段化上下文：\n{json.dumps(stage_context, ensure_ascii=False, indent=2)}\n\n"
+            "请根据以上阶段结果生成剧本，直接输出 JSON 格式，不要有其他说明文字。"
+        )
 
     draft_script = None
     thinking_started = False
@@ -217,17 +339,17 @@ async def run_autogen_pipeline(
         return
 
     logger.info("[DirectorAgent] 初稿生成完成，场景数=%d", len(draft_script))
-    bridge.put_event({'type': 'log', 'level': 'success', 'message': '✅ [DirectorAgent] 剧本初稿生成完成'})
+    _emit_stage_log(bridge, 'success', 'draft', 'summary', '✅ [剧本起草期] 剧本初稿生成完成')
     _emit_output(bridge, 'DirectorAgent', draft_script)
 
     # ════════════════════════════════════════════════
     # 阶段②：审查层（CriticAgent + DialogueAgent，循环修改）
     # ════════════════════════════════════════════════
     for review_round in range(MAX_REVIEW_ROUNDS):
-        bridge.put_event({
-            'type': 'log', 'level': 'info',
-            'message': f'🔍 审查轮次 {review_round + 1}/{MAX_REVIEW_ROUNDS}：启动批评家与对白专家...'
-        })
+        _emit_stage_log(
+            bridge, 'info', 'review', 'start',
+            f'🔍 [审核与迭代期] 审查轮次 {review_round + 1}/{MAX_REVIEW_ROUNDS}：启动批评家与对白专家...'
+        )
 
         filtered_script_str = _filter_script_for_review(draft_script)
 
@@ -260,10 +382,10 @@ async def run_autogen_pipeline(
         dialogue_has_issues = dialogue_feedback and dialogue_feedback.get('has_issues', False)
 
         if not critic_has_issues and not dialogue_has_issues:
-            bridge.put_event({
-                'type': 'log', 'level': 'success',
-                'message': f'✅ 审查通过（轮次{review_round + 1}），无需修改'
-            })
+            _emit_stage_log(
+                bridge, 'success', 'review', 'result',
+                f'✅ [审核与迭代期] 审查通过（轮次{review_round + 1}），无需修改'
+            )
             break
 
         # 汇总反馈，请 DirectorAgent 修改
@@ -281,10 +403,10 @@ async def run_autogen_pipeline(
             + f"\n\n当前剧本：\n```json\n{json.dumps(draft_script, ensure_ascii=False, indent=2)}\n```"
         )
 
-        bridge.put_event({
-            'type': 'log', 'level': 'info',
-            'message': f'✏️  [DirectorAgent] 根据审查意见修改剧本（轮次{review_round + 1}）...'
-        })
+        _emit_stage_log(
+            bridge, 'info', 'review', 'revise',
+            f'✏️  [审核与迭代期] DirectorAgent 根据审查意见修改剧本（轮次{review_round + 1}）...'
+        )
 
         revised_script = None
         thinking_started = False
@@ -309,16 +431,22 @@ async def run_autogen_pipeline(
 
         if revised_script:
             draft_script = revised_script
-            bridge.put_event({'type': 'log', 'level': 'success', 'message': f'✅ 修改完成（轮次{review_round + 1}）'})
+            _emit_stage_log(
+                bridge, 'success', 'review', 'revise_result',
+                f'✅ [审核与迭代期] 修改完成（轮次{review_round + 1}）'
+            )
             _emit_output(bridge, 'DirectorAgent（修改稿）', revised_script)
         else:
-            bridge.put_event({'type': 'log', 'level': 'warning', 'message': f'⚠️  修改结果解析失败，保留上一版本'})
+            _emit_stage_log(
+                bridge, 'warning', 'review', 'revise_result',
+                '⚠️ [审核与迭代期] 修改结果解析失败，保留上一版本'
+            )
             break
 
     # ════════════════════════════════════════════════
     # 阶段③：技术约束验证
     # ════════════════════════════════════════════════
-    bridge.put_event({'type': 'log', 'level': 'info', 'message': '🔧 开始技术约束验证...'})
+    _emit_stage_log(bridge, 'info', 'validation', 'start', '🔧 [技术验证期] 开始技术约束验证...')
 
     draft_json_str = json.dumps(draft_script, ensure_ascii=False)
     validation_result = None
@@ -334,10 +462,7 @@ async def run_autogen_pipeline(
                 if hasattr(event, 'inner_messages'):
                     for msg in (event.inner_messages or []):
                         if isinstance(msg, ToolCallExecutionEvent):
-                            bridge.put_event({
-                                'type': 'log', 'level': 'info',
-                                'message': '🔍 [ValidationAgent] 正在执行技术验证...'
-                            })
+                            _emit_stage_log(bridge, 'info', 'validation', 'tool', '🔍 [ValidationAgent] 正在执行技术验证...')
                 elif hasattr(event, 'chat_message') and event.chat_message:
                     validation_result = _extract_validation_json(event.chat_message.content)
 
@@ -353,9 +478,9 @@ async def run_autogen_pipeline(
             }
 
         if validation_result.get('valid', False):
-            bridge.put_event({'type': 'log', 'level': 'success', 'message': '✅ 技术约束验证通过'})
+            _emit_stage_log(bridge, 'success', 'validation', 'result', '✅ [技术验证期] 技术约束验证通过')
             for w in validation_result.get('warnings', []):
-                bridge.put_event({'type': 'log', 'level': 'warning', 'message': f'⚠️  {w}'})
+                _emit_stage_log(bridge, 'warning', 'validation', 'warning', f'⚠️  {w}')
             _emit_output(bridge, 'ValidationAgent', validation_result, fmt='validation')
             break
 
@@ -364,18 +489,18 @@ async def run_autogen_pipeline(
         logger.warning("验证未通过 errors=%d warnings=%d", len(errors), len(warnings))
 
         for w in warnings:
-            bridge.put_event({'type': 'log', 'level': 'warning', 'message': f'⚠️  {w}'})
+            _emit_stage_log(bridge, 'warning', 'validation', 'warning', f'⚠️  {w}')
 
         if fix_round >= MAX_FIX_ROUNDS:
             for e in errors:
-                bridge.put_event({'type': 'log', 'level': 'warning', 'message': f'⚠️  验证错误（已达修复上限，强制输出）: {e}'})
+                _emit_stage_log(bridge, 'warning', 'validation', 'force_output', f'⚠️  验证错误（已达修复上限，强制输出）: {e}')
             break
 
         # 让 DirectorAgent 修复技术错误
-        bridge.put_event({
-            'type': 'log', 'level': 'info',
-            'message': f'🔄 [DirectorAgent] 正在修复技术约束错误（第{fix_round + 1}次）...'
-        })
+        _emit_stage_log(
+            bridge, 'info', 'validation', 'fix',
+            f'🔄 [技术验证期] DirectorAgent 正在修复技术约束错误（第{fix_round + 1}次）...'
+        )
 
         errors_str = "\n".join(f"- {e}" for e in errors)
         fix_prompt = (
@@ -397,13 +522,13 @@ async def run_autogen_pipeline(
             draft_script = fixed_script
             draft_json_str = json.dumps(draft_script, ensure_ascii=False)
         else:
-            bridge.put_event({'type': 'log', 'level': 'warning', 'message': '⚠️  修复结果解析失败，保留上一版本'})
+            _emit_stage_log(bridge, 'warning', 'validation', 'fix_result', '⚠️  修复结果解析失败，保留上一版本')
             break
 
     # ════════════════════════════════════════════════
     # 阶段④：PositionAgent 位置映射（抽象 Position N → 真实点位 ID）
     # ════════════════════════════════════════════════
-    bridge.put_event({'type': 'log', 'level': 'info', 'message': '📍 [PositionAgent] 开始位置映射...'})
+    _emit_stage_log(bridge, 'info', 'position_mapping', 'start', '📍 [位置映射期] PositionAgent 开始位置映射...')
 
     for pos_round in range(MAX_POSITION_FIX_ROUNDS):
         mapping_prompt = (
@@ -425,14 +550,14 @@ async def run_autogen_pipeline(
 
         if mapped_script and not unresolved:
             draft_script = mapped_script
-            bridge.put_event({'type': 'log', 'level': 'success', 'message': '✅ [PositionAgent] 位置映射完成'})
+            _emit_stage_log(bridge, 'success', 'position_mapping', 'result', '✅ [位置映射期] 位置映射完成')
             _emit_output(bridge, 'PositionAgent', mapped_script)
             break
 
         if unresolved:
             logger.warning("[PositionAgent] 无法解析的位置（轮次%d）: %s", pos_round + 1, unresolved)
             for u in unresolved:
-                bridge.put_event({'type': 'log', 'level': 'warning', 'message': f'⚠️  [PositionAgent] 无法映射: {u}'})
+                _emit_stage_log(bridge, 'warning', 'position_mapping', 'unresolved', f'⚠️  [PositionAgent] 无法映射: {u}')
 
             if mapped_script:
                 # 部分映射成功，仍更新 draft
@@ -447,10 +572,10 @@ async def run_autogen_pipeline(
                     + f"\n\n当前剧本：\n```json\n{json.dumps(draft_script, ensure_ascii=False, indent=2)}\n```"
                     + "\n\n直接输出修改后的完整 JSON，不要有其他说明文字。"
                 )
-                bridge.put_event({
-                    'type': 'log', 'level': 'info',
-                    'message': f'✏️  [DirectorAgent] 根据位置反馈修改剧本（轮次{pos_round + 1}）...'
-                })
+                _emit_stage_log(
+                    bridge, 'info', 'position_mapping', 'revise',
+                    f'✏️  [位置映射期] DirectorAgent 根据位置反馈修改剧本（轮次{pos_round + 1}）...'
+                )
                 async for event in director.on_messages_stream(
                     [TextMessage(content=fix_prompt, source="user")],
                     cancellation_token=CancellationToken()
@@ -460,20 +585,14 @@ async def run_autogen_pipeline(
                         if revised:
                             draft_script = revised
             else:
-                bridge.put_event({
-                    'type': 'log', 'level': 'warning',
-                    'message': '⚠️  [PositionAgent] 已达映射上限，使用当前最优结果继续'
-                })
+                _emit_stage_log(bridge, 'warning', 'position_mapping', 'force_continue', '⚠️  [PositionAgent] 已达映射上限，使用当前最优结果继续')
                 break
         else:
             # mapped_script 为 None，解析失败
             logger.warning("[PositionAgent] JSON 解析失败（轮次%d），原始输出: %s",
                            pos_round + 1, pos_raw_content[:300] if pos_raw_content else "None")
             if pos_round >= MAX_POSITION_FIX_ROUNDS - 1:
-                bridge.put_event({
-                    'type': 'log', 'level': 'warning',
-                    'message': '⚠️  [PositionAgent] 解析失败，跳过位置映射，使用抽象位置继续'
-                })
+                _emit_stage_log(bridge, 'warning', 'position_mapping', 'parse_failed', '⚠️  [PositionAgent] 解析失败，跳过位置映射，使用抽象位置继续')
             # 不更新 draft_script，继续重试
 
     # ════════════════════════════════════════════════
@@ -502,23 +621,14 @@ async def run_autogen_pipeline(
 
         if pos_result.get("ok"):
             position_filename = position_output_filename
-            bridge.put_event({
-                'type': 'log', 'level': 'success',
-                'message': f'✅ [PositionAgent] 坐标文件生成完成：{position_output_filename}'
-            })
+            _emit_stage_log(bridge, 'success', 'position_generation', 'result', f'✅ [PositionAgent] 坐标文件生成完成：{position_output_filename}')
         elif pos_result.get("skip"):
-            bridge.put_event({
-                'type': 'log', 'level': 'info',
-                'message': f'⏭️  [PositionAgent] 跳过坐标生成（{pos_result.get("error", "缺少资源文件")}）'
-            })
+            _emit_stage_log(bridge, 'info', 'position_generation', 'skip', f'⏭️  [PositionAgent] 跳过坐标生成（{pos_result.get("error", "缺少资源文件")}）')
         else:
-            bridge.put_event({
-                'type': 'log', 'level': 'warning',
-                'message': f'⚠️  [PositionAgent] 坐标生成失败：{pos_result.get("error", "未知错误")}'
-            })
+            _emit_stage_log(bridge, 'warning', 'position_generation', 'failed', f'⚠️  [PositionAgent] 坐标生成失败：{pos_result.get("error", "未知错误")}')
     except Exception as _e:
         logger.exception("[PositionAgent] 坐标生成异常")
-        bridge.put_event({'type': 'log', 'level': 'warning', 'message': f'⚠️  [PositionAgent] 坐标生成异常：{_e}'})
+        _emit_stage_log(bridge, 'warning', 'position_generation', 'exception', f'⚠️  [PositionAgent] 坐标生成异常：{_e}')
     finally:
         if temp_script_path and temp_script_path.exists():
             temp_script_path.unlink(missing_ok=True)
@@ -526,7 +636,7 @@ async def run_autogen_pipeline(
     # ════════════════════════════════════════════════
     # 阶段⑤：OutputAgent（纯 Python，生成最终 JSON 文件）
     # ════════════════════════════════════════════════
-    bridge.put_event({'type': 'log', 'level': 'info', 'message': '💾 正在生成最终 JSON 并保存文件...'})
+    _emit_stage_log(bridge, 'info', 'output', 'start', '💾 [输出阶段] 正在生成最终 JSON 并保存文件...')
 
     generator = ScriptJSONGenerator(characters, scene)
 
@@ -593,10 +703,7 @@ async def run_autogen_pipeline(
     with open(actors_filepath, 'w', encoding='utf-8') as f:
         _json.dump(actors_profile, f, ensure_ascii=False, indent=2)
 
-    bridge.put_event({
-        'type': 'log', 'level': 'success',
-        'message': f'✅ 已生成角色档案：{len(actors_profile)} 位演员'
-    })
+    _emit_stage_log(bridge, 'success', 'output', 'actors_profile', f'✅ 已生成角色档案：{len(actors_profile)} 位演员')
 
     logger.info("Pipeline 完成 | 剧本=%s 角色档案=%s 坐标=%s",
                 filename, actors_profile_filename, position_filename or "（未生成）")

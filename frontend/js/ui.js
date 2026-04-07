@@ -24,7 +24,7 @@ const UI = {
     },
 
     // 添加日志
-    addLog(type, message) {
+    addLog(type, message, meta = null) {
         const logPanel = document.getElementById('logPanel');
         const logContent = document.getElementById('logContent');
         
@@ -39,10 +39,31 @@ const UI = {
         
         const entry = document.createElement('div');
         entry.className = `log-entry ${type}`;
-        entry.innerHTML = `<span class="log-timestamp">[${timestamp}]</span>${message}`;
+        const stagePrefix = this._formatStagePrefix(meta);
+        entry.innerHTML = `<span class="log-timestamp">[${timestamp}]</span>${stagePrefix}${message}`;
         
         logContent.appendChild(entry);
         logContent.scrollTop = logContent.scrollHeight;
+    },
+
+    _formatStagePrefix(meta) {
+        if (!meta || !meta.stage) return '';
+        const labels = {
+            setup: '流程准备期',
+            concept: '概念孵化期',
+            synopsis: '故事梗概期',
+            character_bios: '人物塑形期',
+            treatment: '分场规划期',
+            draft: '剧本起草期',
+            review: '审核与迭代期',
+            validation: '技术验证期',
+            position_mapping: '位置映射期',
+            position_generation: '坐标生成期',
+            output: '输出阶段'
+        };
+        const stageLabel = labels[meta.stage] || meta.stage;
+        const phaseLabel = meta.phase ? ` · ${meta.phase}` : '';
+        return `[${stageLabel}${phaseLabel}] `;
     },
 
     // 清空日志
@@ -69,7 +90,9 @@ const UI = {
 
         const positionBtn = document.getElementById('downloadPositionBtn');
         if (positionBtn) {
-            positionBtn.style.display = positionFilename ? '' : 'none';
+            positionBtn.style.display = '';
+            positionBtn.disabled = !positionFilename;
+            positionBtn.title = positionFilename ? '下载坐标文件' : '本次未生成坐标文件';
         }
     },
 
@@ -728,13 +751,42 @@ const UI = {
             bodyHTML = data.map((scene, si) => {
                 const info = scene['scene information'] || {};
                 const who = (info.who || []).join('、');
+                const initPos = (scene['initial position'] || [])
+                    .map(p => `${p.character || ''} → ${p.position || ''}`)
+                    .join('　');
                 const beats = (scene['scene'] || []).map(beat => {
                     if (beat.speaker !== undefined) {
                         const content = (beat.content || '').slice(0, 60) + ((beat.content || '').length > 60 ? '…' : '');
-                        return `<div class="ob-beat ob-dialogue"><span class="ob-speaker">${this._esc(beat.speaker)}</span><span class="ob-content">${this._esc(content)}</span></div>`;
+                        const shot = beat.shot || '';
+                        const anchors = Array.isArray(beat.shot_anchors) ? beat.shot_anchors.join(', ') : '';
+                        const camera = beat.camera !== undefined ? `机位 ${beat.camera}` : '';
+                        const actions = (beat.actions || [])
+                            .map(a => `[${a.character || ''}] ${a.action || ''}${a.state ? ` (${a.state})` : ''}`)
+                            .join(' · ');
+                        const positions = (beat['current position'] || [])
+                            .map(p => `${p.character || ''}→${p.position || ''}`)
+                            .join('　');
+                        const motion = beat.motion_description || '';
+                        const shotMeta = [shot, anchors ? `锚点 ${anchors}` : '', camera].filter(Boolean).join(' · ');
+                        return `
+                        <div class="ob-beat ob-dialogue">
+                            <span class="ob-speaker">${this._esc(beat.speaker)}</span>
+                            <span class="ob-content">${this._esc(content)}</span>
+                            ${shotMeta ? `<div class="ob-beat-meta">镜头：${this._esc(shotMeta)}</div>` : ''}
+                            ${actions ? `<div class="ob-beat-meta">动作：${this._esc(actions)}</div>` : ''}
+                            ${positions ? `<div class="ob-beat-meta">站位：${this._esc(positions)}</div>` : ''}
+                            ${motion ? `<div class="ob-beat-meta">氛围：${this._esc(motion)}</div>` : ''}
+                        </div>`;
                     } else if (beat.move) {
                         const moves = (beat.move || []).map(m => `${m.character} → ${m.destination}`).join('　');
-                        return `<div class="ob-beat ob-move">▶ ${this._esc(moves)}</div>`;
+                        const positions = (beat['current position'] || [])
+                            .map(p => `${p.character || ''}→${p.position || ''}`)
+                            .join('　');
+                        return `
+                        <div class="ob-beat ob-move">
+                            <div>▶ ${this._esc(moves)}</div>
+                            ${positions ? `<div class="ob-beat-meta">站位：${this._esc(positions)}</div>` : ''}
+                        </div>`;
                     }
                     return '';
                 }).join('');
@@ -742,10 +794,52 @@ const UI = {
                 <div class="ob-scene">
                     <div class="ob-scene-header">第 ${si + 1} 幕 · <span class="ob-where">${this._esc(info.where || '')}</span> · <span class="ob-who">${this._esc(who)}</span></div>
                     ${info.what ? `<div class="ob-what">${this._esc(info.what)}</div>` : ''}
+                    ${initPos ? `<div class="ob-what">初始站位：${this._esc(initPos)}</div>` : ''}
                     ${beats}
                 </div>`;
             }).join('');
 
+        } else if (fmt === 'stage' && data) {
+            labelHTML = `<span class="ob-label">阶段产物</span>`;
+            const agentKey = (agent || '').toLowerCase();
+            if (agentKey.includes('concept')) {
+                bodyHTML = `
+                    ${data.logline ? `<div class="ob-what"><strong>Logline：</strong>${this._esc(data.logline)}</div>` : ''}
+                    ${data.core_conflict ? `<div class="ob-beat-meta">核心冲突：${this._esc(data.core_conflict)}</div>` : ''}
+                    ${data.tone ? `<div class="ob-beat-meta">基调：${this._esc(data.tone)}</div>` : ''}
+                    ${data.stakes ? `<div class="ob-beat-meta">代价：${this._esc(data.stakes)}</div>` : ''}
+                `;
+            } else if (agentKey.includes('synopsis')) {
+                bodyHTML = `
+                    ${data.synopsis ? `<div class="ob-what">${this._esc(data.synopsis)}</div>` : ''}
+                    ${data.opening ? `<div class="ob-beat-meta">开场：${this._esc(data.opening)}</div>` : ''}
+                    ${data.turning_point ? `<div class="ob-beat-meta">转折：${this._esc(data.turning_point)}</div>` : ''}
+                    ${data.ending_direction ? `<div class="ob-beat-meta">走向：${this._esc(data.ending_direction)}</div>` : ''}
+                `;
+            } else if (agentKey.includes('characterbios')) {
+                const bios = Array.isArray(data.character_bios) ? data.character_bios : [];
+                bodyHTML = bios.map((b, idx) => `
+                    <div class="ob-scene">
+                        <div class="ob-scene-header">角色 ${idx + 1} · ${this._esc(b.name || '未命名')}</div>
+                        ${b.role ? `<div class="ob-beat-meta">叙事功能：${this._esc(b.role)}</div>` : ''}
+                        ${b.goal ? `<div class="ob-beat-meta">目标：${this._esc(b.goal)}</div>` : ''}
+                        ${b.inner_conflict ? `<div class="ob-beat-meta">内在冲突：${this._esc(b.inner_conflict)}</div>` : ''}
+                        ${b.relationship_hint ? `<div class="ob-beat-meta">关系线索：${this._esc(b.relationship_hint)}</div>` : ''}
+                    </div>
+                `).join('');
+            } else if (agentKey.includes('treatment')) {
+                const beats = Array.isArray(data.treatment) ? data.treatment : [];
+                bodyHTML = beats.map((b) => `
+                    <div class="ob-scene">
+                        <div class="ob-scene-header">Beat ${this._esc(b.beat || '')}</div>
+                        ${b.objective ? `<div class="ob-beat-meta">目标：${this._esc(b.objective)}</div>` : ''}
+                        ${b.conflict ? `<div class="ob-beat-meta">冲突：${this._esc(b.conflict)}</div>` : ''}
+                        ${b.outcome ? `<div class="ob-beat-meta">结果：${this._esc(b.outcome)}</div>` : ''}
+                    </div>
+                `).join('') + (data.draft_guidance ? `<div class="ob-revision">💡 起草指引：${this._esc(data.draft_guidance)}</div>` : '');
+            } else {
+                bodyHTML = `<div class="ob-beat-meta">${this._esc(JSON.stringify(data, null, 2))}</div>`;
+            }
         } else if (fmt === 'feedback' && data) {
             const hasIssues = data.has_issues;
             labelHTML = hasIssues

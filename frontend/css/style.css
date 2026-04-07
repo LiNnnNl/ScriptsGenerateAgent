@@ -745,11 +745,47 @@ body {
 .ob-where { color: rgba(224,224,224,0.7); }
 .ob-who   { color: #80cbc4; }
 .ob-what  { font-size: 0.74rem; color: rgba(224,224,224,0.5); margin-bottom: 4px; font-style: italic; }
-.ob-beat  { display: flex; gap: 8px; padding: 2px 0; font-size: 0.78rem; }
-.ob-beat.ob-dialogue { align-items: baseline; }
-.ob-beat.ob-move     { color: #78909c; font-style: italic; }
+.ob-beat  { display: flex; gap: 8px; padding: 4px 0; font-size: 0.78rem; }
+.ob-beat.ob-dialogue {
+    align-items: baseline;
+    flex-wrap: wrap;
+    border-bottom: 1px dashed rgba(255,255,255,0.06);
+}
+.ob-beat.ob-move {
+    color: #78909c;
+    font-style: italic;
+    display: block;
+    padding-left: 2px;
+}
 .ob-speaker { color: #ffcc80; font-weight: 700; min-width: 60px; flex-shrink: 0; }
 .ob-content { color: rgba(224,224,224,0.8); }
+.ob-beat-meta {
+    width: 100%;
+    margin-left: 68px;
+    font-size: 0.72rem;
+    line-height: 1.45;
+    color: rgba(176,190,197,0.92);
+    padding: 2px 8px;
+    border-left: 2px solid rgba(84,110,122,0.45);
+    background: rgba(255,255,255,0.02);
+    border-radius: 0 4px 4px 0;
+}
+
+/* 阶段产物映射样式 */
+.ob-body .ob-scene {
+    background: rgba(255,255,255,0.015);
+    border: 1px solid rgba(84,110,122,0.18);
+    border-radius: 6px;
+    padding: 6px 8px;
+}
+.ob-body .ob-scene-header {
+    color: #b0bec5;
+    border-bottom-color: rgba(84,110,122,0.26);
+}
+.ob-body .ob-what {
+    color: rgba(224,224,224,0.76);
+    font-style: normal;
+}
 
 /* 反馈格式 */
 .ob-issue {

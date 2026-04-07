@@ -185,6 +185,119 @@ def build_director_system_message(
     return char_info + scene_info + action_info + task_info
 
 
+def _build_stage_common_context(
+    characters: List[Character],
+    scene: Scene,
+    required_character_count: int = 0
+) -> str:
+    """构建阶段化前置创作用的通用上下文。"""
+    total_count = required_character_count if required_character_count > 0 else len(characters)
+    if total_count == 0:
+        total_count = 2
+    extra_count = max(0, total_count - len(characters))
+
+    lines = [
+        f"场景：{scene.name} (ID: {scene.id})",
+        f"场景描述：{scene.description}",
+        f"角色总数要求：{total_count}",
+    ]
+    if characters:
+        lines.append("已指定角色（必须保留）：")
+        for char in characters:
+            lines.append(f"- {char.name}｜背景：{char.description}｜性格：{char.personality}")
+        if extra_count > 0:
+            lines.append(f"还需新增角色数量：{extra_count}")
+    else:
+        lines.append("未指定角色，全部由 AI 自由创作。")
+
+    return "\n".join(lines)
+
+
+def build_concept_system_message(
+    characters: List[Character],
+    scene: Scene,
+    required_character_count: int = 0
+) -> str:
+    common = _build_stage_common_context(characters, scene, required_character_count)
+    return (
+        "你是 ConceptAgent，负责产出 Logline（概念萌发）。\n"
+        "你的目标是将创作想法压缩为高可执行的一句核心命题。\n\n"
+        "## 已知上下文\n"
+        f"{common}\n\n"
+        "## 输出要求\n"
+        "1. 只输出 JSON，不要附加解释。\n"
+        "2. 字段固定为：\n"
+        "{\n"
+        "  \"logline\": \"一句话核心冲突与戏剧目标\",\n"
+        "  \"core_conflict\": \"主要矛盾\",\n"
+        "  \"tone\": \"风格基调\",\n"
+        "  \"stakes\": \"失败代价或风险\"\n"
+        "}\n"
+        "3. 内容需可直接供后续 Synopsis 阶段使用。"
+    )
+
+
+def build_synopsis_system_message() -> str:
+    return (
+        "你是 SynopsisAgent，负责将 Logline 扩展为故事梗概。\n"
+        "你会收到创作想法与上游 Concept 阶段结果。\n\n"
+        "## 输出要求\n"
+        "1. 只输出 JSON，不要附加解释。\n"
+        "2. 字段固定为：\n"
+        "{\n"
+        "  \"synopsis\": \"200-400 字的完整梗概\",\n"
+        "  \"opening\": \"开场状态\",\n"
+        "  \"turning_point\": \"关键转折\",\n"
+        "  \"ending_direction\": \"结局走向\"\n"
+        "}\n"
+        "3. 强调因果链路，避免只列设定。"
+    )
+
+
+def build_character_bios_system_message() -> str:
+    return (
+        "你是 CharacterBiosAgent，负责人物小传。\n"
+        "你会收到 Logline、Synopsis 与角色约束。\n\n"
+        "## 输出要求\n"
+        "1. 只输出 JSON，不要附加解释。\n"
+        "2. 字段固定为：\n"
+        "{\n"
+        "  \"character_bios\": [\n"
+        "    {\n"
+        "      \"name\": \"角色名\",\n"
+        "      \"role\": \"叙事功能\",\n"
+        "      \"goal\": \"当下目标\",\n"
+        "      \"inner_conflict\": \"内在冲突\",\n"
+        "      \"relationship_hint\": \"与其他角色的关系线索\"\n"
+        "    }\n"
+        "  ]\n"
+        "}\n"
+        "3. 若有已指定角色，必须保留姓名并对齐既有性格。"
+    )
+
+
+def build_treatment_system_message() -> str:
+    return (
+        "你是 TreatmentAgent，负责分场大纲（Beat Sheet）。\n"
+        "你会收到前置阶段产物（Logline、Synopsis、Character Bios）。\n\n"
+        "## 输出要求\n"
+        "1. 只输出 JSON，不要附加解释。\n"
+        "2. 字段固定为：\n"
+        "{\n"
+        "  \"treatment\": [\n"
+        "    {\n"
+        "      \"beat\": 1,\n"
+        "      \"objective\": \"该节拍的戏剧目标\",\n"
+        "      \"conflict\": \"冲突推进\",\n"
+        "      \"outcome\": \"结果与状态变化\"\n"
+        "    }\n"
+        "  ],\n"
+        "  \"draft_guidance\": \"供导演生成 JSON 剧本时遵循的短指令\"\n"
+        "}\n"
+        "3. 需形成清晰递进，可直接作为最终剧本初稿蓝图。"
+    )
+
+
 def build_critic_system_message() -> str:
     return (
         "你是一位专业的剧本顾问，专注于叙事质量分析。\n\n"
@@ -275,6 +388,43 @@ def create_critic_agent(model: Optional[str] = None) -> AssistantAgent:
         name="CriticAgent",
         model_client=make_model_client(model),
         system_message=build_critic_system_message(),
+    )
+
+
+def create_concept_agent(
+    characters: List[Character],
+    scene: Scene,
+    required_character_count: int = 0,
+    model: Optional[str] = None
+) -> AssistantAgent:
+    return AssistantAgent(
+        name="ConceptAgent",
+        model_client=make_model_client(model),
+        system_message=build_concept_system_message(characters, scene, required_character_count),
+    )
+
+
+def create_synopsis_agent(model: Optional[str] = None) -> AssistantAgent:
+    return AssistantAgent(
+        name="SynopsisAgent",
+        model_client=make_model_client(model),
+        system_message=build_synopsis_system_message(),
+    )
+
+
+def create_character_bios_agent(model: Optional[str] = None) -> AssistantAgent:
+    return AssistantAgent(
+        name="CharacterBiosAgent",
+        model_client=make_model_client(model),
+        system_message=build_character_bios_system_message(),
+    )
+
+
+def create_treatment_agent(model: Optional[str] = None) -> AssistantAgent:
+    return AssistantAgent(
+        name="TreatmentAgent",
+        model_client=make_model_client(model),
+        system_message=build_treatment_system_message(),
     )
 
 

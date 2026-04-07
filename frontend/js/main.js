@@ -137,7 +137,7 @@ function handleStreamData(data) {
             UI.addOutputBlock(data);
             return;
         }
-        UI.addLog(data.level || 'info', data.message);
+        UI.addLog(data.level || 'info', data.message, { stage: data.stage, phase: data.phase });
     } else if (data.type === 'thinking') {
         UI.addLog('thinking', '💭 ' + data.message);
     } else if (data.type === 'thinking_chunk') {
@@ -153,6 +153,8 @@ function handleStreamData(data) {
         }
         if (data.position_filename) {
             UI.addLog('success', `📍 坐标文件: ${data.position_filename}`);
+        } else {
+            UI.addLog('warning', '⚠️ 本次未生成坐标文件（可继续下载剧本和演员档案）');
         }
 
         UI.showSuccess(data.filename, data.actors_profile_filename, data.position_filename);
@@ -240,6 +242,8 @@ function setupEventListeners() {
     document.getElementById('downloadPositionBtn').addEventListener('click', () => {
         if (APP_STATE.currentPositionFilename) {
             API.downloadFile(APP_STATE.currentPositionFilename);
+        } else {
+            UI.addLog('warning', '⚠️ 当前没有可下载的坐标文件');
         }
     });
 
