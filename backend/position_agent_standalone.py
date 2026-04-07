@@ -126,6 +126,12 @@ def extract_positions_node(root: Optional[Dict[str, Any]]) -> Optional[Dict[str,
     positions = root.get("positions")
     if isinstance(positions, dict):
         return positions
+    # New template style: { "SceneName": { "Position 1": {...} } }
+    # If root is wrapped by exactly one scene key, unwrap it.
+    if len(root) == 1:
+        only_value = next(iter(root.values()))
+        if isinstance(only_value, dict) and looks_like_positions_map(only_value):
+            return only_value
     return root if looks_like_positions_map(root) else None
 
 
@@ -493,23 +499,27 @@ class PositionAgentRunner:
         }
 
     def build_expanded_template(self, template_root: Dict[str, Any], script_digest: ScriptDigest) -> Dict[str, Any]:
-        template_positions = extract_positions_node(template_root)
-        prototype = self.get_template_prototype(template_positions)
         multi_scene = script_digest.scene_count > 1
 
         if not multi_scene:
             scene = script_digest.scenes[0] if script_digest.scenes else SceneRequirement()
+            scene_name = scene.scene_name or template_root.get("where") or "Scene"
+            scene_template_root = find_scene_document(template_root, scene_name) or template_root
+            template_positions = extract_positions_node(scene_template_root) or extract_positions_node(template_root)
+            prototype = self.get_template_prototype(template_positions)
             return {
-                "where": scene.scene_name or template_root.get("where") or "Scene",
-                "center": copy.deepcopy(template_root.get("center")) if isinstance(template_root.get("center"), list) else [],
-                "positions": self.build_scene_positions_template(scene.position_ids, template_positions, prototype),
+                scene_name: self.build_scene_positions_template(scene.position_ids, template_positions, prototype),
             }
 
+        template_positions = extract_positions_node(template_root)
+        prototype = self.get_template_prototype(template_positions)
         multi_scene_document: Dict[str, Any] = {}
         for scene in sorted(script_digest.scenes, key=lambda value: value.scene_name):
+            scene_template_root = find_scene_document(template_root, scene.scene_name) or template_root
+            scene_template_positions = extract_positions_node(scene_template_root) or template_positions
             multi_scene_document[scene.scene_name] = self.build_scene_positions_template(
                 scene.position_ids,
-                template_positions,
+                scene_template_positions,
                 prototype,
             )
         return multi_scene_document
@@ -566,10 +576,16 @@ class PositionAgentRunner:
             normalized["neartarget"] = ""
 
         if self.config.include_looktarget_field:
-            if normalized.get("looktarget") is None:
-                normalized["looktarget"] = ""
+            # Canonical output field is `lookat`, but keep backward compatibility
+            # with old templates/model outputs that may still use `looktarget`.
+            lookat_val = normalized.get("lookat")
+            if lookat_val is None and normalized.get("looktarget") is not None:
+                lookat_val = normalized.get("looktarget")
+            normalized["lookat"] = lookat_val if lookat_val is not None else ""
+            normalized.pop("looktarget", None)
         else:
             normalized.pop("looktarget", None)
+            normalized.pop("lookat", None)
 
         return normalized
 
@@ -797,15 +813,13 @@ class PositionAgentRunner:
         multi_scene = script_digest.scene_count > 1
 
         if not multi_scene:
-            target_positions = normalized.get("positions")
-            source_scene = find_scene_document(model_output, normalized.get("where"))
+            scene_name = script_digest.scenes[0].scene_name if script_digest.scenes else None
+            if not scene_name and isinstance(normalized, dict) and normalized:
+                scene_name = next(iter(normalized.keys()))
+            target_positions = normalized.get(scene_name) if scene_name else None
+            source_scene = find_scene_document(model_output, scene_name)
             source_positions = extract_positions_node(source_scene or model_output)
             self.merge_positions(target_positions, source_positions)
-
-            source_center_owner = source_scene or model_output
-            if isinstance(source_center_owner, dict) and isinstance(source_center_owner.get("center"), list):
-                normalized["center"] = copy.deepcopy(source_center_owner.get("center"))
-
             return normalized
 
         for scene_name, target_positions in normalized.items():
@@ -840,7 +854,10 @@ class PositionAgentRunner:
             self.copy_whitelisted_field(source_entry, target_entry, "region")
             self.copy_whitelisted_field(source_entry, target_entry, "neartarget")
             if self.config.include_looktarget_field:
-                self.copy_whitelisted_field(source_entry, target_entry, "looktarget")
+                if "lookat" in source_entry:
+                    self.copy_whitelisted_field(source_entry, target_entry, "lookat")
+                elif "looktarget" in source_entry:
+                    target_entry["lookat"] = copy.deepcopy(source_entry["looktarget"])
 
     @staticmethod
     def copy_whitelisted_field(source_entry: Dict[str, Any], target_entry: Dict[str, Any], field_name: str) -> None:

@@ -243,7 +243,7 @@ const UI = {
         `;
         }).join('');
 
-        panel.style.display = 'block';
+        document.getElementById('downloadCastBtn').style.display = '';
         this._attachEditorListeners(list);
     },
 

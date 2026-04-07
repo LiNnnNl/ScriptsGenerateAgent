@@ -104,13 +104,24 @@
             </div>
 
             <!-- 角色档案预览面板 -->
-            <div class="cast-preview-panel" id="castPreviewPanel" style="display: none;">
+            <div class="cast-preview-panel" id="castPreviewPanel">
                 <div class="cast-preview-header">
                     <span class="cast-preview-title">👥 CAST PROFILE</span>
-                    <button class="download-btn download-btn-secondary cast-preview-dl-btn" id="downloadCastBtn">
+                    <button class="download-btn download-btn-secondary cast-preview-dl-btn" id="downloadCastBtn" style="display:none">
                         <span>📥</span><span>下载角色档案</span>
                     </button>
                 </div>
+
+                <!-- 导入角色表 JSON -->
+                <div class="cast-dropzone" id="castDropzone">
+                    <span class="dropzone-icon">📂</span>
+                    <span class="cast-hint">拖入角色表 .json 文件可直接替换当前角色列表</span>
+                    <span class="dropzone-sub">或者</span>
+                    <button class="dropzone-select-btn" id="castDropzoneBtn" type="button">选择文件</button>
+                    <input type="file" id="castFileInput" accept=".json" style="display:none">
+                </div>
+                <div id="castImportFeedback"></div>
+
                 <div class="cast-preview-list" id="castPreviewList"></div>
             </div>
 

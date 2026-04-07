@@ -260,6 +260,60 @@ function setupEventListeners() {
         a.click();
         URL.revokeObjectURL(url);
     });
+
+    // ── 角色表 JSON 拖放导入 ──
+    const dropzone   = document.getElementById('castDropzone');
+    const fileInput  = document.getElementById('castFileInput');
+    const selectBtn  = document.getElementById('castDropzoneBtn');
+
+    selectBtn.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', () => {
+        if (fileInput.files[0]) importCastJSON(fileInput.files[0]);
+        fileInput.value = '';
+    });
+
+    dropzone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropzone.classList.add('drag-over');
+    });
+    dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag-over'));
+    dropzone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropzone.classList.remove('drag-over');
+        const file = e.dataTransfer.files[0];
+        if (file) importCastJSON(file);
+    });
+}
+
+// 导入角色表 JSON 文件
+function importCastJSON(file) {
+    const feedback = document.getElementById('castImportFeedback');
+    if (!file.name.endsWith('.json')) {
+        feedback.className = 'cast-import-feedback error';
+        feedback.textContent = '请选择 .json 格式文件';
+        return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        try {
+            const data = JSON.parse(e.target.result);
+            if (!Array.isArray(data) || data.length === 0) {
+                throw new Error('文件内容必须是非空 JSON 数组');
+            }
+            if (!data.every(c => typeof c === 'object' && c !== null && (c.name || '').trim())) {
+                throw new Error('每个角色对象必须包含 name 字段');
+            }
+            APP_STATE.generatedCharacters = data;
+            UI.renderCastPreview(data);
+            UI.enableGenerateBtn();
+            feedback.className = 'cast-import-feedback success';
+            feedback.textContent = `✓ 已导入 ${data.length} 位角色（${file.name}）`;
+        } catch (err) {
+            feedback.className = 'cast-import-feedback error';
+            feedback.textContent = `解析失败：${err.message}`;
+        }
+    };
+    reader.readAsText(file, 'utf-8');
 }
 
 // 更新角色数量
