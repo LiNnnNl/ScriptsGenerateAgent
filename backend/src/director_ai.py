@@ -207,9 +207,11 @@ class DirectorAI:
       {
         "speaker": "角色名",
         "content": "角色台词",
-        "shot": "character",
-        "shot_anchors": ["Front"],
         "shot_blend": "cut",
+        "shot": "character",
+        "shot_type": "近景",
+        "Follow": 0,
+        "shot_anchors": ["Front"],
         "actions": [
           {
             "character": "角色名",
@@ -235,9 +237,11 @@ class DirectorAI:
         "move": [
           {"character": "角色名", "destination": "Position Z"}
         ],
-        "shot": "scene",
-        "camera": 3,
         "shot_blend": "easein",
+        "shot": "scene",
+        "shot_type": "全景",
+        "Follow": 0,
+        "camera": 3,
         "current position": [
           {"character": "角色名1", "position": "Position X"},
           {"character": "角色名2", "position": "Position Y"}
@@ -256,7 +260,9 @@ class DirectorAI:
   - **移动片段**: 含 `move`（目标位置）、`current position`（移动*前*的位置），不含 `speaker`/`content`
 - `shot` 为 "character" 时使用 `shot_anchors`（如 `["Front"]`），不使用 `camera`
 - `shot` 为 "scene" 时使用 `camera`（整数编号），不使用 `shot_anchors`
-- `shot_blend`: 可选，"cut"（硬切）或 "easein"（渐入）
+- `shot_blend`: 必填，"cut"（硬切）、"blend"（叠化）或 "easein"（渐入）
+- `shot_type`: 必填，描述镜头语言，如 "近景"、"中近景"、"全景"、"仰拍镜头"、"俯拍镜头" 等
+- `Follow`: 必填，整数，默认为 0
 - `motion_description`: 可选，氛围或运镜诗意描述
 - `camera_description`: 可选，具体镜头运动说明
 - `motion_detail`: 动作细节英文描述，可为空字符串 ""

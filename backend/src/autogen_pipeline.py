@@ -32,7 +32,7 @@ from .autogen_agents import (
     create_validation_agent,
     create_position_agent,
 )
-from .autogen_tools import validate_script_constraints, validate_json_spec
+from .autogen_tools import validate_script_constraints, validate_json_spec, auto_fix_script
 from .position_agent_wrapper import run_position_agent
 from .resource_loader import ResourceLoader, Character, Scene
 from .json_generator import ScriptJSONGenerator
@@ -40,8 +40,6 @@ from .json_generator import ScriptJSONGenerator
 
 # 最大审查轮次（超限后强制进入验证阶段）
 MAX_REVIEW_ROUNDS = 3
-# 技术验证失败后最大修复次数
-MAX_FIX_ROUNDS = 3
 # PositionAgent 映射失败后最大重试次数
 MAX_POSITION_FIX_ROUNDS = 3
 
@@ -169,6 +167,54 @@ async def _run_stage_agent_json_object(agent, prompt: str) -> Optional[dict]:
     return _extract_json_object_from_text(raw_content)
 
 
+def _fallback_fix_positions(script: list, scene) -> list:
+    """
+    保底点位修正：将剧本中仍为抽象（Position N）或不在场景可用点位内的位置，
+    轮询替换为场景真实点位 ID。场景无可用点位时直接返回原剧本。
+    """
+    valid_ids = [pos['id'] for pos in scene.valid_positions]
+    if not valid_ids:
+        return script
+
+    # 轮询索引，让不同片段尽量分散到不同点位
+    _counter = [0]
+
+    def _next_valid() -> str:
+        pos = valid_ids[_counter[0] % len(valid_ids)]
+        _counter[0] += 1
+        return pos
+
+    def _fix_pos(pos_id: str) -> str:
+        """若 pos_id 不在可用点位中则返回保底点位，否则原样返回。"""
+        if pos_id and scene.get_position(pos_id):
+            return pos_id
+        return _next_valid()
+
+    def _fix_pos_list(pos_list: list) -> list:
+        return [
+            {"character": entry.get("character", ""), "position": _fix_pos(entry.get("position", ""))}
+            for entry in (pos_list or [])
+        ]
+
+    import copy
+    result = copy.deepcopy(script)
+    for scene_obj in result:
+        # initial position
+        if "initial position" in scene_obj:
+            scene_obj["initial position"] = _fix_pos_list(scene_obj["initial position"])
+
+        for seg in scene_obj.get("scene", []):
+            # current position
+            if "current position" in seg:
+                seg["current position"] = _fix_pos_list(seg["current position"])
+
+            # 移动片段 destination
+            for move in seg.get("move", []):
+                move["destination"] = _fix_pos(move.get("destination", ""))
+
+    return result
+
+
 async def run_autogen_pipeline(
     bridge: AutoGenStreamBridge,
     resource_loader: ResourceLoader,
@@ -229,7 +275,7 @@ async def run_autogen_pipeline(
     }
 
     # ════════════════════════════════════════════════
-    # 阶段①-④：概念链路（Logline → Synopsis → Bios → Treatment）
+    # 阶段一：前置统筹（概念链路 Logline → Synopsis → Bios → Treatment）
     # ════════════════════════════════════════════════
     _emit_stage_log(bridge, 'info', 'concept', 'start', '🧠 [概念孵化期] ConceptAgent 生成 Logline...')
     concept_prompt = (
@@ -294,7 +340,7 @@ async def run_autogen_pipeline(
         stage_context["treatment"] = {"draft_guidance": "保持冲突递进，保证角色动机一致。"}
 
     # ════════════════════════════════════════════════
-    # 阶段⑤：DirectorAgent 生成初稿
+    # 阶段二：剧本起草与文学审查
     # ════════════════════════════════════════════════
     _emit_stage_log(bridge, 'info', 'draft', 'start', '🎬 [剧本起草期] DirectorAgent 开始生成剧本初稿...')
 
@@ -342,9 +388,7 @@ async def run_autogen_pipeline(
     _emit_stage_log(bridge, 'success', 'draft', 'summary', '✅ [剧本起草期] 剧本初稿生成完成')
     _emit_output(bridge, 'DirectorAgent', draft_script)
 
-    # ════════════════════════════════════════════════
-    # 阶段②：审查层（CriticAgent + DialogueAgent，循环修改）
-    # ════════════════════════════════════════════════
+    # ── 阶段二 后半：文学审查（CriticAgent + DialogueAgent，循环修改）──
     for review_round in range(MAX_REVIEW_ROUNDS):
         _emit_stage_log(
             bridge, 'info', 'review', 'start',
@@ -444,90 +488,10 @@ async def run_autogen_pipeline(
             break
 
     # ════════════════════════════════════════════════
-    # 阶段③：技术约束验证
+    # 阶段三：位置映射与坐标生成
     # ════════════════════════════════════════════════
-    _emit_stage_log(bridge, 'info', 'validation', 'start', '🔧 [技术验证期] 开始技术约束验证...')
 
-    draft_json_str = json.dumps(draft_script, ensure_ascii=False)
-    validation_result = None
-
-    for fix_round in range(MAX_FIX_ROUNDS + 1):
-        if model_supports_tools:
-            # 模型支持工具调用：由 ValidationAgent 调用 FunctionTool 验证
-            validation_result = None
-            async for event in validator.on_messages_stream(
-                [TextMessage(content=f"请验证以下剧本 JSON 字符串：\n{draft_json_str}", source="user")],
-                cancellation_token=CancellationToken()
-            ):
-                if hasattr(event, 'inner_messages'):
-                    for msg in (event.inner_messages or []):
-                        if isinstance(msg, ToolCallExecutionEvent):
-                            _emit_stage_log(bridge, 'info', 'validation', 'tool', '🔍 [ValidationAgent] 正在执行技术验证...')
-                elif hasattr(event, 'chat_message') and event.chat_message:
-                    validation_result = _extract_validation_json(event.chat_message.content)
-
-        if validation_result is None:
-            # 直接用 Python 函数验证（不支持工具调用时的主路径，或 agent 输出解析失败时的兜底）
-            logger.info("使用 Python 直接验证（fix_round=%d）", fix_round)
-            constraints_result = validate_script_constraints(draft_script, scene, resource_loader)
-            spec_result = validate_json_spec(draft_script)
-            validation_result = {
-                'valid': constraints_result['valid'] and spec_result['valid'],
-                'errors': constraints_result['errors'] + spec_result['errors'],
-                'warnings': constraints_result['warnings'] + spec_result['warnings'],
-            }
-
-        if validation_result.get('valid', False):
-            _emit_stage_log(bridge, 'success', 'validation', 'result', '✅ [技术验证期] 技术约束验证通过')
-            for w in validation_result.get('warnings', []):
-                _emit_stage_log(bridge, 'warning', 'validation', 'warning', f'⚠️  {w}')
-            _emit_output(bridge, 'ValidationAgent', validation_result, fmt='validation')
-            break
-
-        errors = validation_result.get('errors', [])
-        warnings = validation_result.get('warnings', [])
-        logger.warning("验证未通过 errors=%d warnings=%d", len(errors), len(warnings))
-
-        for w in warnings:
-            _emit_stage_log(bridge, 'warning', 'validation', 'warning', f'⚠️  {w}')
-
-        if fix_round >= MAX_FIX_ROUNDS:
-            for e in errors:
-                _emit_stage_log(bridge, 'warning', 'validation', 'force_output', f'⚠️  验证错误（已达修复上限，强制输出）: {e}')
-            break
-
-        # 让 DirectorAgent 修复技术错误
-        _emit_stage_log(
-            bridge, 'info', 'validation', 'fix',
-            f'🔄 [技术验证期] DirectorAgent 正在修复技术约束错误（第{fix_round + 1}次）...'
-        )
-
-        errors_str = "\n".join(f"- {e}" for e in errors)
-        fix_prompt = (
-            f"以下剧本存在技术约束错误，请修复后输出完整 JSON，不要有其他说明文字：\n\n"
-            f"**错误列表：**\n{errors_str}\n\n"
-            f"**注意**：只修复上述错误，不要改动其他内容。\n\n"
-            f"当前剧本：\n```json\n{draft_json_str}\n```"
-        )
-
-        fixed_script = None
-        async for event in director.on_messages_stream(
-            [TextMessage(content=fix_prompt, source="user")],
-            cancellation_token=CancellationToken()
-        ):
-            if hasattr(event, 'chat_message') and event.chat_message:
-                fixed_script = _extract_json_from_text(event.chat_message.content)
-
-        if fixed_script:
-            draft_script = fixed_script
-            draft_json_str = json.dumps(draft_script, ensure_ascii=False)
-        else:
-            _emit_stage_log(bridge, 'warning', 'validation', 'fix_result', '⚠️  修复结果解析失败，保留上一版本')
-            break
-
-    # ════════════════════════════════════════════════
-    # 阶段④：PositionAgent 位置映射（抽象 Position N → 真实点位 ID）
-    # ════════════════════════════════════════════════
+    # ── 阶段三 前半：PositionAgent 位置映射（抽象 Position N → 真实点位 ID）──
     _emit_stage_log(bridge, 'info', 'position_mapping', 'start', '📍 [位置映射期] PositionAgent 开始位置映射...')
 
     for pos_round in range(MAX_POSITION_FIX_ROUNDS):
@@ -595,9 +559,10 @@ async def run_autogen_pipeline(
                 _emit_stage_log(bridge, 'warning', 'position_mapping', 'parse_failed', '⚠️  [PositionAgent] 解析失败，跳过位置映射，使用抽象位置继续')
             # 不更新 draft_script，继续重试
 
-    # ════════════════════════════════════════════════
-    # 阶段④b：position_agent_standalone 坐标生成（可选，需 scene_export + template 文件）
-    # ════════════════════════════════════════════════
+    # ── 阶段三 中：保底点位修正（将仍为抽象/无效的位置替换为场景真实点位）──
+    draft_script = _fallback_fix_positions(draft_script, scene)
+
+    # ── 阶段三 后半：position_agent_standalone 坐标生成（可选，需 scene_export + template 文件）──
     position_filename = None
     import asyncio as _asyncio
     timestamp = int(time.time())
@@ -621,21 +586,83 @@ async def run_autogen_pipeline(
 
         if pos_result.get("ok"):
             position_filename = position_output_filename
-            _emit_stage_log(bridge, 'success', 'position_generation', 'result', f'✅ [PositionAgent] 坐标文件生成完成：{position_output_filename}')
+            _emit_stage_log(bridge, 'success', 'position_generation', 'result', f'✅ [位置映射期] 坐标文件生成完成：{position_output_filename}')
         elif pos_result.get("skip"):
-            _emit_stage_log(bridge, 'info', 'position_generation', 'skip', f'⏭️  [PositionAgent] 跳过坐标生成（{pos_result.get("error", "缺少资源文件")}）')
+            _emit_stage_log(bridge, 'info', 'position_generation', 'skip', f'⏭️  [位置映射期] 跳过坐标生成（{pos_result.get("error", "缺少资源文件")}）')
         else:
-            _emit_stage_log(bridge, 'warning', 'position_generation', 'failed', f'⚠️  [PositionAgent] 坐标生成失败：{pos_result.get("error", "未知错误")}')
+            _emit_stage_log(bridge, 'warning', 'position_generation', 'failed', f'⚠️  [位置映射期] 坐标生成失败：{pos_result.get("error", "未知错误")}')
     except Exception as _e:
         logger.exception("[PositionAgent] 坐标生成异常")
-        _emit_stage_log(bridge, 'warning', 'position_generation', 'exception', f'⚠️  [PositionAgent] 坐标生成异常：{_e}')
+        _emit_stage_log(bridge, 'warning', 'position_generation', 'exception', f'⚠️  [位置映射期] 坐标生成异常：{_e}')
     finally:
         if temp_script_path and temp_script_path.exists():
             temp_script_path.unlink(missing_ok=True)
 
     # ════════════════════════════════════════════════
-    # 阶段⑤：OutputAgent（纯 Python，生成最终 JSON 文件）
+    # 阶段四：总装与引擎合规验证
     # ════════════════════════════════════════════════
+
+    # ── 阶段四 前半：技术约束验证 + Python 自动修复（基于真实点位 ID）──
+    _emit_stage_log(bridge, 'info', 'validation', 'start', '🔧 [技术验证期] 开始技术约束验证...')
+
+    validation_result = None
+
+    if model_supports_tools:
+        # 模型支持工具调用：由 ValidationAgent 调用 FunctionTool 验证
+        draft_json_str = json.dumps(draft_script, ensure_ascii=False)
+        async for event in validator.on_messages_stream(
+            [TextMessage(content=f"请验证以下剧本 JSON 字符串：\n{draft_json_str}", source="user")],
+            cancellation_token=CancellationToken()
+        ):
+            if hasattr(event, 'inner_messages'):
+                for msg in (event.inner_messages or []):
+                    if isinstance(msg, ToolCallExecutionEvent):
+                        _emit_stage_log(bridge, 'info', 'validation', 'tool', '🔍 [技术验证期] 正在执行技术验证...')
+            elif hasattr(event, 'chat_message') and event.chat_message:
+                validation_result = _extract_validation_json(event.chat_message.content)
+
+    if validation_result is None:
+        # 直接用 Python 函数验证（主路径，或 Agent 输出解析失败时的兜底）
+        logger.info("使用 Python 直接验证")
+        constraints_result = validate_script_constraints(draft_script, scene, resource_loader)
+        spec_result = validate_json_spec(draft_script)
+        validation_result = {
+            'valid': constraints_result['valid'] and spec_result['valid'],
+            'errors': constraints_result['errors'] + spec_result['errors'],
+            'warnings': constraints_result['warnings'] + spec_result['warnings'],
+        }
+
+    for w in validation_result.get('warnings', []):
+        _emit_stage_log(bridge, 'warning', 'validation', 'warning', f'⚠️  {w}')
+
+    if not validation_result.get('valid', False):
+        errors = validation_result.get('errors', [])
+        logger.warning("验证未通过 errors=%d，执行 Python 自动修复", len(errors))
+        _emit_stage_log(bridge, 'info', 'validation', 'autofix', '🔧 [技术验证期] 执行自动修复...')
+
+        draft_script = auto_fix_script(draft_script, scene, resource_loader)
+
+        # 修复后二次验证，确认结果
+        constraints_result = validate_script_constraints(draft_script, scene, resource_loader)
+        spec_result = validate_json_spec(draft_script)
+        validation_result = {
+            'valid': constraints_result['valid'] and spec_result['valid'],
+            'errors': constraints_result['errors'] + spec_result['errors'],
+            'warnings': constraints_result['warnings'] + spec_result['warnings'],
+        }
+        for w in validation_result.get('warnings', []):
+            _emit_stage_log(bridge, 'warning', 'validation', 'warning', f'⚠️  {w}')
+        for e in validation_result.get('errors', []):
+            _emit_stage_log(bridge, 'warning', 'validation', 'remaining_error', f'⚠️  自动修复后仍存在错误（将强制输出）: {e}')
+
+    if validation_result.get('valid', False):
+        _emit_stage_log(bridge, 'success', 'validation', 'result', '✅ [技术验证期] 技术约束验证通过')
+    else:
+        _emit_stage_log(bridge, 'warning', 'validation', 'result', '⚠️  [技术验证期] 部分技术错误无法自动修复，强制输出')
+
+    _emit_output(bridge, 'ValidationAgent', validation_result, fmt='validation')
+
+    # ── 阶段四 后半：最终封包输出（纯 Python）──
     _emit_stage_log(bridge, 'info', 'output', 'start', '💾 [输出阶段] 正在生成最终 JSON 并保存文件...')
 
     generator = ScriptJSONGenerator(characters, scene)

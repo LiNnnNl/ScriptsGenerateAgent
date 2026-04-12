@@ -45,17 +45,19 @@ class ScriptJSONGenerator:
                 scene_obj = dict(scene_obj)
                 # 插入 title（在 scene information 之后）
                 ordered = {}
-                ordered["scene information"] = scene_obj.get("scene information", {
-                    "who": [char.name for char in self.characters],
-                    "where": self.scene.name,
-                    "what": plot_summary
-                })
-                ordered["title"] = self._build_title(title or ordered["scene information"].get("where", ""))
+                scene_info_default = scene_obj.get("scene information", {})
+                scene_info_default["where"] = self.scene.id
+                if "who" not in scene_info_default:
+                    scene_info_default["who"] = [char.name for char in self.characters]
+                if "what" not in scene_info_default:
+                    scene_info_default["what"] = plot_summary
+                ordered["scene information"] = scene_info_default
+                ordered["title"] = self._build_title(title or self.scene.id)
                 ordered["initial position"] = scene_obj.get(
                     "initial position",
                     [{"character": char.name, "position": ""} for char in self.characters]
                 )
-                ordered["scene"] = scene_obj.get("scene", [])
+                ordered["scene"] = [self._normalize_segment(seg) for seg in scene_obj.get("scene", [])]
                 result.append(ordered)
             return result
 
@@ -64,7 +66,7 @@ class ScriptJSONGenerator:
 
         scene_info = {
             "who": [char.name for char in self.characters],
-            "where": self.scene.name,
+            "where": self.scene.id,
             "what": plot_summary
         }
 
@@ -83,7 +85,7 @@ class ScriptJSONGenerator:
         return [
             {
                 "scene information": scene_info,
-                "title": self._build_title(title or self.scene.name),
+                "title": self._build_title(title or self.scene.id),
                 "initial position": [
                     {"character": char.name, "position": self.character_positions.get(char.name, "")}
                     for char in self.characters
@@ -91,6 +93,15 @@ class ScriptJSONGenerator:
                 "scene": final_scene
             }
         ]
+
+    def _normalize_segment(self, seg: Dict) -> Dict:
+        """为新格式片段补充 shot_type / Follow / shot_blend 默认值（AI 已填的不覆盖）。"""
+        seg = dict(seg)
+        is_move = "move" in seg
+        seg.setdefault("shot_blend", "cut")
+        seg.setdefault("shot_type", "全景" if is_move else "中近景")
+        seg.setdefault("Follow", 0)
+        return seg
 
     def _build_title(self, title: str) -> Dict:
         """生成 title 字段模板"""
@@ -168,7 +179,10 @@ class ScriptJSONGenerator:
         
         return {
             "move": moves,
+            "shot_blend": segment.get("shot_blend", "cut"),
             "shot": segment.get("shot", "scene"),
+            "shot_type": segment.get("shot_type", "全景"),
+            "Follow": segment.get("Follow", 0),
             "camera": segment.get("camera", 1),
             "current position": current_position
         }
@@ -201,21 +215,24 @@ class ScriptJSONGenerator:
         item = {
             "speaker": segment.get("speaker", "default"),
             "content": segment.get("content", ""),
+            "shot_blend": segment.get("shot_blend", "cut"),
             "shot": segment.get("shot", "character"),
+            "shot_type": segment.get("shot_type", "中近景"),
+            "Follow": segment.get("Follow", 0),
             "actions": actions,
             "current position": self._get_all_positions()
         }
-        
+
         # 添加可选字段
         if "shot_anchors" in segment:
             item["shot_anchors"] = segment["shot_anchors"]
-        
+
         if "camera" in segment:
             item["camera"] = segment["camera"]
-        
+
         if "motion_description" in segment:
             item["motion_description"] = segment["motion_description"]
-        
+
         return item
     
     def _get_all_positions(self) -> List[Dict]:

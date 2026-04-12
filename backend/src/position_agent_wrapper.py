@@ -44,6 +44,23 @@ def _resolve_scene_resource_file(folder: Path, scene_id: str) -> Path:
     return exact
 
 
+def _force_scene_key(output_path: str, scene_id: str) -> None:
+    """将点位 JSON 最外层的场景 key 强制替换为用户选择的 scene_id。"""
+    try:
+        with open(output_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        if not isinstance(data, dict) or len(data) != 1:
+            return
+        current_key = next(iter(data))
+        if current_key == scene_id:
+            return
+        data[scene_id] = data.pop(current_key)
+        with open(output_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
+
+
 def run_position_agent(
     script_path: str,
     scene_id: str,
@@ -115,9 +132,12 @@ def run_position_agent(
         stdout = result.stdout.strip()
         if stdout:
             try:
-                return json.loads(stdout)
+                agent_result = json.loads(stdout)
             except json.JSONDecodeError:
-                pass
+                agent_result = None
+            if isinstance(agent_result, dict) and agent_result.get("ok"):
+                _force_scene_key(output_path, scene_id)
+            return agent_result or {"ok": False, "error": "position_agent_standalone 返回非 JSON 内容"}
         stderr = result.stderr.strip()
         return {
             "ok": False,

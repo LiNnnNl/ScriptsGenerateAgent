@@ -165,6 +165,86 @@ def validate_json_spec(script: list) -> dict:
 # AutoGen FunctionTool 工厂（绑定具体的 resource_loader 和 scene 实例）
 # ────────────────────────────────────────────────────────────────────────────
 
+def auto_fix_script(script: list, scene: Scene, resource_loader: ResourceLoader) -> list:
+    """
+    用 Python 代码自动修复剧本中的技术约束错误，不回退给任何创作 Agent。
+
+    修复范围（只修复技术字段，不碰 content/what 等文学字段）：
+    - 缺失/空 shot_type → 移动片段用"全景"，对白片段用"中近景"
+    - 缺失/空 Follow → 0
+    - 缺失/空 shot_blend → "cut"
+    - 缺失 actions 字段 → []
+    - 无效 action_id → 替换为同 state 下动作库第一个有效动作
+    - 缺失 current position → 从上一片段继承（初始位置兜底）
+
+    Returns:
+        修复后的剧本（deepcopy，不修改原对象）
+    """
+    import copy
+    result = copy.deepcopy(script)
+
+    for scene_obj in result:
+        # 用 initial position 初始化位置追踪表
+        last_positions: dict = {}
+        for entry in scene_obj.get("initial position", []):
+            char = entry.get("character")
+            pos = entry.get("position")
+            if char and pos:
+                last_positions[char] = pos
+
+        for seg in scene_obj.get("scene", []):
+            is_move = "move" in seg
+
+            # ── shot_type ──
+            if not seg.get("shot_type"):
+                seg["shot_type"] = "全景" if is_move else "中近景"
+
+            # ── Follow ──
+            if "Follow" not in seg or seg["Follow"] is None:
+                seg["Follow"] = 0
+
+            # ── shot_blend ──
+            if not seg.get("shot_blend"):
+                seg["shot_blend"] = "cut"
+
+            # ── current position：缺失时从上下文继承 ──
+            if not seg.get("current position"):
+                seg["current position"] = [
+                    {"character": c, "position": p}
+                    for c, p in last_positions.items() if p
+                ]
+
+            if not is_move:
+                # ── actions 字段缺失 ──
+                if "actions" not in seg:
+                    seg["actions"] = []
+
+                # ── 无效 action_id → 替换为同 state 的合法动作 ──
+                for action in seg.get("actions", []):
+                    action_id = action.get("action", "")
+                    if action_id and not resource_loader.get_action_by_id(action_id):
+                        state = action.get("state", "standing")
+                        candidates = resource_loader.get_actions_by_state(state)
+                        if candidates:
+                            action["action"] = candidates[0].action_id
+
+            # ── 更新位置追踪表 ──
+            # 移动片段：记录目的地
+            for move in seg.get("move", []):
+                char = move.get("character")
+                dest = move.get("destination")
+                if char and dest:
+                    last_positions[char] = dest
+            # 所有片段：以 current position 为准更新
+            for pos in seg.get("current position", []):
+                char = pos.get("character")
+                pos_id = pos.get("position")
+                if char and pos_id:
+                    last_positions[char] = pos_id
+
+    return result
+
+
 def make_validation_tools(resource_loader: ResourceLoader, scene: Scene):
     """
     工厂函数：创建绑定了具体资源实例的 AutoGen FunctionTool 列表。
