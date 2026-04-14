@@ -700,30 +700,72 @@ async def run_autogen_pipeline(
         if (item.get('name') or '').strip()
     }
 
+    def _find_fallback_gameobject_name(target_name: str, target_gender: str = '') -> str:
+        """
+        当角色不在 characters_resource.json 中时，按相似度选取最近的角色的 gameobject_name。
+        优先级：名称子串匹配 > 性别匹配 > 列表第一个
+        """
+        # 1. 名称子串匹配
+        for cname, cdata in char_map.items():
+            if target_name in cname or cname in target_name:
+                logger.warning("角色 '%s' 不在资源库中，使用近似角色 '%s' 的 gameobject_name", target_name, cname)
+                return cdata['gameobject_name']
+        # 2. 性别匹配
+        if target_gender:
+            for cdata in all_chars_raw:
+                if cdata.get('gender') == target_gender and cdata.get('gameobject_name'):
+                    logger.warning("角色 '%s' 不在资源库中，按性别匹配使用 '%s' 的 gameobject_name", target_name, cdata['name'])
+                    return cdata['gameobject_name']
+        # 3. 兜底：取列表第一个
+        for cdata in all_chars_raw:
+            if cdata.get('gameobject_name'):
+                logger.warning("角色 '%s' 不在资源库中，使用兜底角色 '%s' 的 gameobject_name", target_name, cdata['name'])
+                return cdata['gameobject_name']
+        return ''
+
     actors_profile = []
     for name in actor_names:
         if name in char_map:
+            # 直接使用 characters_resource.json 中的完整数据
             actors_profile.append(char_map[name])
         elif name in custom_char_map:
             item = custom_char_map[name]
+            # gameobject_name 必须来自 characters_resource.json，不足时 fallback
+            gameobject_name = (char_map.get(name) or {}).get('gameobject_name') or item.get('gameobject_name') or ''
+            if not gameobject_name:
+                gameobject_name = _find_fallback_gameobject_name(name, item.get('gender') or '')
+            # 兼容旧格式：personality_traits -> traits
+            traits = item.get('traits') or []
+            if not traits and item.get('personality_traits'):
+                traits = [t.strip() for t in item['personality_traits'].split(',') if t.strip()]
+            appearance = item.get('appearance') or {"height": "", "body_type": "", "hair": "", "face": ""}
             actors_profile.append({
                 "name": name,
+                "age": item.get('age'),
                 "gender": item.get('gender') or '未知',
-                "ip": item.get('ip') or '自定义',
-                "manufacturer": "用户创建",
-                "background": item.get('background') or item.get('description') or f"用户自定义角色：{name}",
-                "Faction": item.get('Faction') or '未知',
-                "personality_traits": item.get('personality_traits') or item.get('description') or '性格由AI自由发挥',
-                "role_position": item.get('role_position') or '未知',
-                "important_relationships": item.get('important_relationships') or []
+                "gameobject_name": gameobject_name,
+                "appearance": appearance,
+                "acting_style": item.get('acting_style') or '',
+                "traits": traits,
+                "background": item.get('background') or item.get('description') or f"用户自定义角色：{name}"
             })
         else:
-            actors_profile.append({
-                "name": name, "gender": "未知", "ip": "AI创作",
-                "manufacturer": "AI生成", "background": f"AI自由创作角色：{name}",
-                "Faction": "未知", "personality_traits": "由AI自由发挥",
-                "role_position": "未知", "important_relationships": []
-            })
+            # AI 创作角色：先精确匹配，匹配不到则 fallback 选近似角色
+            char_data = char_map.get(name)
+            if char_data:
+                actors_profile.append(char_data)
+            else:
+                gameobject_name = _find_fallback_gameobject_name(name)
+                actors_profile.append({
+                    "name": name,
+                    "age": None,
+                    "gender": "未知",
+                    "gameobject_name": gameobject_name,
+                    "appearance": {"height": "", "body_type": "", "hair": "", "face": ""},
+                    "acting_style": '',
+                    "traits": [],
+                    "background": f"AI自由创作角色：{name}"
+                })
 
     actors_profile_filename = f"actors_profile_{timestamp}.json"
     actors_filepath = output_dir / actors_profile_filename

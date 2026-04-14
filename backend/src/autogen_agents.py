@@ -62,6 +62,10 @@ def build_director_system_message(
         total_count = 2
     extra_count = max(0, total_count - len(characters))
 
+    # 合法镜头类型列表
+    shot_types = resource_loader.shot_types
+    shot_types_str = "、".join(f'"{t}"' for t in shot_types) if shot_types else '"全景"、"中景"、"中近景"、"近景"、"仰拍镜头"、"俯拍镜头"'
+
     # 1. 角色信息
     char_info = "## 角色配置\n\n"
     if characters:
@@ -73,6 +77,7 @@ def build_director_system_message(
         char_info += "### 已指定角色\n\n"
         for char in characters:
             char_info += f"#### {char.name}\n"
+            char_info += f"- gameobject_name: {char.gameobject_name}\n"
             char_info += f"- 背景: {char.description}\n"
             char_info += f"- 性格: {char.personality}\n\n"
     else:
@@ -129,7 +134,7 @@ def build_director_system_message(
         + "   - 严格遵循角色的性格描述\n"
         + "   - 对白要符合人物性格和场景氛围\n\n"
         + "5. **镜头设计**:\n"
-        + "   - 对白场景用 \"character\" 镜头（配合 shot_anchors）\n"
+        + "   - 对白场景用 \"character\" 镜头\n"
         + "   - 移动场景用 \"scene\" 镜头（配合 camera 编号）\n\n"
         + "**输出格式:** 严格按照以下 JSON 结构输出，直接输出 JSON，不要有其他说明文字。\n\n"
         + "```json\n"
@@ -179,9 +184,9 @@ def build_director_system_message(
         + "]\n"
         + "```\n\n"
         + "**字段规则:**\n"
-        + "- `shot` 为 \"character\" 时使用 `shot_anchors`，不使用 `camera`\n"
-        + "- `shot` 为 \"scene\" 时使用 `camera`（整数），不使用 `shot_anchors`\n"
-        + "- `shot_type`：每个片段必填，描述镜头语言，如 `\"近景\"`、`\"中近景\"`、`\"全景\"`、`\"仰拍镜头\"`、`\"俯拍镜头\"` 等，根据剧情氛围自由选择\n"
+        + "- `shot` 为 \"character\" 时不使用 `camera`\n"
+        + "- `shot` 为 \"scene\" 时使用 `camera`（整数）\n"
+        + f"- `shot_type`：每个片段必填，只能从以下值中选择: {shot_types_str}\n"
         + "- `Follow`：每个片段必填，整数，默认填 `0`\n"
         + "- `shot_blend`：每个片段必填，`\"cut\"`（硬切）或 `\"blend\"`（叠化）或 `\"easein\"`（渐入）\n"
         + "- **`current position` 是每个片段（对白、旁白、移动）的强制必填字段，绝对不能省略。**\n"

@@ -224,9 +224,6 @@ class ScriptJSONGenerator:
         }
 
         # 添加可选字段
-        if "shot_anchors" in segment:
-            item["shot_anchors"] = segment["shot_anchors"]
-
         if "camera" in segment:
             item["camera"] = segment["camera"]
 

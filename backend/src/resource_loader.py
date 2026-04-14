@@ -99,7 +99,9 @@ class ResourceLoader:
         self.characters: List[Character] = []
         self.scenes: List[Scene] = []
         self.actions: List[Action] = []
-        
+        self.camera_list: Dict = {}
+        self.shot_types: List[str] = []
+
         self._load_all_resources()
     
     def _load_all_resources(self):
@@ -129,6 +131,16 @@ class ResourceLoader:
         with open(action_file, 'r', encoding='utf-8-sig') as f:
             action_data = json.load(f)
             self.actions = [Action(a) for a in action_data]
+
+        # 加载镜头类型
+        camera_list_file = self.resource_dir / "Camera_List.json"
+        if camera_list_file.exists():
+            with open(camera_list_file, 'r', encoding='utf-8-sig') as f:
+                self.camera_list = json.load(f)
+            self.shot_types = list(self.camera_list.keys())
+        else:
+            self.camera_list = {}
+            self.shot_types = []
     
     def get_available_styles(self) -> List[str]:
         """获取所有可用的画风标签"""

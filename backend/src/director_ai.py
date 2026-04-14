@@ -41,6 +41,10 @@ class DirectorAI:
         包含：角色性格、场景地图、可用动作、剧情大纲
         """
 
+        # 合法镜头类型列表
+        shot_types = self.resource_loader.shot_types
+        shot_types_str = "、".join(f'"{t}"' for t in shot_types) if shot_types else '"全景"、"中景"、"中近景"、"近景"、"仰拍镜头"、"俯拍镜头"'
+
         # 确定本场景实际需要的角色总数
         total_count = required_character_count if required_character_count > 0 else len(characters)
         if total_count == 0:
@@ -62,6 +66,7 @@ class DirectorAI:
         char_info += "### 已指定角色\n\n" if characters else ""
         for char in characters:
             char_info += f"#### {char.name}\n"
+            char_info += f"- gameobject_name: {char.gameobject_name}\n"
             char_info += f"- 背景: {char.description}\n"
             char_info += f"- 性格: {char.personality}\n\n"
         
@@ -162,7 +167,7 @@ class DirectorAI:
    - 理性的角色说话简洁明确，感性的角色可以更有情绪
 
 5. **镜头设计**:
-   - 对白场景用"character"镜头聚焦说话者（配合 shot_anchors）
+   - 对白场景用"character"镜头聚焦说话者
    - 移动场景用"scene"镜头展示全局（配合 camera 编号）
    - 氛围营造用"scene"镜头配合 motion_description
 
@@ -211,7 +216,6 @@ class DirectorAI:
         "shot": "character",
         "shot_type": "近景",
         "Follow": 0,
-        "shot_anchors": ["Front"],
         "actions": [
           {
             "character": "角色名",
@@ -258,10 +262,10 @@ class DirectorAI:
 - `scene` 序列中区分两种片段：
   - **对白/旁白片段**: 含 `speaker`（角色名或"default"）、`content`、`actions`、`current position`
   - **移动片段**: 含 `move`（目标位置）、`current position`（移动*前*的位置），不含 `speaker`/`content`
-- `shot` 为 "character" 时使用 `shot_anchors`（如 `["Front"]`），不使用 `camera`
-- `shot` 为 "scene" 时使用 `camera`（整数编号），不使用 `shot_anchors`
+- `shot` 为 "character" 时不使用 `camera`
+- `shot` 为 "scene" 时使用 `camera`（整数编号）
 - `shot_blend`: 必填，"cut"（硬切）、"blend"（叠化）或 "easein"（渐入）
-- `shot_type`: 必填，描述镜头语言，如 "近景"、"中近景"、"全景"、"仰拍镜头"、"俯拍镜头" 等
+- `shot_type`: 必填，只能从以下值中选择: {shot_types_str}
 - `Follow`: 必填，整数，默认为 0
 - `motion_description`: 可选，氛围或运镜诗意描述
 - `camera_description`: 可选，具体镜头运动说明
@@ -271,7 +275,7 @@ class DirectorAI:
 - 对白/旁白片段中，`actions` 列出的所有角色的 `current position` 必须属于同一camera_group
 """
         
-        return char_info + scene_info + action_info + plot_info + task_info
+        return (char_info + scene_info + action_info + plot_info + task_info).replace("{shot_types_str}", shot_types_str)
     
     def generate_script(
         self,
