@@ -33,15 +33,12 @@ from .autogen_agents import (
     create_position_agent,
 )
 from .autogen_tools import validate_script_constraints, validate_json_spec, auto_fix_script
-from .position_agent_wrapper import run_position_agent
 from .resource_loader import ResourceLoader, Character, Scene
 from .json_generator import ScriptJSONGenerator
 
 
 # 最大审查轮次（超限后强制进入验证阶段）
 MAX_REVIEW_ROUNDS = 3
-# PositionAgent 映射失败后最大重试次数
-MAX_POSITION_FIX_ROUNDS = 3
 
 
 def _emit_output(bridge: "AutoGenStreamBridge", agent: str, content, fmt: str = 'script') -> None:
@@ -491,112 +488,35 @@ async def run_autogen_pipeline(
     # 阶段三：位置映射与坐标生成
     # ════════════════════════════════════════════════
 
-    # ── 阶段三 前半：PositionAgent 位置映射（抽象 Position N → 真实点位 ID）──
+    # ── 阶段三：PositionAgent 位置映射（自然语言描述 → 真实点位 ID，单次 AI 调用）──
     _emit_stage_log(bridge, 'info', 'position_mapping', 'start', '📍 [位置映射期] PositionAgent 开始位置映射...')
 
-    for pos_round in range(MAX_POSITION_FIX_ROUNDS):
-        mapping_prompt = (
-            f"请将以下剧本中的抽象位置（Position 1/2/3...）映射到真实点位：\n\n"
-            f"```json\n{json.dumps(draft_script, ensure_ascii=False, indent=2)}\n```"
-        )
-        mapped_script = None
-        unresolved = []
-        pos_raw_content = None
+    mapping_prompt = (
+        "请将以下剧本中的自然语言位置描述替换为真实点位 ID：\n\n"
+        f"```json\n{json.dumps(draft_script, ensure_ascii=False, indent=2)}\n```"
+    )
+    mapped_script = None
+    pos_raw_content = None
 
-        async for event in position_agent.on_messages_stream(
-            [TextMessage(content=mapping_prompt, source="user")],
-            cancellation_token=CancellationToken()
-        ):
-            if hasattr(event, 'chat_message') and event.chat_message:
-                pos_raw_content = event.chat_message.content
-                unresolved = re.findall(r'POSITION_UNRESOLVED:\s*(.+)', pos_raw_content)
-                mapped_script = _extract_json_from_text(pos_raw_content)
+    async for event in position_agent.on_messages_stream(
+        [TextMessage(content=mapping_prompt, source="user")],
+        cancellation_token=CancellationToken()
+    ):
+        if hasattr(event, 'chat_message') and event.chat_message:
+            pos_raw_content = event.chat_message.content
+            mapped_script = _extract_json_from_text(pos_raw_content)
 
-        if mapped_script and not unresolved:
-            draft_script = mapped_script
-            _emit_stage_log(bridge, 'success', 'position_mapping', 'result', '✅ [位置映射期] 位置映射完成')
-            _emit_output(bridge, 'PositionAgent', mapped_script)
-            break
+    if mapped_script:
+        draft_script = mapped_script
+        _emit_stage_log(bridge, 'success', 'position_mapping', 'result', '✅ [位置映射期] 位置映射完成')
+        _emit_output(bridge, 'PositionAgent', mapped_script)
+    else:
+        logger.warning("[PositionAgent] JSON 解析失败，跳过位置映射，原始输出: %s",
+                       pos_raw_content[:300] if pos_raw_content else "None")
+        _emit_stage_log(bridge, 'warning', 'position_mapping', 'parse_failed', '⚠️ [位置映射期] 解析失败，跳过映射')
 
-        if unresolved:
-            logger.warning("[PositionAgent] 无法解析的位置（轮次%d）: %s", pos_round + 1, unresolved)
-            for u in unresolved:
-                _emit_stage_log(bridge, 'warning', 'position_mapping', 'unresolved', f'⚠️  [PositionAgent] 无法映射: {u}')
-
-            if mapped_script:
-                # 部分映射成功，仍更新 draft
-                draft_script = mapped_script
-
-            if pos_round < MAX_POSITION_FIX_ROUNDS - 1:
-                # 请 DirectorAgent 修改无法映射的位置戏剧意图
-                fix_prompt = (
-                    "以下站位在场景中找不到合理匹配，请修改剧本，"
-                    "调整这些位置的 position_descriptions（换用场景实际存在的空间特征描述）：\n\n"
-                    + "\n".join(f"- {u}" for u in unresolved)
-                    + f"\n\n当前剧本：\n```json\n{json.dumps(draft_script, ensure_ascii=False, indent=2)}\n```"
-                    + "\n\n直接输出修改后的完整 JSON，不要有其他说明文字。"
-                )
-                _emit_stage_log(
-                    bridge, 'info', 'position_mapping', 'revise',
-                    f'✏️  [位置映射期] DirectorAgent 根据位置反馈修改剧本（轮次{pos_round + 1}）...'
-                )
-                async for event in director.on_messages_stream(
-                    [TextMessage(content=fix_prompt, source="user")],
-                    cancellation_token=CancellationToken()
-                ):
-                    if hasattr(event, 'chat_message') and event.chat_message:
-                        revised = _extract_json_from_text(event.chat_message.content)
-                        if revised:
-                            draft_script = revised
-            else:
-                _emit_stage_log(bridge, 'warning', 'position_mapping', 'force_continue', '⚠️  [PositionAgent] 已达映射上限，使用当前最优结果继续')
-                break
-        else:
-            # mapped_script 为 None，解析失败
-            logger.warning("[PositionAgent] JSON 解析失败（轮次%d），原始输出: %s",
-                           pos_round + 1, pos_raw_content[:300] if pos_raw_content else "None")
-            if pos_round >= MAX_POSITION_FIX_ROUNDS - 1:
-                _emit_stage_log(bridge, 'warning', 'position_mapping', 'parse_failed', '⚠️  [PositionAgent] 解析失败，跳过位置映射，使用抽象位置继续')
-            # 不更新 draft_script，继续重试
-
-    # ── 阶段三 中：保底点位修正（将仍为抽象/无效的位置替换为场景真实点位）──
+    # 保底修正：确保所有 position 字段为 scenes_resource.json 中存在的真实点位 ID
     draft_script = _fallback_fix_positions(draft_script, scene)
-
-    # ── 阶段三 后半：position_agent_standalone 坐标生成（可选，需 scene_export + template 文件）──
-    position_filename = None
-    import asyncio as _asyncio
-    timestamp = int(time.time())
-    output_dir = Path('outputs')
-    output_dir.mkdir(exist_ok=True)
-    temp_script_path = None
-    try:
-        temp_script_path = output_dir / f"_temp_script_{timestamp}.json"
-        with open(temp_script_path, 'w', encoding='utf-8') as _f:
-            json.dump(draft_script, _f, ensure_ascii=False, indent=2)
-
-        position_output_filename = f"position_{timestamp}.json"
-        pos_result = await _asyncio.get_event_loop().run_in_executor(
-            None,
-            run_position_agent,
-            str(temp_script_path),
-            scene.id,
-            str(output_dir),
-            position_output_filename,
-        )
-
-        if pos_result.get("ok"):
-            position_filename = position_output_filename
-            _emit_stage_log(bridge, 'success', 'position_generation', 'result', f'✅ [位置映射期] 坐标文件生成完成：{position_output_filename}')
-        elif pos_result.get("skip"):
-            _emit_stage_log(bridge, 'info', 'position_generation', 'skip', f'⏭️  [位置映射期] 跳过坐标生成（{pos_result.get("error", "缺少资源文件")}）')
-        else:
-            _emit_stage_log(bridge, 'warning', 'position_generation', 'failed', f'⚠️  [位置映射期] 坐标生成失败：{pos_result.get("error", "未知错误")}')
-    except Exception as _e:
-        logger.exception("[PositionAgent] 坐标生成异常")
-        _emit_stage_log(bridge, 'warning', 'position_generation', 'exception', f'⚠️  [位置映射期] 坐标生成异常：{_e}')
-    finally:
-        if temp_script_path and temp_script_path.exists():
-            temp_script_path.unlink(missing_ok=True)
 
     # ════════════════════════════════════════════════
     # 阶段四：总装与引擎合规验证
@@ -665,6 +585,10 @@ async def run_autogen_pipeline(
     # ── 阶段四 后半：最终封包输出（纯 Python）──
     _emit_stage_log(bridge, 'info', 'output', 'start', '💾 [输出阶段] 正在生成最终 JSON 并保存文件...')
 
+    timestamp = int(time.time())
+    output_dir = Path('outputs')
+    output_dir.mkdir(exist_ok=True)
+
     generator = ScriptJSONGenerator(characters, scene)
 
     if creative_idea:
@@ -732,12 +656,10 @@ async def run_autogen_pipeline(
 
     _emit_stage_log(bridge, 'success', 'output', 'actors_profile', f'✅ 已生成角色档案：{len(actors_profile)} 位演员')
 
-    logger.info("Pipeline 完成 | 剧本=%s 角色档案=%s 坐标=%s",
-                filename, actors_profile_filename, position_filename or "（未生成）")
+    logger.info("Pipeline 完成 | 剧本=%s 角色档案=%s", filename, actors_profile_filename)
     bridge.put_event({
         'type': 'success',
         'filename': filename,
         'actors_profile_filename': actors_profile_filename,
-        'position_filename': position_filename,
         'warnings': validation_result.get('warnings', []) if validation_result else []
     })

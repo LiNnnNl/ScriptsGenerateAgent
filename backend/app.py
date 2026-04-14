@@ -445,9 +445,11 @@ def character_image(gameobject_name):
 
 @app.route('/api/download/<filename>', methods=['GET'])
 def download_file(filename):
-    """下载生成的脚本文件"""
+    """下载生成的脚本文件（优先 outputs/，其次 resources/）"""
     try:
         filepath = Path('outputs') / filename
+        if not filepath.exists():
+            filepath = Path('resources') / filename
         if not filepath.exists():
             return jsonify({
                 'success': False,

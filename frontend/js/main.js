@@ -151,13 +151,7 @@ function handleStreamData(data) {
         if (data.actors_profile_filename) {
             UI.addLog('success', `👥 演员档案: ${data.actors_profile_filename}`);
         }
-        if (data.position_filename) {
-            UI.addLog('success', `📍 坐标文件: ${data.position_filename}`);
-        } else {
-            UI.addLog('warning', '⚠️ 本次未生成坐标文件（可继续下载剧本和演员档案）');
-        }
-
-        UI.showSuccess(data.filename, data.actors_profile_filename, data.position_filename);
+        UI.showSuccess(data.filename, data.actors_profile_filename);
         loadScriptEditor(data.filename);
     } else if (data.type === 'error') {
         UI.addLog('error', '❌ ' + data.message);
@@ -238,13 +232,9 @@ function setupEventListeners() {
         URL.revokeObjectURL(url);
     });
 
-    // 下载按钮 - 坐标文件
+    // 下载按钮 - 坐标文件（始终下载 positions_sample.json）
     document.getElementById('downloadPositionBtn').addEventListener('click', () => {
-        if (APP_STATE.currentPositionFilename) {
-            API.downloadFile(APP_STATE.currentPositionFilename);
-        } else {
-            UI.addLog('warning', '⚠️ 当前没有可下载的坐标文件');
-        }
+        API.downloadFile('positions_sample.json');
     });
 
     // 清空日志按钮

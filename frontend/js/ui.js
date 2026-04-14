@@ -91,8 +91,7 @@ const UI = {
         const positionBtn = document.getElementById('downloadPositionBtn');
         if (positionBtn) {
             positionBtn.style.display = '';
-            positionBtn.disabled = !positionFilename;
-            positionBtn.title = positionFilename ? '下载坐标文件' : '本次未生成坐标文件';
+            positionBtn.disabled = false;
         }
     },
 

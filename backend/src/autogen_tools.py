@@ -170,9 +170,9 @@ def auto_fix_script(script: list, scene: Scene, resource_loader: ResourceLoader)
     用 Python 代码自动修复剧本中的技术约束错误，不回退给任何创作 Agent。
 
     修复范围（只修复技术字段，不碰 content/what 等文学字段）：
-    - 缺失/空 shot_type → 移动片段用"全景"，对白片段用"中近景"
-    - 缺失/空 Follow → 0
-    - 缺失/空 shot_blend → "cut"
+    - 缺失/无效 shot → "character"
+    - 缺失/无效 shot_anchors → ["Front"]
+    - 遗留字段 shot_type / shot_blend / Follow / camera → 删除
     - 缺失 actions 字段 → []
     - 无效 action_id → 替换为同 state 下动作库第一个有效动作
     - 缺失 current position → 从上一片段继承（初始位置兜底）
@@ -195,17 +195,17 @@ def auto_fix_script(script: list, scene: Scene, resource_loader: ResourceLoader)
         for seg in scene_obj.get("scene", []):
             is_move = "move" in seg
 
-            # ── shot_type ──
-            if not seg.get("shot_type"):
-                seg["shot_type"] = "全景" if is_move else "中近景"
+            # ── shot ──
+            seg["shot"] = "character"
 
-            # ── Follow ──
-            if "Follow" not in seg or seg["Follow"] is None:
-                seg["Follow"] = 0
+            # ── shot_anchors ──
+            anchors = seg.get("shot_anchors")
+            if not anchors or not isinstance(anchors, list):
+                seg["shot_anchors"] = ["Front"]
 
-            # ── shot_blend ──
-            if not seg.get("shot_blend"):
-                seg["shot_blend"] = "cut"
+            # ── 删除旧格式遗留字段 ──
+            for _old in ("shot_type", "shot_blend", "Follow", "camera"):
+                seg.pop(_old, None)
 
             # ── current position：缺失时从上下文继承 ──
             if not seg.get("current position"):

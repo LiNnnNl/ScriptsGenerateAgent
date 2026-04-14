@@ -95,13 +95,35 @@ class ScriptJSONGenerator:
         ]
 
     def _normalize_segment(self, seg: Dict) -> Dict:
-        """为新格式片段补充 shot_type / Follow / shot_blend 默认值（AI 已填的不覆盖）。"""
+        """补充缺失默认值并按规范顺序重排字段。"""
         seg = dict(seg)
-        is_move = "move" in seg
-        seg.setdefault("shot_blend", "cut")
-        seg.setdefault("shot_type", "全景" if is_move else "中近景")
-        seg.setdefault("Follow", 0)
-        return seg
+        seg.setdefault("shot", "character")
+        seg.setdefault("shot_anchors", ["Front"])
+        # 删除旧格式遗留字段
+        seg.pop("shot_type", None)
+        seg.pop("shot_blend", None)
+        seg.pop("Follow", None)
+        seg.pop("camera", None)
+        return self._reorder_segment(seg)
+
+    # 规范字段顺序（与 scene_json_spec 一致）
+    _SEGMENT_FIELD_ORDER = [
+        "speaker", "content",
+        "shot", "shot_blend", "camera", "shot_anchors",
+        "move",
+        "actions", "then-interact",
+        "current position",
+        "motion_description", "camera_description",
+    ]
+
+    def _reorder_segment(self, seg: Dict) -> Dict:
+        """按规范字段顺序重建片段 dict（不存在的字段跳过）。"""
+        ordered = {k: seg[k] for k in self._SEGMENT_FIELD_ORDER if k in seg}
+        # 保留规范之外的字段（追加在末尾）
+        for k, v in seg.items():
+            if k not in ordered:
+                ordered[k] = v
+        return ordered
 
     def _build_title(self, title: str) -> Dict:
         """生成 title 字段模板"""
@@ -177,15 +199,13 @@ class ScriptJSONGenerator:
         # 构建current position（移动前的位置）
         current_position = self._get_all_positions()
         
-        return {
+        return self._reorder_segment({
+            "shot": "character",
+            "shot_anchors": segment.get("shot_anchors", ["Front"]),
             "move": moves,
-            "shot_blend": segment.get("shot_blend", "cut"),
-            "shot": segment.get("shot", "scene"),
-            "shot_type": segment.get("shot_type", "全景"),
-            "Follow": segment.get("Follow", 0),
-            "camera": segment.get("camera", 1),
-            "current position": current_position
-        }
+            "actions": segment.get("actions", []),
+            "current position": current_position,
+        })
     
     def _build_dialogue_item(self, segment: Dict) -> Dict:
         """构建对白/描述场景项"""
@@ -211,29 +231,20 @@ class ScriptJSONGenerator:
             elif action_id == "Interact_Stand_Up":
                 self.character_states[char_name] = "standing"
         
-        # 构建基础结构
         item = {
             "speaker": segment.get("speaker", "default"),
             "content": segment.get("content", ""),
-            "shot_blend": segment.get("shot_blend", "cut"),
-            "shot": segment.get("shot", "character"),
-            "shot_type": segment.get("shot_type", "中近景"),
-            "Follow": segment.get("Follow", 0),
+            "shot": "character",
+            "shot_anchors": segment.get("shot_anchors", ["Front"]),
             "actions": actions,
-            "current position": self._get_all_positions()
+            "current position": self._get_all_positions(),
         }
-
-        # 添加可选字段
-        if "shot_anchors" in segment:
-            item["shot_anchors"] = segment["shot_anchors"]
-
-        if "camera" in segment:
-            item["camera"] = segment["camera"]
-
         if "motion_description" in segment:
             item["motion_description"] = segment["motion_description"]
+        if "camera_description" in segment:
+            item["camera_description"] = segment["camera_description"]
 
-        return item
+        return self._reorder_segment(item)
     
     def _get_all_positions(self) -> List[Dict]:
         """获取所有角色的当前位置"""
@@ -286,25 +297,25 @@ class ScriptJSONGenerator:
             else:
                 # 检查每个场景片段
                 for seg_idx, segment in enumerate(scene_obj["scene"]):
-                    # 检查必填字段
-                    if "move" in segment:
-                        # 移动场景
-                        if "shot" not in segment:
-                            warnings.append(f"场景{idx}片段{seg_idx}: 移动场景缺少'shot'字段")
-                        if "current position" not in segment:
-                            errors.append(f"场景{idx}片段{seg_idx}: 缺少'current position'字段")
-                    else:
+                    is_move = "move" in segment
+                    # shot 必须为 "character"
+                    if segment.get("shot") != "character":
+                        errors.append(f"场景{idx}片段{seg_idx}: 'shot' 字段必须为 \"character\"")
+                    # shot_anchors 必填且为数组
+                    anchors = segment.get("shot_anchors")
+                    if not anchors or not isinstance(anchors, list):
+                        errors.append(f"场景{idx}片段{seg_idx}: 缺少有效的 'shot_anchors' 字段（应为 [\"Left\"/\"Right\"/\"Front\"] 之一）")
+                    # current position 所有片段必填
+                    if "current position" not in segment:
+                        errors.append(f"场景{idx}片段{seg_idx}: 缺少'current position'字段")
+                    if not is_move:
                         # 对白/描述场景
                         if "speaker" not in segment:
                             errors.append(f"场景{idx}片段{seg_idx}: 缺少'speaker'字段")
                         if "content" not in segment:
                             errors.append(f"场景{idx}片段{seg_idx}: 缺少'content'字段")
-                        if "shot" not in segment:
-                            errors.append(f"场景{idx}片段{seg_idx}: 缺少'shot'字段")
                         if "actions" not in segment:
                             errors.append(f"场景{idx}片段{seg_idx}: 缺少'actions'字段")
-                        if "current position" not in segment:
-                            errors.append(f"场景{idx}片段{seg_idx}: 缺少'current position'字段")
         
         return {
             "valid": len(errors) == 0,
