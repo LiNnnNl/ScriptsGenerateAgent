@@ -624,29 +624,48 @@ async def run_autogen_pipeline(
         if (item.get('name') or '').strip()
     }
 
+    _empty_appearance = {"height": "", "body_type": "", "hair": "", "face": ""}
+
+    # 从资源库中提取可用的 gameobject_name 池（去重、保序），供 AI 创作角色轮询使用
+    _gameobject_pool = list(dict.fromkeys(
+        c['gameobject_name'] for c in all_chars_raw if c.get('gameobject_name')
+    ))
+    _pool_index = [0]  # 用列表包装以便在闭包中修改
+
+    def _next_gameobject() -> str:
+        if not _gameobject_pool:
+            return ''
+        name_out = _gameobject_pool[_pool_index[0] % len(_gameobject_pool)]
+        _pool_index[0] += 1
+        return name_out
+
     actors_profile = []
     for name in actor_names:
         if name in char_map:
             actors_profile.append(char_map[name])
         elif name in custom_char_map:
             item = custom_char_map[name]
+            gameobject_name = item.get('gameobject_name') or _next_gameobject()
             actors_profile.append({
                 "name": name,
+                "age": item.get('age') or 0,
                 "gender": item.get('gender') or '未知',
-                "ip": item.get('ip') or '自定义',
-                "manufacturer": "用户创建",
+                "gameobject_name": gameobject_name,
+                "appearance": item.get('appearance') or _empty_appearance,
+                "acting_style": item.get('acting_style') or item.get('description') or '',
+                "traits": item.get('traits') or [],
                 "background": item.get('background') or item.get('description') or f"用户自定义角色：{name}",
-                "Faction": item.get('Faction') or '未知',
-                "personality_traits": item.get('personality_traits') or item.get('description') or '性格由AI自由发挥',
-                "role_position": item.get('role_position') or '未知',
-                "important_relationships": item.get('important_relationships') or []
             })
         else:
             actors_profile.append({
-                "name": name, "gender": "未知", "ip": "AI创作",
-                "manufacturer": "AI生成", "background": f"AI自由创作角色：{name}",
-                "Faction": "未知", "personality_traits": "由AI自由发挥",
-                "role_position": "未知", "important_relationships": []
+                "name": name,
+                "age": 0,
+                "gender": "未知",
+                "gameobject_name": _next_gameobject(),
+                "appearance": _empty_appearance,
+                "acting_style": '',
+                "traits": [],
+                "background": f"AI自由创作角色：{name}",
             })
 
     actors_profile_filename = f"actors_profile_{timestamp}.json"
