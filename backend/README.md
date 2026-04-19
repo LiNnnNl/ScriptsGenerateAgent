@@ -1,183 +1,86 @@
-# ScriptAgent 后端 API
+# ScriptAgent 后端
 
-基于 Flask 的 RESTful API 服务器，为前端提供剧本生成功能。
+基于 Flask + AutoGen 的 AI 剧本生成服务，包含导演、批评、对白、摄影指导等多智能体流水线。
 
-## 📁 目录结构
+## 快速启动
+
+### 方式一：双击 bat 文件（推荐）
+
+项目根目录下分别双击：
 
 ```
-backend/
-├── app.py                      # Flask 应用主程序
-├── requirements.txt            # Python 依赖
-├── .env.example                # 环境变量示例
-├── src/                        # 核心模块
-│   ├── resource_loader.py      # 资源加载器
-│   ├── director_ai.py          # AI 导演
-│   └── json_generator.py       # JSON 生成器
-├── resources/                  # 资源库
-│   ├── characters_resource.json
-│   ├── scenes_resource.json
-│   └── actions_resource.json
-└── outputs/                    # 生成的剧本文件
+start_backend.bat    # 启动后端，运行在 http://localhost:5000
+start_frontend.bat   # 启动前端，运行在 http://localhost:8080
 ```
 
-## 🚀 快速开始
+然后用浏览器打开 `http://localhost:8080` 即可使用。
 
-### 1. 安装依赖
+### 方式二：手动启动
 
 ```bash
+# 1. 进入 backend 目录
+cd backend
+
+# 2. 安装依赖（首次运行）
 pip install -r requirements.txt
-```
 
-### 2. 配置环境变量
-
-复制 `.env.example` 为 `.env` 并填入你的 API Key：
-
-```bash
+# 3. 配置环境变量（首次运行）
 copy .env.example .env
-```
+# 用文本编辑器打开 .env，填入你的 API Key
 
-`.env` 内容：
-
-```
-API_KEY=your-actual-api-key
-BASE_URL=https://ark.cn-beijing.volces.com/api/coding/v3
-MODEL=ark-code-latest
-```
-
-### 3. 启动服务器
-
-```bash
+# 4. 启动后端
 python app.py
 ```
 
-服务器运行在 `http://0.0.0.0:5000`，本机和局域网均可访问
+另开一个终端启动前端：
 
-## 📡 API 接口
-
-### GET /api/scenes
-
-获取所有可用场景列表。
-
-**响应示例：**
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "id": "scene_school_rooftop",
-      "name": "学校天台",
-      "description": "午后的学校天台...",
-      "positions": [
-        {"id": "Position 1", "description": "天台中央", "is_sittable": false}
-      ]
-    }
-  ]
-}
+```bash
+cd frontend
+python -m http.server 8080
 ```
 
-### POST /api/generate
+## 环境变量配置（.env）
 
-生成剧本（流式响应）。
+| 变量 | 说明 | 示例 |
+|------|------|------|
+| `API_KEY` | 火山引擎 ARK API Key | `your_api_key_here` |
+| `BASE_URL` | API 接入点 | `https://ark.cn-beijing.volces.com/api/coding/v3` |
+| `MODEL` | 主模型名称 | `ark-code-latest` |
+| `ENABLE_CINEMATOGRAPHY` | 是否开启摄影指导后处理 | `false` / `true` |
+| `CINEMATOGRAPHY_MODEL` | 摄影智能体专用模型（可选，不填则复用 MODEL） | — |
 
-**请求体：**
-```json
-{
-  "custom_characters": [
-    {"name": "张三", "description": "沉默寡言的侦探"},
-    {"name": "李四", "description": ""}
-  ],
-  "scene_id": "scene_school_rooftop",
-  "creative_idea": "可选的创作想法"
-}
+API Key 在 [火山引擎控制台](https://console.volcengine.com/ark) 获取。
+
+## 目录结构
+
+```
+backend/
+├── app.py                          # Flask 入口
+├── requirements.txt
+├── .env.example                    # 环境变量模板
+├── src/
+│   ├── autogen_pipeline.py         # 主生成流水线
+│   ├── autogen_agents.py           # 各智能体定义
+│   ├── resource_loader.py          # 资源加载
+│   ├── json_generator.py           # 剧本格式化输出
+│   └── cinematography/             # 摄影指导后处理（3阶段）
+│       ├── __init__.py
+│       ├── shot_planning_stage.py
+│       ├── cinematography_position_stage.py
+│       └── camera_planning_stage.py
+├── resources/
+│   ├── characters_resource.json    # 角色库
+│   ├── scenes_resource.json        # 场景语义信息
+│   ├── actions_resource.json       # 动作库
+│   └── cinematography/
+│       ├── CameraLib.json          # 摄影机参数库
+│       ├── LayoutLib.json          # 站位布局库
+│       └── scene_info/             # 各场景 Unity 坐标信息
+└── outputs/                        # 生成的剧本 / 角色档案
 ```
 
-- `custom_characters`：自定义角色列表，`name` 为空或数组为空时 AI 自由创作
-- `scene_id`：必填，场景 ID
-- `creative_idea`：可选，留空则 AI 完全自由发挥
+## 故障排除
 
-**响应格式：** NDJSON（每行一个 JSON 对象）
-
-```json
-{"type": "log", "level": "info", "message": "开始生成..."}
-{"type": "thinking", "message": "AI 正在思考..."}
-{"type": "success", "filename": "script_123456.json", "warnings": []}
-{"type": "error", "message": "错误信息", "details": {}}
-```
-
-### GET /api/download/:filename
-
-下载生成的剧本文件。
-
-## 📝 资源文件格式
-
-### 场景资源 (`scenes_resource.json`)
-
-```json
-{
-  "id": "唯一标识",
-  "name": "场景名称",
-  "description": "场景描述",
-  "valid_positions": [
-    {
-      "id": "Position 1",
-      "description": "语义化描述",
-      "is_sittable": false
-    }
-  ]
-}
-```
-
-### 角色资源 (`characters_resource.json`)
-
-```json
-{
-  "id": "唯一标识",
-  "name": "角色名称",
-  "style_tag": "画风标签",
-  "description": "外观描述",
-  "personality": "性格描述（AI 生成对白的依据）"
-}
-```
-
-### 动作资源 (`actions_resource.json`)
-
-```json
-{
-  "action_id": "动作ID",
-  "category": "分类",
-  "description": "详细描述（AI 选择的依据）",
-  "compatible_states": ["standing", "sitting"]
-}
-```
-
-## 🔧 配置
-
-### 端口
-
-默认端口 5000，修改 `app.py` 最后一行：
-
-```python
-app.run(debug=True, host='0.0.0.0', port=你的端口号)
-```
-
-### CORS
-
-默认允许所有来源。生产环境建议在 `app.py` 中限制：
-
-```python
-CORS(app, resources={r"/api/*": {"origins": ["http://your-domain.com"]}})
-```
-
-## 🐛 故障排除
-
-**ImportError**：确保在 `backend/` 目录下运行 `python app.py`
-
-**API Key 错误**：检查 `.env` 文件是否存在且 Key 正确
-
-**CORS 错误**：确保已安装 `flask-cors`（`pip install flask-cors`）
-
-## 🔒 安全建议
-
-1. 不要将 `.env` 提交到版本控制（已在 `.gitignore` 中排除）
-2. 生产环境使用 HTTPS
-3. 限制 CORS 允许的域名
+- **`ModuleNotFoundError`**：在 `backend/` 目录下运行 `pip install -r requirements.txt`
+- **API Key 错误**：检查 `.env` 文件是否存在、Key 是否正确填写
+- **端口被占用**：修改 `app.py` 末尾 `port=5000` 为其他端口，前端 `start_frontend.bat` 中的 `8080` 同理

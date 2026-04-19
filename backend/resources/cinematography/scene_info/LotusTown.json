@@ -1,0 +1,259 @@
+{
+    "where": "LotusTown",
+    "regions": [
+        {
+            "name": "河边走廊",
+            "description": "由狭长的通道与开阔的广场交织而成，空间兼具狭窄与空旷。适合在广场区域进行多人聚集和开放式对话。",
+            "spatial_relations": [
+                { "region": "神坛", "relation": "adjacent", "connected": true, "distance_m": 31 },
+                { "region": "神秘的角落", "relation": "near", "connected": true, "distance_m": 60 },
+                { "region": "树屋", "relation": "medium", "connected": true, "distance_m": 76 },
+                { "region": "雕塑广场", "relation": "far", "connected": true, "distance_m": 96 }
+            ],
+            "anchors": [
+                {
+                    "name": "中央锚点",
+                    "position": {
+                        "x": -15.710000038146973,
+                        "y": 5.513676643371582,
+                        "z": 7.331226348876953
+                    }
+                },
+                {
+                    "name": "走廊锚点",
+                    "position": {
+                        "x": -33.20000076293945,
+                        "y": 3.5899999141693117,
+                        "z": 4.039999961853027
+                    }
+                },
+                {
+                    "name": "墙边锚点",
+                    "position": {
+                        "x": -18.3799991607666,
+                        "y": 3.5899999141693117,
+                        "z": 14.460000038146973
+                    }
+                }
+            ],
+            "scene_markers": [
+                {
+                    "name": "走廊石柱",
+                    "position": {
+                        "x": -34.000587463378909,
+                        "y": 4.933067798614502,
+                        "z": 1.0045353174209595
+                    }
+                },
+                {
+                    "name": "中央工具箱",
+                    "position": {
+                        "x": -27.005983352661134,
+                        "y": 4.03153133392334,
+                        "z": 10.005509376525879
+                    }
+                },
+                {
+                    "name": "广场浮雕",
+                    "position": {
+                        "x": -9.779999732971192,
+                        "y": 5.423554420471191,
+                        "z": 18.644853591918947
+                    }
+                },
+                {
+                    "name": "走廊浮雕",
+                    "position": {
+                        "x": -31.791276931762697,
+                        "y": 5.415578365325928,
+                        "z": 11.280014038085938
+                    }
+                }
+            ]
+        },
+        {
+            "name": "雕塑广场",
+            "description": "宽阔的露天广场，中心分布着雕像，边缘散落电脑等物件，可移动区域广阔，空间十分空旷。适合多人聚集、公开演讲或开放式的小组讨论。",
+            "spatial_relations": [
+                { "region": "神秘的角落", "relation": "adjacent", "connected": true, "distance_m": 60 },
+                { "region": "树屋", "relation": "near", "connected": true, "distance_m": 64 },
+                { "region": "神坛", "relation": "medium", "connected": true, "distance_m": 87 },
+                { "region": "河边走廊", "relation": "far", "connected": true, "distance_m": 96 }
+            ],
+            "anchors": [
+                {
+                    "name": "中央锚点",
+                    "position": {
+                        "x": -97.95999908447266,
+                        "y": 5.78000020980835,
+                        "z": 20.059999465942384
+                    }
+                },
+                {
+                    "name": "雕塑前锚点",
+                    "position": {
+                        "x": -102.76000213623047,
+                        "y": 5.78000020980835,
+                        "z": 11.65999984741211
+                    }
+                },
+                {
+                    "name": "电脑前锚点",
+                    "position": {
+                        "x": -103.41999816894531,
+                        "y": 5.78000020980835,
+                        "z": 31.90999984741211
+                    }
+                }
+            ],
+            "scene_markers": [
+                {
+                    "name": "Laptop",
+                    "position": {
+                        "x": -106.83081817626953,
+                        "y": 6.451253890991211,
+                        "z": 33.44165802001953
+                    }
+                },
+                {
+                    "name": "工具箱",
+                    "position": {
+                        "x": -106.31057739257813,
+                        "y": 6.262178897857666,
+                        "z": 34.29863739013672
+                    }
+                },
+                {
+                    "name": "雕像",
+                    "position": {
+                        "x": -97.6507339477539,
+                        "y": 8.083874702453614,
+                        "z": 10.634896278381348
+                    }
+                },
+                {
+                    "name": "壁画",
+                    "position": {
+                        "x": -88.48676300048828,
+                        "y": 7.291294097900391,
+                        "z": 14.127490997314454
+                    }
+                }
+            ]
+        },
+        {
+            "name": "神坛",
+            "description": "相对独立的聚焦区域，角落有树木作为边界，空间大小适中且视野集中。适合严肃的双人私密对话或小范围的深度交流。",
+            "spatial_relations": [
+                { "region": "河边走廊", "relation": "adjacent", "connected": true, "distance_m": 31 },
+                { "region": "神秘的角落", "relation": "near", "connected": true, "distance_m": 32 },
+                { "region": "树屋", "relation": "medium", "connected": true, "distance_m": 48 },
+                { "region": "雕塑广场", "relation": "far", "connected": true, "distance_m": 87 }
+            ],
+            "anchors": [
+                {
+                    "name": "中央锚点",
+                    "position": {
+                        "x": -26.285999298095704,
+                        "y": 4.339000225067139,
+                        "z": 29.038999557495118
+                    }
+                }
+            ],
+            "scene_markers": [
+                {
+                    "name": "角落树",
+                    "position": {
+                        "x": -30.651567459106447,
+                        "y": 9.411569595336914,
+                        "z": 28.916505813598634
+                    }
+                }
+            ]
+        },
+        {
+            "name": "树屋",
+            "description": "以大树为中心的紧凑区域，可移动范围受限，空间狭小且隐蔽。适合极度私密的双人对话或秘密交谈。",
+            "spatial_relations": [
+                { "region": "神秘的角落", "relation": "adjacent", "connected": true, "distance_m": 16 },
+                { "region": "神坛", "relation": "near", "connected": true, "distance_m": 48 },
+                { "region": "雕塑广场", "relation": "medium", "connected": true, "distance_m": 64 },
+                { "region": "河边走廊", "relation": "far", "connected": true, "distance_m": 76 }
+            ],
+            "anchors": [
+                {
+                    "name": "中央锚点",
+                    "position": {
+                        "x": -62.36000061035156,
+                        "y": 3.6050000190734865,
+                        "z": 56.672000885009769
+                    }
+                }
+            ],
+            "scene_markers": [
+                {
+                    "name": "树",
+                    "position": {
+                        "x": -64.18555450439453,
+                        "y": 9.595891952514649,
+                        "z": 52.41206741333008
+                    }
+                }
+            ]
+        },
+        {
+            "name": "神秘的角落",
+            "description": "被石柱和树木包围的角落区域，视线受阻且NavMesh连通性边缘化，空间狭窄且封闭。适合隐秘的接头、窃窃私语或不愿被旁人打扰的私人对话。",
+            "spatial_relations": [
+                { "region": "树屋", "relation": "adjacent", "connected": true, "distance_m": 16 },
+                { "region": "神坛", "relation": "near", "connected": true, "distance_m": 32 },
+                { "region": "雕塑广场", "relation": "medium", "connected": true, "distance_m": 60 },
+                { "region": "河边走廊", "relation": "far", "connected": true, "distance_m": 60 }
+            ],
+            "anchors": [
+                {
+                    "name": "中央锚点",
+                    "position": {
+                        "x": -49.529998779296878,
+                        "y": 3.1324422359466554,
+                        "z": 47.0
+                    }
+                },
+                {
+                    "name": "隐秘锚点",
+                    "position": {
+                        "x": -38.5,
+                        "y": 3.1324422359466554,
+                        "z": 47.0
+                    }
+                }
+            ],
+            "scene_markers": [
+                {
+                    "name": "浮雕",
+                    "position": {
+                        "x": -34.876914978027347,
+                        "y": 6.024121284484863,
+                        "z": 47.70290756225586
+                    }
+                },
+                {
+                    "name": "中央石柱",
+                    "position": {
+                        "x": -43.55516052246094,
+                        "y": 8.538530349731446,
+                        "z": 43.5291748046875
+                    }
+                },
+                {
+                    "name": "角落树",
+                    "position": {
+                        "x": -30.651567459106447,
+                        "y": 9.411569595336914,
+                        "z": 28.916505813598634
+                    }
+                }
+            ]
+        }
+    ]
+}

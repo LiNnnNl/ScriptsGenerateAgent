@@ -36,6 +36,7 @@ from .autogen_tools import validate_script_constraints, validate_json_spec, auto
 from .position_agent_wrapper import run_position_agent
 from .resource_loader import ResourceLoader, Character, Scene
 from .json_generator import ScriptJSONGenerator
+from .cinematography import run_cinematography_pipeline
 
 
 # 最大审查轮次（超限后强制进入验证阶段）
@@ -213,6 +214,36 @@ def _fallback_fix_positions(script: list, scene) -> list:
                 move["destination"] = _fix_pos(move.get("destination", ""))
 
     return result
+
+
+def _extract_position_files(final_json: list, scene_id: str):
+    """
+    从剧本直接提取位置规划和位置详情（无需 LLM）。
+    用于在摄影流水线未开启时也能提供可下载的位置文件。
+    """
+    char_pos: dict = {}  # position_id -> character (first-seen wins)
+    for scene_obj in (final_json or []):
+        for entry in scene_obj.get("initial position", []):
+            pos, char = entry.get("position", ""), entry.get("character", "")
+            if pos and pos not in char_pos:
+                char_pos[pos] = char
+        for beat in scene_obj.get("scene", []):
+            for entry in beat.get("current position", []):
+                pos, char = entry.get("position", ""), entry.get("character", "")
+                if pos and pos not in char_pos:
+                    char_pos[pos] = char
+            for move in beat.get("move", []):
+                pos, char = move.get("destination", ""), move.get("character", "")
+                if pos and pos not in char_pos:
+                    char_pos[pos] = char
+
+    singles = [{"position_id": p, "character": c, "region": "", "neartarget": "", "lookat": ""}
+               for p, c in char_pos.items() if p]
+    plan = {"where": scene_id, "groups": [], "singles": singles}
+    detail_signals = [{"position_id": p, "character": c, "region": "", "neartarget": "", "lookat": ""}
+                      for p, c in char_pos.items() if p]
+    detail = {"where": scene_id, "groups": [], "signals": detail_signals}
+    return plan, detail
 
 
 async def run_autogen_pipeline(
@@ -565,6 +596,7 @@ async def run_autogen_pipeline(
     # ── 阶段三 后半：position_agent_standalone 坐标生成（可选，需 scene_export + template 文件）──
     position_filename = None
     import asyncio as _asyncio
+    _running_loop = _asyncio.get_running_loop()
     timestamp = int(time.time())
     output_dir = Path('outputs')
     output_dir.mkdir(exist_ok=True)
@@ -575,7 +607,7 @@ async def run_autogen_pipeline(
             json.dump(draft_script, _f, ensure_ascii=False, indent=2)
 
         position_output_filename = f"position_{timestamp}.json"
-        pos_result = await _asyncio.get_event_loop().run_in_executor(
+        pos_result = await _running_loop.run_in_executor(
             None,
             run_position_agent,
             str(temp_script_path),
@@ -680,6 +712,45 @@ async def run_autogen_pipeline(
     filepath = output_dir / filename
     generator.export_to_file(final_json, str(filepath))
 
+    # ── 阶段五前：从剧本直接提取位置文件（兜底，始终生成） ──
+    position_plan_filename = f"position_plan_{timestamp}.json"
+    position_detail_filename = f"position_detail_{timestamp}.json"
+    _base_plan, _base_detail = _extract_position_files(final_json, scene.id)
+    with open(output_dir / position_plan_filename, 'w', encoding='utf-8') as _pf:
+        json.dump(_base_plan, _pf, ensure_ascii=False, indent=2)
+    with open(output_dir / position_detail_filename, 'w', encoding='utf-8') as _pdf:
+        json.dump(_base_detail, _pdf, ensure_ascii=False, indent=2)
+
+    # ── 阶段五（可选）：摄影指导后处理 ──
+    if os.getenv("ENABLE_CINEMATOGRAPHY", "false").lower() == "true":
+        _emit_stage_log(bridge, 'info', 'cinematography', 'start', '🎥 [摄影指导期] 摄影指导智能体开始规划画面和镜头...')
+        try:
+            cine_result = await _running_loop.run_in_executor(
+                None,
+                run_cinematography_pipeline,
+                draft_script,
+                scene,
+                resource_loader.resource_dir,
+                str(output_dir),
+                timestamp,
+            )
+            if cine_result.get("ok"):
+                draft_script = cine_result["enriched_script"]
+                position_plan_filename = cine_result.get("position_plan_filename")
+                position_detail_filename = cine_result.get("position_detail_filename")
+                # 用摄影指导结果重新生成并覆写 script_*.json
+                final_json = generator.generate_final_json(draft_script, plot_summary)
+                generator.export_to_file(final_json, str(filepath))
+                _emit_stage_log(bridge, 'success', 'cinematography', 'result',
+                                f'✅ [摄影指导期] 摄影规划完成，已更新剧本镜头参数')
+            else:
+                _emit_stage_log(bridge, 'warning', 'cinematography', 'failed',
+                                f'⚠️ [摄影指导期] 摄影规划失败（{cine_result.get("error")}），使用基础镜头参数继续')
+        except Exception as _cine_exc:
+            logger.exception("[Cinematography] 阶段五异常")
+            _emit_stage_log(bridge, 'warning', 'cinematography', 'exception',
+                            f'⚠️ [摄影指导期] 摄影规划异常：{_cine_exc}，继续使用基础镜头参数')
+
     # 提取出现的角色，生成 actors_profile.json
     actor_names = []
     seen: set = set()
@@ -774,12 +845,15 @@ async def run_autogen_pipeline(
 
     _emit_stage_log(bridge, 'success', 'output', 'actors_profile', f'✅ 已生成角色档案：{len(actors_profile)} 位演员')
 
-    logger.info("Pipeline 完成 | 剧本=%s 角色档案=%s 坐标=%s",
-                filename, actors_profile_filename, position_filename or "（未生成）")
+    logger.info("Pipeline 完成 | 剧本=%s 角色档案=%s 位置规划=%s 位置详情=%s",
+                filename, actors_profile_filename,
+                position_plan_filename or "（未生成）", position_detail_filename or "（未生成）")
     bridge.put_event({
         'type': 'success',
         'filename': filename,
         'actors_profile_filename': actors_profile_filename,
         'position_filename': position_filename,
+        'position_plan_filename': position_plan_filename,
+        'position_detail_filename': position_detail_filename,
         'warnings': validation_result.get('warnings', []) if validation_result else []
     })

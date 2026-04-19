@@ -1,8 +1,6 @@
 // API配置
 const API_CONFIG = {
-    // Use same-origin base URL so /api is always proxied by Nginx.
-    // Works for localhost and ngrok without hardcoding backend port.
-    BASE_URL: window.location.origin,
+    BASE_URL: 'http://localhost:5000',
     ENDPOINTS: {
         SCENES: '/api/scenes',
         CHARACTERS: '/api/characters',
@@ -28,5 +26,7 @@ const APP_STATE = {
     generatedCharacters: null,       // AI 生成的角色档案数组
     currentCharactersFilename: null, // 生成的角色档案文件名
     currentScriptFilename: null,     // 当前剧本文件名（用于编辑器下载）
-    currentScriptData: null          // 当前剧本数据（可编辑，下载时序列化）
+    currentScriptData: null,         // 当前剧本数据（可编辑，下载时序列化）
+    currentPositionPlanFilename: null,
+    currentPositionDetailFilename: null
 };

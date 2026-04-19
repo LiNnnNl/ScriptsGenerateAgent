@@ -1,0 +1,142 @@
+{
+  "layout_library": [
+    {
+      "layout": "two_person",
+      "min_people": 2,
+      "max_people": 2,
+      "geometry": "linear",
+      "constraint": "fixed_distance",
+      "description": "Two characters facing or side-by-side with fixed spacing",
+      "use_case": [
+        "dialogue",
+        "confrontation",
+        "interaction"
+      ],
+      "parameters": {
+        "spacing": 1.5
+      }
+    },
+
+    {
+      "layout": "L_shape",
+      "min_people": 3,
+      "max_people": 3,
+      "geometry": "right_angle",
+      "constraint": "90_degree_offset",
+      "description": "Three characters forming an L-shaped configuration",
+      "use_case": [
+        "tension_scene",
+        "multi_direction_dialogue"
+      ],
+      "parameters": {
+        "spacing": 1.5,
+        "angle": 90
+      }
+    },
+
+    {
+      "layout": "triangle",
+      "min_people": 3,
+      "max_people": 3,
+      "geometry": "triangular",
+      "constraint": "relative_offset",
+      "description": "Three characters forming a triangular interaction structure",
+      "use_case": [
+        "balanced_dialogue",
+        "discussion",
+        "emotional_exchange"
+      ],
+      "parameters": {
+        "radius": 2.0,
+        "angle_offset": 120
+      }
+    },
+
+    {
+      "layout": "line",
+      "min_people": 3,
+      "max_people": 4,
+      "geometry": "linear",
+      "constraint": "collinear",
+      "description": "Characters aligned in a straight line",
+      "use_case": [
+        "queue",
+        "formal_meeting",
+        "side_by_side_dialogue"
+      ],
+      "parameters": {
+        "spacing": 1.5
+      }
+    },
+
+    {
+      "layout": "square",
+      "min_people": 4,
+      "max_people": 4,
+      "geometry": "grid_2x2",
+      "constraint": "grid_distribution",
+      "description": "Four characters forming a square grid",
+      "use_case": [
+        "balanced_group",
+        "stable_scene"
+      ],
+      "parameters": {
+        "spacing": 1.5
+      }
+    },
+
+    {
+      "layout": "arc",
+      "min_people": 4,
+      "max_people": 8,
+      "geometry": "curved_line",
+      "constraint": "angle_distribution",
+      "description": "Characters arranged in an arc formation",
+      "use_case": [
+        "cinematic_focus",
+        "group_attention",
+        "stage_scene"
+      ],
+      "parameters": {
+        "radius": 3.0,
+        "angle_range": 120
+      }
+    },
+
+    {
+      "layout": "cluster",
+      "min_people": 4,
+      "max_people": 10,
+      "geometry": "random_cluster",
+      "constraint": "soft_random",
+      "description": "Loose natural clustering with random offset",
+      "use_case": [
+        "crowd",
+        "chaotic_scene",
+        "natural_group"
+      ],
+      "parameters": {
+        "radius": 2.5,
+        "noise": 0.3
+      }
+    },
+
+    {
+      "layout": "layered",
+      "min_people": 4,
+      "max_people": 12,
+      "geometry": "depth_layers",
+      "constraint": "z_depth_distribution",
+      "description": "Characters distributed across depth layers (front/mid/back)",
+      "use_case": [
+        "cinematic_composition",
+        "dramatic_focus",
+        "foreground_background_separation"
+      ],
+      "parameters": {
+        "layer_depth": 2.0,
+        "layers": 3
+      }
+    }
+  ]
+}

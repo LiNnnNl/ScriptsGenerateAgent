@@ -72,7 +72,7 @@ const UI = {
     },
 
     // 显示成功结果
-    showSuccess(filename, actorsProfileFilename, positionFilename, warnings = []) {
+    showSuccess(filename, actorsProfileFilename, positionFilename, warnings = [], positionPlanFilename = null, positionDetailFilename = null) {
         const resultPanel = document.getElementById('resultPanel');
         const messageEl = document.getElementById('resultMessage');
 
@@ -82,17 +82,24 @@ const UI = {
         APP_STATE.currentFilename = filename;
         APP_STATE.currentActorsProfileFilename = actorsProfileFilename || null;
         APP_STATE.currentPositionFilename = positionFilename || null;
+        APP_STATE.currentPositionPlanFilename = positionPlanFilename || null;
+        APP_STATE.currentPositionDetailFilename = positionDetailFilename || null;
 
         const actorsBtn = document.getElementById('downloadActorsBtn');
         if (actorsBtn) {
             actorsBtn.style.display = actorsProfileFilename ? '' : 'none';
         }
 
-        const positionBtn = document.getElementById('downloadPositionBtn');
-        if (positionBtn) {
-            positionBtn.style.display = '';
-            positionBtn.disabled = !positionFilename;
-            positionBtn.title = positionFilename ? '下载坐标文件' : '本次未生成坐标文件';
+        const planBtn = document.getElementById('downloadPositionPlanBtn');
+        if (planBtn) {
+            planBtn.style.display = '';
+            planBtn.disabled = !positionPlanFilename;
+        }
+
+        const detailBtn = document.getElementById('downloadPositionDetailBtn');
+        if (detailBtn) {
+            detailBtn.style.display = '';
+            detailBtn.disabled = !positionDetailFilename;
         }
     },
 

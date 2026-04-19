@@ -301,6 +301,51 @@
       { "id": "Position 35", "camera_group": "H", "description": "工作区休息角，适合短暂休息、非正式谈话", "is_sittable": false },
       { "id": "Position 37", "camera_group": "X", "description": "紧急出口，太空站外壁紧急舱门前，危机感极强", "is_sittable": false }
     ]
+  },
+  {
+    "id": "LotusTown",
+    "name": "LotusTown",
+    "style_tag": "Fantasy_3D",
+    "description": "莲花小镇，由河边走廊、神坛、雕塑广场、神秘的角落和树屋组成，空间开阔与隐秘并存。",
+    "camera_groups": [
+      {
+        "id": "A",
+        "name": "河边走廊",
+        "position_ids": ["Position 1", "Position 2", "Position 3"]
+      },
+      {
+        "id": "B",
+        "name": "神坛",
+        "position_ids": ["Position 4"]
+      },
+      {
+        "id": "C",
+        "name": "雕塑广场",
+        "position_ids": ["Position 5", "Position 6", "Position 7"]
+      },
+      {
+        "id": "D",
+        "name": "神秘的角落",
+        "position_ids": ["Position 8", "Position 9"]
+      },
+      {
+        "id": "E",
+        "name": "树屋",
+        "position_ids": ["Position 10"]
+      }
+    ],
+    "valid_positions": [
+      { "id": "Position 1",  "camera_group": "A", "description": "河边走廊中央广场，开阔区域核心，适合多人聚集、公开对话", "is_sittable": false },
+      { "id": "Position 2",  "camera_group": "A", "description": "走廊通道中段，狭长过道，适合独行、拦截或巡逻", "is_sittable": false },
+      { "id": "Position 3",  "camera_group": "A", "description": "走廊墙边，靠墙边缘位置，适合旁观、等待或对峙", "is_sittable": false },
+      { "id": "Position 4",  "camera_group": "B", "description": "神坛中央，聚焦区域，视野集中，适合严肃对话或私密深度交流", "is_sittable": false },
+      { "id": "Position 5",  "camera_group": "C", "description": "雕塑广场中央，露天空旷区核心，适合多人聚集或公开演讲", "is_sittable": false },
+      { "id": "Position 6",  "camera_group": "C", "description": "雕像前方，带有仪式感的位置，适合宣告或展示", "is_sittable": false },
+      { "id": "Position 7",  "camera_group": "C", "description": "广场电脑道具区，散落物件旁，适合操作、等待或密谋", "is_sittable": false },
+      { "id": "Position 8",  "camera_group": "D", "description": "神秘角落中央，被石柱树木包围，视线受阻，适合隐秘接头或窃窃私语", "is_sittable": false },
+      { "id": "Position 9",  "camera_group": "D", "description": "角落深处，更隐蔽的位置，适合不愿被旁人察觉的秘密交谈", "is_sittable": false },
+      { "id": "Position 10", "camera_group": "E", "description": "树屋大树旁，空间狭小隐蔽，适合极度私密的双人对话", "is_sittable": false }
+    ]
   }
 ]
 

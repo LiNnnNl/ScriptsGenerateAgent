@@ -9,7 +9,17 @@
       "Bash(grep -E \"\\\\.\\(py|json\\)$\")",
       "Bash(python3:*)",
       "Bash(cp \"E:/xwechat_files/wxid_y6x3ucns06th22_07fb/msg/file/2026-03/SceneExport_SpaceStudio.json\" \"D:/Code/ScriptsGenerateAgent/backend/resources/scene_exports/SpaceStation.json\")",
-      "Bash(cp \"E:/xwechat_files/wxid_y6x3ucns06th22_07fb/msg/file/2026-03/position.e2e.test.json\" \"D:/Code/ScriptsGenerateAgent/backend/resources/position_templates/SpaceStation.json\")"
+      "Bash(cp \"E:/xwechat_files/wxid_y6x3ucns06th22_07fb/msg/file/2026-03/position.e2e.test.json\" \"D:/Code/ScriptsGenerateAgent/backend/resources/position_templates/SpaceStation.json\")",
+      "Read(//d/Code/**)",
+      "Bash(cp \"E:/xwechat_files/wxid_y6x3ucns06th22_07fb/msg/file/2026-04/摄影指导智能体/摄影指导智能体/DirectorAgent/shot_planning_stage.py\" \"D:/Code/ScriptsGenerateAgent/backend/src/cinematography/shot_planning_stage.py\")",
+      "Bash(cp \"E:/xwechat_files/wxid_y6x3ucns06th22_07fb/msg/file/2026-04/摄影指导智能体/摄影指导智能体/DirectorAgent/camera_planning_stage.py\" \"D:/Code/ScriptsGenerateAgent/backend/src/cinematography/camera_planning_stage.py\")",
+      "Bash(cp \"E:/xwechat_files/wxid_y6x3ucns06th22_07fb/msg/file/2026-04/摄影指导智能体/摄影指导智能体/DirectorAgent/position_planning_stage.py\" \"D:/Code/ScriptsGenerateAgent/backend/src/cinematography/position_planning_stage.py\")",
+      "Bash(cp \"E:/xwechat_files/wxid_y6x3ucns06th22_07fb/msg/file/2026-04/摄影指导智能体/摄影指导智能体/DirectorAgent/position_agent.py\" \"D:/Code/ScriptsGenerateAgent/backend/src/cinematography/position_agent.py\")",
+      "Bash(cp \"E:/xwechat_files/wxid_y6x3ucns06th22_07fb/msg/file/2026-04/摄影指导智能体/摄影指导智能体/DirectorAgent/position_detail_converter.py\" \"D:/Code/ScriptsGenerateAgent/backend/src/cinematography/position_detail_converter.py\")",
+      "Bash(cp \"E:/xwechat_files/wxid_y6x3ucns06th22_07fb/msg/file/2026-04/摄影指导智能体/摄影指导智能体/Input/CameraLib.json\" \"D:/Code/ScriptsGenerateAgent/backend/resources/cinematography/CameraLib.json\")",
+      "Bash(cp \"E:/xwechat_files/wxid_y6x3ucns06th22_07fb/msg/file/2026-04/摄影指导智能体/摄影指导智能体/Input/LayoutLib.json\" \"D:/Code/ScriptsGenerateAgent/backend/resources/cinematography/LayoutLib.json\")",
+      "Read(//e/xwechat_files/wxid_y6x3ucns06th22_07fb/msg/file/2026-04/DirectorTest3/DirectorTest3/Resualt/**)",
+      "Read(//e/xwechat_files/wxid_y6x3ucns06th22_07fb/msg/file/2026-04/DirectorTest3/DirectorTest3/**)"
     ]
   }
 }

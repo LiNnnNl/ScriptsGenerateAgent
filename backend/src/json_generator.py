@@ -95,12 +95,15 @@ class ScriptJSONGenerator:
         ]
 
     def _normalize_segment(self, seg: Dict) -> Dict:
-        """为新格式片段补充 shot_type / Follow / shot_blend 默认值（AI 已填的不覆盖）。"""
+        """强制清空摄影字段，由摄影指导 pipeline 填写；确保 Follow 有默认值。"""
         seg = dict(seg)
-        is_move = "move" in seg
-        seg.setdefault("shot_blend", "cut")
-        seg.setdefault("shot_type", "全景" if is_move else "中近景")
+        seg["shot_blend"] = ""
+        seg["shot"] = ""
+        seg["shot_type"] = ""
+        seg["shot_description"] = ""
         seg.setdefault("Follow", 0)
+        for action in seg.get("actions", []):
+            action["motion_detail"] = ""
         return seg
 
     def _build_title(self, title: str) -> Dict:
@@ -179,9 +182,10 @@ class ScriptJSONGenerator:
         
         return {
             "move": moves,
-            "shot_blend": segment.get("shot_blend", "cut"),
-            "shot": segment.get("shot", "scene"),
-            "shot_type": segment.get("shot_type", "全景"),
+            "shot_blend": "",
+            "shot": "",
+            "shot_type": "",
+            "shot_description": "",
             "Follow": segment.get("Follow", 0),
             "camera": segment.get("camera", 1),
             "current position": current_position
@@ -215,9 +219,10 @@ class ScriptJSONGenerator:
         item = {
             "speaker": segment.get("speaker", "default"),
             "content": segment.get("content", ""),
-            "shot_blend": segment.get("shot_blend", "cut"),
-            "shot": segment.get("shot", "character"),
-            "shot_type": segment.get("shot_type", "中近景"),
+            "shot_blend": "",
+            "shot": "",
+            "shot_type": "",
+            "shot_description": "",
             "Follow": segment.get("Follow", 0),
             "actions": actions,
             "current position": self._get_all_positions()

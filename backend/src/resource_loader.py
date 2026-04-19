@@ -133,7 +133,7 @@ class ResourceLoader:
             self.actions = [Action(a) for a in action_data]
 
         # 加载镜头类型
-        camera_list_file = self.resource_dir / "Camera_List.json"
+        camera_list_file = self.resource_dir / "cinematography" / "CameraLib.json"
         if camera_list_file.exists():
             with open(camera_list_file, 'r', encoding='utf-8-sig') as f:
                 self.camera_list = json.load(f)
