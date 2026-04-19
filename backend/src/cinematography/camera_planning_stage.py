@@ -103,6 +103,10 @@ class CameraPlanningStage:
         for beat_index, beat in enumerate(scene, start=1):
             if not isinstance(beat, dict):
                 continue
+            beat["current position"] = [
+                {"character": char, "position": pos_id}
+                for char, pos_id in current_position_state.items()
+            ]
             current_positions = self._resolve_current_positions(beat, current_position_state)
             beat_entries.append(
                 {
@@ -1012,15 +1016,6 @@ class CameraPlanningStage:
         updated = OrderedDict(current_position_state)
         for move in self._normalize_moves(beat.get("move")):
             updated[move["character"]] = move["destination"]
-        raw_positions = beat.get("current position")
-        if isinstance(raw_positions, list):
-            for item in raw_positions:
-                if not isinstance(item, dict):
-                    continue
-                char = self._stringify(item.get("character"))
-                pos_id = self._stringify(item.get("position") or item.get("position_id"))
-                if char and pos_id:
-                    updated[char] = pos_id
         return updated
 
     def _summarize_neighbor_beat(self, beat):
