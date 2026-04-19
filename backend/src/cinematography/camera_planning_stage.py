@@ -192,7 +192,7 @@ class CameraPlanningStage:
             self._write_json_file(self.output_path, self.script_payload)
             self._write_stage_files()
 
-        self.enriched_script = self.script_payload
+        self.enriched_script = self._normalize_script_output(self.script_payload)
         self._write_json_file(self.output_path, self.enriched_script)
         self._write_stage_files()
         result = self._build_stage_result()
@@ -810,6 +810,27 @@ class CameraPlanningStage:
             "recent_camera_history": recent_camera_history,
             "next_line": self._summarize_neighbor_beat(next_beat),
         }
+
+    def _reorder_beat(self, beat):
+        if "move" in beat:
+            keys_order = ["move", "current position", "shot_blend", "shot", "shot_type", "Follow", "camera", "shot_description"]
+        else:
+            keys_order = ["speaker", "content", "shot_blend", "shot", "shot_type", "Follow", "actions", "current position", "shot_description"]
+        ordered = {k: beat[k] for k in keys_order if k in beat}
+        for k, v in beat.items():
+            if k not in ordered:
+                ordered[k] = v
+        return ordered
+
+    def _normalize_script_output(self, payload):
+        result = copy.deepcopy(payload)
+        root = result[0] if isinstance(result, list) and result else result
+        if not isinstance(root, dict):
+            return result
+        root.pop("title", None)
+        if isinstance(root.get("scene"), list):
+            root["scene"] = [self._reorder_beat(b) for b in root["scene"] if isinstance(b, dict)]
+        return result
 
     def _write_stage_files(self):
         self._write_json_file(self.stage_output_dir / self.ANALYSIS_STAGE_FILENAME, {"where": self.where, "results": self.analysis_results})

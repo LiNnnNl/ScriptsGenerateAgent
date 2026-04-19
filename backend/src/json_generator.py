@@ -52,7 +52,6 @@ class ScriptJSONGenerator:
                 if "what" not in scene_info_default:
                     scene_info_default["what"] = plot_summary
                 ordered["scene information"] = scene_info_default
-                ordered["title"] = self._build_title(title or self.scene.id)
                 ordered["initial position"] = scene_obj.get(
                     "initial position",
                     [{"character": char.name, "position": ""} for char in self.characters]
@@ -85,7 +84,6 @@ class ScriptJSONGenerator:
         return [
             {
                 "scene information": scene_info,
-                "title": self._build_title(title or self.scene.id),
                 "initial position": [
                     {"character": char.name, "position": self.character_positions.get(char.name, "")}
                     for char in self.characters
