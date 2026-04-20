@@ -1,14 +1,17 @@
 """
-Pydantic schema — shot 字段校验
+Pydantic schema — shot 字段校验 + position plan 字段校验
 
-两阶段：
+shot 两阶段：
   validate_script_shot_structure  初稿后调用，只查字段是否存在（不校验值）
   validate_script_shots           摄影管线完成后调用，校验字段值是否合法
+
+position plan：
+  validate_position_plan          Stage 2 规划完成后调用，校验关键字段不为空
 """
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, List, Literal, Union
 from pydantic import BaseModel, field_validator
 
 
@@ -151,3 +154,113 @@ def validate_script_shots(script: list[dict]) -> dict:
                     "errors": errs,
                 })
     return {"valid": len(all_errors) == 0, "errors": all_errors}
+
+
+# ─────────────────────────────────────────────
+# Position Plan 校验（Stage 2 完成后）
+# ─────────────────────────────────────────────
+
+class _PositionEntry(BaseModel):
+    position_id: str
+    character: str
+
+    @field_validator("position_id", "character")
+    @classmethod
+    def not_empty(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("不能为空")
+        return v
+
+
+class _PositionGroup(BaseModel):
+    group_id: str
+    layout: str
+    region: str
+    neartarget: str
+    positions: List[_PositionEntry]
+
+    @field_validator("group_id", "layout", "region", "neartarget")
+    @classmethod
+    def not_empty(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("不能为空")
+        return v
+
+
+class _PositionSingle(BaseModel):
+    position_id: str
+    character: str
+    region: str
+    neartarget: str
+
+    @field_validator("position_id", "character", "region", "neartarget")
+    @classmethod
+    def not_empty(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("不能为空")
+        return v
+
+
+class _PositionPlan(BaseModel):
+    where: str
+    groups: List[_PositionGroup] = []
+    singles: List[_PositionSingle] = []
+
+    @field_validator("where")
+    @classmethod
+    def not_empty(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("不能为空")
+        return v
+
+
+def _fmt_errors(exc: Exception) -> list[str]:
+    if hasattr(exc, "errors"):
+        result = []
+        for e in exc.errors():
+            loc = " -> ".join(str(x) for x in e["loc"])
+            result.append(f"{loc}: {e['msg']}")
+        return result
+    return [str(exc)]
+
+
+def validate_position_plan(plan: dict) -> dict:
+    """
+    Stage 2 规划完成后调用。校验 position plan 关键字段均不为空。
+    返回 {"valid": bool, "errors": [...]}
+    """
+    all_errors: list[str] = []
+    try:
+        _PositionPlan(**{k: plan[k] for k in _PositionPlan.model_fields if k in plan})
+    except Exception as exc:
+        all_errors.extend(_fmt_errors(exc))
+    return {"valid": len(all_errors) == 0, "errors": all_errors}
+
+
+# ─────────────────────────────────────────────
+# 自然语言错误格式化（供 prompt 反馈使用）
+# ─────────────────────────────────────────────
+
+def format_shot_structure_errors(errors: list[dict]) -> str:
+    """将 validate_script_shot_structure 错误列表格式化为自然语言"""
+    lines = []
+    for item in errors:
+        label = item.get("speaker") or f"第{item['beat']}幕"
+        for err in item["errors"]:
+            lines.append(f"场景{item['scene']} {label}：{err}")
+    return "\n".join(lines)
+
+
+def format_shot_content_errors(errors: list[dict]) -> str:
+    """将 validate_script_shots 错误列表格式化为自然语言"""
+    lines = []
+    for item in errors:
+        label = item.get("speaker") or f"第{item['beat']}幕"
+        for err in item["errors"]:
+            lines.append(f"场景{item['scene']} {label}：{err}")
+    return "\n".join(lines)
+
+
+def format_position_plan_errors(errors: list[str]) -> str:
+    """将 validate_position_plan 错误列表格式化为自然语言"""
+    return "\n".join(errors) if errors else ""

@@ -35,7 +35,10 @@ from .autogen_tools import validate_script_constraints, validate_json_spec, auto
 from .resource_loader import ResourceLoader, Character, Scene
 from .json_generator import ScriptJSONGenerator
 from .cinematography import run_cinematography_pipeline
-from .schema import validate_script_shot_structure, validate_script_shots
+from .schema import (
+    validate_script_shot_structure, validate_script_shots,
+    format_shot_structure_errors, format_shot_content_errors,
+)
 
 
 # 最大审查轮次（超限后强制进入验证阶段）
@@ -164,6 +167,48 @@ async def _run_stage_agent_json_object(agent, prompt: str) -> Optional[dict]:
         return None
     return _extract_json_object_from_text(raw_content)
 
+
+async def _run_director_agent(
+    director,
+    prompt: str,
+    bridge: "AutoGenStreamBridge",
+    label: str = "DirectorAgent",
+) -> Optional[list]:
+    """运行 DirectorAgent，处理 streaming 事件，返回解析后的 JSON 列表。"""
+    thinking_started = False
+    raw_content = None
+    async for event in director.on_messages_stream(
+        [TextMessage(content=prompt, source="user")],
+        cancellation_token=CancellationToken()
+    ):
+        logger.debug("[%s] event type=%s", label, type(event).__name__)
+        if hasattr(event, 'inner_messages'):
+            for msg in (event.inner_messages or []):
+                if isinstance(msg, ModelClientStreamingChunkEvent):
+                    if not thinking_started:
+                        thinking_started = True
+                    bridge.put_event({'type': 'thinking_chunk', 'agent': label, 'text': msg.content})
+        if hasattr(event, 'chat_message') and event.chat_message:
+            raw_content = event.chat_message.content
+            logger.info("[%s] 原始输出（前500字）: %s", label, raw_content[:500])
+            if thinking_started:
+                bridge.put_event({'type': 'thinking_done'})
+                thinking_started = False
+    if thinking_started:
+        bridge.put_event({'type': 'thinking_done'})
+    if not raw_content:
+        return None
+    return _extract_json_from_text(raw_content)
+
+
+def _patch_shot_fields(target: list, source: list) -> None:
+    """将 source 中每个 beat 的 shot 相关字段更新到 target（in-place）。"""
+    shot_keys = ("shot", "shot_blend", "shot_type", "Follow", "camera")
+    for t_scene, s_scene in zip(target, source):
+        for t_beat, s_beat in zip(t_scene.get("scene", []), s_scene.get("scene", [])):
+            for key in shot_keys:
+                if key in s_beat:
+                    t_beat[key] = s_beat[key]
 
 
 def _extract_position_files(final_json: list, scene_id: str):
@@ -324,58 +369,49 @@ async def run_autogen_pipeline(
     # ════════════════════════════════════════════════
     _emit_stage_log(bridge, 'info', 'draft', 'start', '🎬 [剧本起草期] DirectorAgent 开始生成剧本初稿...')
 
-    user_prompt = "请开始生成剧本，直接输出 JSON 格式，不要有其他说明文字。"
+    base_user_prompt = "请开始生成剧本，直接输出 JSON 格式，不要有其他说明文字。"
     if plot_outline:
-        user_prompt = (
+        base_user_prompt = (
             f"创作想法：{plot_outline}\n\n"
             f"阶段化上下文：\n{json.dumps(stage_context, ensure_ascii=False, indent=2)}\n\n"
             "请根据以上阶段结果生成剧本，直接输出 JSON 格式，不要有其他说明文字。"
         )
 
     draft_script = None
-    thinking_started = False
+    MAX_SHOT_STRUCT_RETRIES = 2
+    current_prompt = base_user_prompt
 
-    raw_content = None
-    async for event in director.on_messages_stream(
-        [TextMessage(content=user_prompt, source="user")],
-        cancellation_token=CancellationToken()
-    ):
-        logger.debug("[DirectorAgent] event type=%s", type(event).__name__)
-        if hasattr(event, 'inner_messages'):
-            for msg in (event.inner_messages or []):
-                if isinstance(msg, ModelClientStreamingChunkEvent):
-                    if not thinking_started:
-                        thinking_started = True
-                    bridge.put_event({'type': 'thinking_chunk', 'agent': 'DirectorAgent', 'text': msg.content})
-        if hasattr(event, 'chat_message') and event.chat_message:
-            msg = event.chat_message
-            raw_content = msg.content
-            logger.info("[DirectorAgent] 原始输出（前500字）: %s", raw_content[:500])
-            if thinking_started:
-                bridge.put_event({'type': 'thinking_done'})
-                thinking_started = False
-            draft_script = _extract_json_from_text(raw_content)
+    for shot_attempt in range(MAX_SHOT_STRUCT_RETRIES + 1):
+        label = 'DirectorAgent' if shot_attempt == 0 else f'DirectorAgent（shot修正第{shot_attempt}次）'
+        draft_script = await _run_director_agent(director, current_prompt, bridge, label)
 
-    if thinking_started:
-        bridge.put_event({'type': 'thinking_done'})
+        if draft_script is None:
+            bridge.put_event({'type': 'error', 'message': '[DirectorAgent] 未能生成有效的 JSON 剧本'})
+            return
 
-    if draft_script is None:
-        logger.error("[DirectorAgent] JSON 提取失败，原始输出: %s", raw_content)
-        bridge.put_event({'type': 'error', 'message': '[DirectorAgent] 未能生成有效的 JSON 剧本'})
-        return
+        logger.info("[DirectorAgent] 生成完成，场景数=%d（尝试%d）", len(draft_script), shot_attempt + 1)
+        _emit_output(bridge, label, draft_script)
 
-    logger.info("[DirectorAgent] 初稿生成完成，场景数=%d", len(draft_script))
+        shot_struct = validate_script_shot_structure(draft_script)
+        if shot_struct["valid"]:
+            _emit_stage_log(bridge, 'success', 'draft', 'shot_check', '✅ [shot结构] 所有片段 shot 字段结构正确')
+            break
+
+        error_desc = format_shot_structure_errors(shot_struct["errors"])
+        _emit_stage_log(bridge, 'warning', 'draft', 'shot_check',
+                        f'⚠️ [shot结构] 字段有问题，正在修正...\n{error_desc}')
+
+        if shot_attempt >= MAX_SHOT_STRUCT_RETRIES:
+            _emit_stage_log(bridge, 'warning', 'draft', 'shot_check', '⚠️ 已达最大重试次数，继续使用当前版本')
+            break
+
+        current_prompt = (
+            f"上一版本剧本 shot 字段有以下问题，请修正后重新输出完整剧本 JSON：\n\n"
+            f"{error_desc}\n\n"
+            f"原剧本：\n```json\n{json.dumps(draft_script, ensure_ascii=False, indent=2)}\n```"
+        )
+
     _emit_stage_log(bridge, 'success', 'draft', 'summary', '✅ [剧本起草期] 剧本初稿生成完成')
-    _emit_output(bridge, 'DirectorAgent', draft_script)
-
-    # ── shot 结构校验（只查字段是否存在，不查值）──
-    shot_struct = validate_script_shot_structure(draft_script)
-    if shot_struct["valid"]:
-        _emit_stage_log(bridge, 'success', 'draft', 'shot_check', '✅ [shot结构] 所有片段 shot 字段结构正确')
-    else:
-        for item in shot_struct["errors"]:
-            msg = f'⚠️ [shot结构] scene[{item["scene"]}] beat[{item["beat"]}] {item["speaker"]}: {"; ".join(item["errors"])}'
-            _emit_stage_log(bridge, 'warning', 'draft', 'shot_check', msg)
 
     # ── 阶段二 后半：文学审查（CriticAgent + DialogueAgent，循环修改）──
     for review_round in range(MAX_REVIEW_ROUNDS):
@@ -595,13 +631,43 @@ async def run_autogen_pipeline(
                 generator.export_to_file(final_json, str(filepath))
                 _emit_stage_log(bridge, 'success', 'cinematography', 'result',
                                 f'✅ [摄影指导期] 摄影规划完成，已更新剧本镜头参数')
-                shot_content = validate_script_shots(final_json)
-                if shot_content["valid"]:
-                    _emit_stage_log(bridge, 'success', 'cinematography', 'shot_check', '✅ [shot内容] 所有镜头字段值合规')
-                else:
-                    for item in shot_content["errors"]:
-                        msg = f'⚠️ [shot内容] scene[{item["scene"]}] beat[{item["beat"]}] {item["speaker"]}: {"; ".join(item["errors"])}'
-                        _emit_stage_log(bridge, 'warning', 'cinematography', 'shot_check', msg)
+
+                MAX_SHOT_CONTENT_RETRIES = 1
+                for content_attempt in range(MAX_SHOT_CONTENT_RETRIES + 1):
+                    shot_content = validate_script_shots(final_json)
+                    if shot_content["valid"]:
+                        _emit_stage_log(bridge, 'success', 'cinematography', 'shot_check',
+                                        '✅ [shot内容] 所有镜头字段值合规')
+                        break
+
+                    error_desc = format_shot_content_errors(shot_content["errors"])
+                    _emit_stage_log(bridge, 'warning', 'cinematography', 'shot_check',
+                                    f'⚠️ [shot内容] 字段值有问题，正在修正...\n{error_desc}')
+
+                    if content_attempt >= MAX_SHOT_CONTENT_RETRIES:
+                        _emit_stage_log(bridge, 'warning', 'cinematography', 'shot_check',
+                                        '⚠️ 已达最大重试次数')
+                        break
+
+                    fix_prompt = (
+                        f"以下 shot 字段值不符合规范，请修正后输出完整剧本 JSON：\n\n"
+                        f"{error_desc}\n\n"
+                        f"当前剧本：\n```json\n{json.dumps(draft_script, ensure_ascii=False, indent=2)}\n```"
+                    )
+                    _emit_stage_log(bridge, 'info', 'cinematography', 'shot_retry',
+                                    '✏️ DirectorAgent 修正 shot 字段值...')
+                    corrected_draft = await _run_director_agent(
+                        director, fix_prompt, bridge, "DirectorAgent（shot内容修正）"
+                    )
+                    if corrected_draft:
+                        _patch_shot_fields(final_json, corrected_draft)
+                        generator.export_to_file(final_json, str(filepath))
+                        _emit_stage_log(bridge, 'info', 'cinematography', 'shot_retry',
+                                        '✅ shot 字段已修正，重新校验...')
+                    else:
+                        _emit_stage_log(bridge, 'warning', 'cinematography', 'shot_retry',
+                                        '⚠️ DirectorAgent 输出解析失败，跳过修正')
+                        break
             else:
                 _emit_stage_log(bridge, 'warning', 'cinematography', 'failed',
                                 f'⚠️ [摄影指导期] 摄影规划失败（{cine_result.get("error")}），使用基础镜头参数继续')

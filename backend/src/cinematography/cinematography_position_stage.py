@@ -27,6 +27,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from .coordinate_skill import CoordinateSkill
+from ..schema import validate_position_plan, format_position_plan_errors
 
 logger = logging.getLogger(__name__)
 
@@ -190,19 +191,44 @@ class CinematographyPositionStage:
             "  ]\n"
             "}"
         )
-        user_payload = {
-            "grouping": grouping,
-            "scene_info": self.scene_info_json,
-        }
-        try:
-            result = self.llm_client.complete_json(system_prompt, user_payload)
-            result.setdefault("where", where)
-            result.setdefault("groups", grouping.get("groups", []))
-            result.setdefault("singles", grouping.get("singles", []))
-            return result
-        except Exception as exc:
-            logger.warning("[Stage2][planning] LLM failed (%s), using fallback", exc)
-            return self._fallback_planning(where, grouping)
+
+        MAX_RETRIES = 2
+        correction = ""
+        for attempt in range(MAX_RETRIES + 1):
+            user_payload: Dict = {
+                "grouping": grouping,
+                "scene_info": self.scene_info_json,
+            }
+            if correction:
+                user_payload["correction_required"] = correction
+            try:
+                result = self.llm_client.complete_json(system_prompt, user_payload)
+                result.setdefault("where", where)
+                result.setdefault("groups", grouping.get("groups", []))
+                result.setdefault("singles", grouping.get("singles", []))
+
+                plan_validation = validate_position_plan(result)
+                if plan_validation["valid"]:
+                    return result
+
+                error_msg = format_position_plan_errors(plan_validation["errors"])
+                logger.warning(
+                    "[Stage2][planning] schema 校验失败（尝试 %d/%d）:\n%s",
+                    attempt + 1, MAX_RETRIES + 1, error_msg,
+                )
+                if attempt < MAX_RETRIES:
+                    correction = (
+                        f"上次输出存在以下字段问题，请修正后重新输出完整 JSON：\n{error_msg}"
+                    )
+                else:
+                    logger.warning("[Stage2][planning] 已达最大重试次数，使用当前结果继续")
+                    return result
+
+            except Exception as exc:
+                logger.warning("[Stage2][planning] LLM failed (%s), using fallback", exc)
+                return self._fallback_planning(where, grouping)
+
+        return self._fallback_planning(where, grouping)
 
     def _run_coordinates(self, planning: Dict) -> Dict:
         """Substage 3: call CoordinateSkill to compute x/y/z (stored separately)."""
