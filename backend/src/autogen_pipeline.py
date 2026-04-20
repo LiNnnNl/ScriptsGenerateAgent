@@ -30,19 +30,16 @@ from .autogen_agents import (
     create_critic_agent,
     create_dialogue_agent,
     create_validation_agent,
-    create_position_agent,
 )
 from .autogen_tools import validate_script_constraints, validate_json_spec, auto_fix_script
-from .position_agent_wrapper import run_position_agent
 from .resource_loader import ResourceLoader, Character, Scene
 from .json_generator import ScriptJSONGenerator
 from .cinematography import run_cinematography_pipeline
+from .schema import validate_script_shot_structure, validate_script_shots
 
 
 # 最大审查轮次（超限后强制进入验证阶段）
 MAX_REVIEW_ROUNDS = 3
-# PositionAgent 映射失败后最大重试次数
-MAX_POSITION_FIX_ROUNDS = 3
 
 
 def _emit_output(bridge: "AutoGenStreamBridge", agent: str, content, fmt: str = 'script') -> None:
@@ -168,53 +165,6 @@ async def _run_stage_agent_json_object(agent, prompt: str) -> Optional[dict]:
     return _extract_json_object_from_text(raw_content)
 
 
-def _fallback_fix_positions(script: list, scene) -> list:
-    """
-    保底点位修正：将剧本中仍为抽象（Position N）或不在场景可用点位内的位置，
-    轮询替换为场景真实点位 ID。场景无可用点位时直接返回原剧本。
-    """
-    valid_ids = [pos['id'] for pos in scene.valid_positions]
-    if not valid_ids:
-        return script
-
-    # 轮询索引，让不同片段尽量分散到不同点位
-    _counter = [0]
-
-    def _next_valid() -> str:
-        pos = valid_ids[_counter[0] % len(valid_ids)]
-        _counter[0] += 1
-        return pos
-
-    def _fix_pos(pos_id: str) -> str:
-        """若 pos_id 不在可用点位中则返回保底点位，否则原样返回。"""
-        if pos_id and scene.get_position(pos_id):
-            return pos_id
-        return _next_valid()
-
-    def _fix_pos_list(pos_list: list) -> list:
-        return [
-            {"character": entry.get("character", ""), "position": _fix_pos(entry.get("position", ""))}
-            for entry in (pos_list or [])
-        ]
-
-    import copy
-    result = copy.deepcopy(script)
-    for scene_obj in result:
-        # initial position
-        if "initial position" in scene_obj:
-            scene_obj["initial position"] = _fix_pos_list(scene_obj["initial position"])
-
-        for seg in scene_obj.get("scene", []):
-            # current position
-            if "current position" in seg:
-                seg["current position"] = _fix_pos_list(seg["current position"])
-
-            # 移动片段 destination
-            for move in seg.get("move", []):
-                move["destination"] = _fix_pos(move.get("destination", ""))
-
-    return result
-
 
 def _extract_position_files(final_json: list, scene_id: str):
     """
@@ -293,9 +243,8 @@ async def run_autogen_pipeline(
     critic = create_critic_agent()
     dialogue = create_dialogue_agent()
     validator = create_validation_agent(resource_loader, scene) if model_supports_tools else None
-    position_agent = create_position_agent(scene)
 
-    _emit_stage_log(bridge, 'success', 'setup', 'ready', '✅ Agents 初始化完成（概念、梗概、人物、大纲、导演、审查、验证、位置）')
+    _emit_stage_log(bridge, 'success', 'setup', 'ready', '✅ Agents 初始化完成（概念、梗概、人物、大纲、导演、审查、验证）')
 
     # 阶段化上下文（内存态，不落盘）
     stage_context: Dict[str, Dict[str, Any]] = {
@@ -419,6 +368,15 @@ async def run_autogen_pipeline(
     _emit_stage_log(bridge, 'success', 'draft', 'summary', '✅ [剧本起草期] 剧本初稿生成完成')
     _emit_output(bridge, 'DirectorAgent', draft_script)
 
+    # ── shot 结构校验（只查字段是否存在，不查值）──
+    shot_struct = validate_script_shot_structure(draft_script)
+    if shot_struct["valid"]:
+        _emit_stage_log(bridge, 'success', 'draft', 'shot_check', '✅ [shot结构] 所有片段 shot 字段结构正确')
+    else:
+        for item in shot_struct["errors"]:
+            msg = f'⚠️ [shot结构] scene[{item["scene"]}] beat[{item["beat"]}] {item["speaker"]}: {"; ".join(item["errors"])}'
+            _emit_stage_log(bridge, 'warning', 'draft', 'shot_check', msg)
+
     # ── 阶段二 后半：文学审查（CriticAgent + DialogueAgent，循环修改）──
     for review_round in range(MAX_REVIEW_ROUNDS):
         _emit_stage_log(
@@ -519,118 +477,6 @@ async def run_autogen_pipeline(
             break
 
     # ════════════════════════════════════════════════
-    # 阶段三：位置映射与坐标生成
-    # ════════════════════════════════════════════════
-
-    # ── 阶段三 前半：PositionAgent 位置映射（抽象 Position N → 真实点位 ID）──
-    _emit_stage_log(bridge, 'info', 'position_mapping', 'start', '📍 [位置映射期] PositionAgent 开始位置映射...')
-
-    for pos_round in range(MAX_POSITION_FIX_ROUNDS):
-        mapping_prompt = (
-            f"请将以下剧本中的抽象位置（Position 1/2/3...）映射到真实点位：\n\n"
-            f"```json\n{json.dumps(draft_script, ensure_ascii=False, indent=2)}\n```"
-        )
-        mapped_script = None
-        unresolved = []
-        pos_raw_content = None
-
-        async for event in position_agent.on_messages_stream(
-            [TextMessage(content=mapping_prompt, source="user")],
-            cancellation_token=CancellationToken()
-        ):
-            if hasattr(event, 'chat_message') and event.chat_message:
-                pos_raw_content = event.chat_message.content
-                unresolved = re.findall(r'POSITION_UNRESOLVED:\s*(.+)', pos_raw_content)
-                mapped_script = _extract_json_from_text(pos_raw_content)
-
-        if mapped_script and not unresolved:
-            draft_script = mapped_script
-            _emit_stage_log(bridge, 'success', 'position_mapping', 'result', '✅ [位置映射期] 位置映射完成')
-            _emit_output(bridge, 'PositionAgent', mapped_script)
-            break
-
-        if unresolved:
-            logger.warning("[PositionAgent] 无法解析的位置（轮次%d）: %s", pos_round + 1, unresolved)
-            for u in unresolved:
-                _emit_stage_log(bridge, 'warning', 'position_mapping', 'unresolved', f'⚠️  [PositionAgent] 无法映射: {u}')
-
-            if mapped_script:
-                # 部分映射成功，仍更新 draft
-                draft_script = mapped_script
-
-            if pos_round < MAX_POSITION_FIX_ROUNDS - 1:
-                # 请 DirectorAgent 修改无法映射的位置戏剧意图
-                fix_prompt = (
-                    "以下站位在场景中找不到合理匹配，请修改剧本，"
-                    "调整这些位置的 position_descriptions（换用场景实际存在的空间特征描述）：\n\n"
-                    + "\n".join(f"- {u}" for u in unresolved)
-                    + f"\n\n当前剧本：\n```json\n{json.dumps(draft_script, ensure_ascii=False, indent=2)}\n```"
-                    + "\n\n直接输出修改后的完整 JSON，不要有其他说明文字。"
-                )
-                _emit_stage_log(
-                    bridge, 'info', 'position_mapping', 'revise',
-                    f'✏️  [位置映射期] DirectorAgent 根据位置反馈修改剧本（轮次{pos_round + 1}）...'
-                )
-                async for event in director.on_messages_stream(
-                    [TextMessage(content=fix_prompt, source="user")],
-                    cancellation_token=CancellationToken()
-                ):
-                    if hasattr(event, 'chat_message') and event.chat_message:
-                        revised = _extract_json_from_text(event.chat_message.content)
-                        if revised:
-                            draft_script = revised
-            else:
-                _emit_stage_log(bridge, 'warning', 'position_mapping', 'force_continue', '⚠️  [PositionAgent] 已达映射上限，使用当前最优结果继续')
-                break
-        else:
-            # mapped_script 为 None，解析失败
-            logger.warning("[PositionAgent] JSON 解析失败（轮次%d），原始输出: %s",
-                           pos_round + 1, pos_raw_content[:300] if pos_raw_content else "None")
-            if pos_round >= MAX_POSITION_FIX_ROUNDS - 1:
-                _emit_stage_log(bridge, 'warning', 'position_mapping', 'parse_failed', '⚠️  [PositionAgent] 解析失败，跳过位置映射，使用抽象位置继续')
-            # 不更新 draft_script，继续重试
-
-    # ── 阶段三 中：保底点位修正（将仍为抽象/无效的位置替换为场景真实点位）──
-    draft_script = _fallback_fix_positions(draft_script, scene)
-
-    # ── 阶段三 后半：position_agent_standalone 坐标生成（可选，需 scene_export + template 文件）──
-    position_filename = None
-    import asyncio as _asyncio
-    _running_loop = _asyncio.get_running_loop()
-    timestamp = int(time.time())
-    output_dir = Path('outputs')
-    output_dir.mkdir(exist_ok=True)
-    temp_script_path = None
-    try:
-        temp_script_path = output_dir / f"_temp_script_{timestamp}.json"
-        with open(temp_script_path, 'w', encoding='utf-8') as _f:
-            json.dump(draft_script, _f, ensure_ascii=False, indent=2)
-
-        position_output_filename = f"position_{timestamp}.json"
-        pos_result = await _running_loop.run_in_executor(
-            None,
-            run_position_agent,
-            str(temp_script_path),
-            scene.id,
-            str(output_dir),
-            position_output_filename,
-        )
-
-        if pos_result.get("ok"):
-            position_filename = position_output_filename
-            _emit_stage_log(bridge, 'success', 'position_generation', 'result', f'✅ [位置映射期] 坐标文件生成完成：{position_output_filename}')
-        elif pos_result.get("skip"):
-            _emit_stage_log(bridge, 'info', 'position_generation', 'skip', f'⏭️  [位置映射期] 跳过坐标生成（{pos_result.get("error", "缺少资源文件")}）')
-        else:
-            _emit_stage_log(bridge, 'warning', 'position_generation', 'failed', f'⚠️  [位置映射期] 坐标生成失败：{pos_result.get("error", "未知错误")}')
-    except Exception as _e:
-        logger.exception("[PositionAgent] 坐标生成异常")
-        _emit_stage_log(bridge, 'warning', 'position_generation', 'exception', f'⚠️  [位置映射期] 坐标生成异常：{_e}')
-    finally:
-        if temp_script_path and temp_script_path.exists():
-            temp_script_path.unlink(missing_ok=True)
-
-    # ════════════════════════════════════════════════
     # 阶段四：总装与引擎合规验证
     # ════════════════════════════════════════════════
 
@@ -695,6 +541,12 @@ async def run_autogen_pipeline(
     _emit_output(bridge, 'ValidationAgent', validation_result, fmt='validation')
 
     # ── 阶段四 后半：最终封包输出（纯 Python）──
+    import asyncio as _asyncio
+    _running_loop = _asyncio.get_running_loop()
+    timestamp = int(time.time())
+    output_dir = Path('outputs')
+    output_dir.mkdir(exist_ok=True)
+
     _emit_stage_log(bridge, 'info', 'output', 'start', '💾 [输出阶段] 正在生成最终 JSON 并保存文件...')
 
     generator = ScriptJSONGenerator(characters, scene)
@@ -738,11 +590,18 @@ async def run_autogen_pipeline(
                 draft_script = cine_result["enriched_script"]
                 position_plan_filename = cine_result.get("position_plan_filename")
                 position_detail_filename = cine_result.get("position_detail_filename")
-                # 用摄影指导结果重新生成并覆写 script_*.json
-                final_json = generator.generate_final_json(draft_script, plot_summary)
+                # 用摄影指导结果重新生成并覆写 script_*.json（保留已填写的摄影字段）
+                final_json = generator.generate_final_json(draft_script, plot_summary, preserve_shot_fields=True)
                 generator.export_to_file(final_json, str(filepath))
                 _emit_stage_log(bridge, 'success', 'cinematography', 'result',
                                 f'✅ [摄影指导期] 摄影规划完成，已更新剧本镜头参数')
+                shot_content = validate_script_shots(final_json)
+                if shot_content["valid"]:
+                    _emit_stage_log(bridge, 'success', 'cinematography', 'shot_check', '✅ [shot内容] 所有镜头字段值合规')
+                else:
+                    for item in shot_content["errors"]:
+                        msg = f'⚠️ [shot内容] scene[{item["scene"]}] beat[{item["beat"]}] {item["speaker"]}: {"; ".join(item["errors"])}'
+                        _emit_stage_log(bridge, 'warning', 'cinematography', 'shot_check', msg)
             else:
                 _emit_stage_log(bridge, 'warning', 'cinematography', 'failed',
                                 f'⚠️ [摄影指导期] 摄影规划失败（{cine_result.get("error")}），使用基础镜头参数继续')
@@ -852,7 +711,6 @@ async def run_autogen_pipeline(
         'type': 'success',
         'filename': filename,
         'actors_profile_filename': actors_profile_filename,
-        'position_filename': position_filename,
         'position_plan_filename': position_plan_filename,
         'position_detail_filename': position_detail_filename,
         'warnings': validation_result.get('warnings', []) if validation_result else []

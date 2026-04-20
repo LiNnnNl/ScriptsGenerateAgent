@@ -140,44 +140,18 @@ const UI = {
 
         let html = '';
 
-        if (scene.camera_groups && scene.camera_groups.length > 0) {
-            // Build a map from group id to group info
-            const groupMap = {};
-            for (const group of scene.camera_groups) {
-                groupMap[group.id] = group;
-            }
-            // Build a map from position id to position object
-            const posMap = {};
-            for (const pos of scene.positions) {
-                posMap[pos.id] = pos;
-            }
-            // Track which positions have been rendered
-            const rendered = new Set();
-
-            for (const group of scene.camera_groups) {
+        if (scene.regions && scene.regions.length > 0) {
+            for (const region of scene.regions) {
                 html += `<div class="position-group">`;
-                html += `<div class="position-group-title">${group.id}组 · ${group.name}</div>`;
-                for (const posId of group.position_ids) {
-                    const pos = posMap[posId];
-                    if (pos) {
-                        html += `<p><strong>${pos.id}</strong>: ${pos.description}</p>`;
-                        rendered.add(posId);
-                    }
+                html += `<div class="position-group-title">${region.name}</div>`;
+                html += `<p class="region-description">${region.description}</p>`;
+                if (region.markers && region.markers.length > 0) {
+                    html += `<p class="region-markers"><span class="markers-label">标志性物体：</span>${region.markers.join('、')}</p>`;
                 }
                 html += `</div>`;
             }
-
-            // Render ungrouped positions
-            const ungrouped = scene.positions.filter(pos => !rendered.has(pos.id));
-            if (ungrouped.length > 0) {
-                html += `<div class="position-group">`;
-                html += `<div class="position-group-title">独立点位</div>`;
-                html += ungrouped.map(pos => `<p><strong>${pos.id}</strong>: ${pos.description}</p>`).join('');
-                html += `</div>`;
-            }
         } else {
-            // No groups, list all positions directly
-            html += scene.positions.map(pos => `<p><strong>${pos.id}</strong>: ${pos.description}</p>`).join('');
+            html = '<p>暂无区域信息</p>';
         }
 
         positions.innerHTML = html;

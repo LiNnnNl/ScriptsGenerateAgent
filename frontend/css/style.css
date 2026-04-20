@@ -385,6 +385,24 @@ body {
     margin-bottom: 6px;
 }
 
+.region-description {
+    font-size: 0.88em;
+    color: var(--text-light);
+    line-height: 1.6;
+    margin-bottom: 4px;
+}
+
+.region-markers {
+    font-size: 0.82em;
+    color: rgba(212, 175, 55, 0.6);
+    margin-bottom: 0;
+}
+
+.markers-label {
+    font-weight: bold;
+    color: rgba(212, 175, 55, 0.8);
+}
+
 /* 数量选择器 */
 .count-selector {
     display: flex;

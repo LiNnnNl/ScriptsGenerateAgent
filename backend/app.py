@@ -68,16 +68,24 @@ def get_all_scenes():
     """获取所有场景"""
     try:
         scenes = resource_loader.get_all_scenes()
-        scenes_data = [
-            {
+        scenes_data = []
+        for scene in scenes:
+            raw = resource_loader.load_scene_info(scene.id)
+            regions = []
+            if raw:
+                for r in raw.get("regions", []):
+                    regions.append({
+                        "name": r["name"],
+                        "description": r.get("description", ""),
+                        "anchors": [a["name"] for a in r.get("anchors", [])],
+                        "markers": [m["name"] for m in r.get("scene_markers", [])],
+                    })
+            scenes_data.append({
                 'id': scene.id,
                 'name': scene.name,
                 'description': scene.description,
-                'positions': scene.valid_positions,
-                'camera_groups': scene.camera_groups
-            }
-            for scene in scenes
-        ]
+                'regions': regions,
+            })
         return jsonify({'success': True, 'data': scenes_data})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500

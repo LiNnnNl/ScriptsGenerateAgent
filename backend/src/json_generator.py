@@ -21,7 +21,7 @@ class ScriptJSONGenerator:
             self.character_states[char.name] = "standing"
             self.character_positions[char.name] = None
     
-    def generate_final_json(self, ai_script, plot_summary: str, title: str = "") -> List[Dict]:
+    def generate_final_json(self, ai_script, plot_summary: str, title: str = "", preserve_shot_fields: bool = False) -> List[Dict]:
         """
         将AI生成的剧本转换为最终的JSON格式。
 
@@ -56,7 +56,7 @@ class ScriptJSONGenerator:
                     "initial position",
                     [{"character": char.name, "position": ""} for char in self.characters]
                 )
-                ordered["scene"] = [self._normalize_segment(seg) for seg in scene_obj.get("scene", [])]
+                ordered["scene"] = [self._normalize_segment(seg, preserve_shot_fields) for seg in scene_obj.get("scene", [])]
                 result.append(ordered)
             return result
 
@@ -92,13 +92,11 @@ class ScriptJSONGenerator:
             }
         ]
 
-    def _normalize_segment(self, seg: Dict) -> Dict:
-        """强制清空摄影字段，由摄影指导 pipeline 填写；确保 Follow 有默认值。"""
+    def _normalize_segment(self, seg: Dict, preserve_shot_fields: bool = False) -> Dict:
+        """shot_description 由摄影指导填写，其余摄影字段由编剧填写保留原值。"""
         seg = dict(seg)
-        seg["shot_blend"] = ""
-        seg["shot"] = ""
-        seg["shot_type"] = ""
-        seg["shot_description"] = ""
+        if not preserve_shot_fields:
+            seg["shot_description"] = ""
         seg.setdefault("Follow", 0)
         for action in seg.get("actions", []):
             action["motion_detail"] = ""

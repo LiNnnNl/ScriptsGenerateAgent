@@ -834,6 +834,13 @@ class CameraPlanningStage:
         root.pop("title", None)
         if isinstance(root.get("scene"), list):
             root["scene"] = [self._reorder_beat(b) for b in root["scene"] if isinstance(b, dict)]
+        top_key_order = ["scene information", "initial position", "scene"]
+        reordered = {k: root[k] for k in top_key_order if k in root}
+        for k, v in root.items():
+            if k not in reordered:
+                reordered[k] = v
+        root.clear()
+        root.update(reordered)
         return result
 
     def _write_stage_files(self):

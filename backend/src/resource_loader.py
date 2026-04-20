@@ -244,6 +244,14 @@ class ResourceLoader:
             result.append(char)
         return result
 
+    def load_scene_info(self, scene_id: str) -> Optional[dict]:
+        """加载指定场景的 scene_info JSON（含 region / anchor / scene_marker 数据）"""
+        path = self.resource_dir / "cinematography" / "scene_info" / f"{scene_id}.json"
+        if not path.exists():
+            return None
+        with open(path, 'r', encoding='utf-8-sig') as f:
+            return json.load(f)
+
     def get_resource_summary(self) -> str:
         """获取资源摘要信息"""
         summary = []
