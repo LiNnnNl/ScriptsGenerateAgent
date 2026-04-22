@@ -1,0 +1,66 @@
+{
+  "where": "LotusTown",
+  "stage": "shot",
+  "description": "Director stage 1 shot planning completed with interaction analysis, shot description generation, and script compilation.",
+  "substage_sequence": [
+    {
+      "name": "interaction_analysis",
+      "description": "Infer interaction state, visibility, participation, and temporal transition for each script line.",
+      "stage_output_path": "Assets/Json/AgentStage/director_stage1_substage1_interaction_analysis.json",
+      "result_count": 1
+    },
+    {
+      "name": "shot_description_generation",
+      "description": "Convert the interaction analysis into one or two sentences of visual composition for each script line.",
+      "stage_output_path": "Assets/Json/AgentStage/director_stage1_substage2_shot_description_generation.json",
+      "result_count": 1
+    },
+    {
+      "name": "script_compilation",
+      "description": "Write the final script json with shot_description filled in for each line.",
+      "stage_output_path": "Assets/Json/AgentStage/director_stage1_substage3_script_compilation.json",
+      "output_script_path": "Assets/Json/script_with_shot_description.json"
+    }
+  ],
+  "outputs": {
+    "analysis_stage_output_path": "Assets/Json/AgentStage/director_stage1_substage1_interaction_analysis.json",
+    "description_stage_output_path": "Assets/Json/AgentStage/director_stage1_substage2_shot_description_generation.json",
+    "compilation_stage_output_path": "Assets/Json/AgentStage/director_stage1_substage3_script_compilation.json",
+    "script_output_path": "Assets/Json/script_with_shot_description.json"
+  },
+  "script_with_shot_description": [
+    {
+      "where": "LotusTown",
+      "scene information": {
+        "where": "LotusTown"
+      },
+      "initial position": [
+        {
+          "character": "A",
+          "position": "Position 1"
+        }
+      ],
+      "scene": [
+        {
+          "speaker": "A",
+          "content": "你好",
+          "actions": [
+            {
+              "character": "A",
+              "state": "standing",
+              "action": "Standing Idle",
+              "motion_detail": ""
+            }
+          ],
+          "current position": [
+            {
+              "character": "A",
+              "position": "Position 1"
+            }
+          ],
+          "shot_description": "A stands alone in the center foreground of the frame at LotusTown. A delivers an opening greeting while remaining stationary in position."
+        }
+      ]
+    }
+  ]
+}

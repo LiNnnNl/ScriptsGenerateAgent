@@ -1,6 +1,6 @@
 // API配置
 const API_CONFIG = {
-    BASE_URL: 'http://localhost:5000',
+    BASE_URL: '',
     ENDPOINTS: {
         SCENES: '/api/scenes',
         CHARACTERS: '/api/characters',

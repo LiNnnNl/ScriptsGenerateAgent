@@ -1,0 +1,47 @@
+
+  {
+    "where": "LotusTown",
+    "groups": [
+    {
+      "group_id": "G1",
+      "layout": "triangle",
+      "region": "LivingRoom",
+
+      "positions": [
+        { "position_id": "P1", "character": "A" },
+        { "position_id": "P2", "character": "B" },
+        { "position_id": "P3", "character": "C" }
+      ],
+
+      "lookat": {
+        "mode": "target",
+        "target_character": "A"
+      }
+    },
+
+    {
+      "group_id": "G2",
+      "layout": "two_person",
+      "region": "LivingRoom",
+
+      "positions": [
+        { "position_id": "P4", "character": "D" },
+        { "position_id": "P5", "character": "E" }
+      ],
+
+      "lookat": {
+        "mode": "center"
+      }
+    }
+  ],
+"singles": [
+    {
+      "position_id": "P6",
+      "character": "F",
+      "region": "BathRoom",
+      "neartarget": "Bathtub",
+      "type": "idle", 
+      "lookat": "Window"
+    }
+  ]
+}

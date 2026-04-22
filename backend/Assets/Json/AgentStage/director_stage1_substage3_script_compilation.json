@@ -1,0 +1,40 @@
+{
+  "where": "LotusTown",
+  "substage": "script_compilation",
+  "output_script_path": "Assets/Json/script_with_shot_description.json",
+  "script_with_shot_description": [
+    {
+      "where": "LotusTown",
+      "scene information": {
+        "where": "LotusTown"
+      },
+      "initial position": [
+        {
+          "character": "A",
+          "position": "Position 1"
+        }
+      ],
+      "scene": [
+        {
+          "speaker": "A",
+          "content": "你好",
+          "actions": [
+            {
+              "character": "A",
+              "state": "standing",
+              "action": "Standing Idle",
+              "motion_detail": ""
+            }
+          ],
+          "current position": [
+            {
+              "character": "A",
+              "position": "Position 1"
+            }
+          ],
+          "shot_description": "A stands alone in the center foreground of the frame at LotusTown. A delivers an opening greeting while remaining stationary in position."
+        }
+      ]
+    }
+  ]
+}
