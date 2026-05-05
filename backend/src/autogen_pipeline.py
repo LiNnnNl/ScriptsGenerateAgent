@@ -26,6 +26,7 @@ from autogen_agentchat.messages import TextMessage, ToolCallExecutionEvent, Mode
 from autogen_core import CancellationToken
 
 from .autogen_bridge import AutoGenStreamBridge
+from . import registry as _registry
 from .autogen_agents import (
     create_concept_agent,
     create_synopsis_agent,
@@ -35,6 +36,8 @@ from .autogen_agents import (
     create_critic_agent,
     create_dialogue_agent,
     create_validation_agent,
+    is_quota_error,
+    make_fallback_model_client,
 )
 from .autogen_tools import validate_script_constraints, validate_json_spec, auto_fix_script
 from .resource_loader import ResourceLoader, Character, Scene
@@ -160,8 +163,9 @@ def _filter_script_for_review(script: list) -> str:
 
 
 async def _run_stage_agent_json_object(agent, prompt: str) -> Optional[dict]:
-    """执行阶段 Agent 并提取 JSON 对象结果。连接错误时指数退避重试。"""
+    """执行阶段 Agent 并提取 JSON 对象结果。连接错误时指数退避重试；额度耗尽时换用备用模型。"""
     delay = _STAGE_RETRY_BASE_DELAY
+    _quota_switched = False
     for attempt in range(_STAGE_MAX_RETRIES + 1):
         try:
             raw_content = None
@@ -175,6 +179,11 @@ async def _run_stage_agent_json_object(agent, prompt: str) -> Optional[dict]:
                 return None
             return _extract_json_object_from_text(raw_content)
         except Exception as e:
+            if is_quota_error(e) and not _quota_switched:
+                logger.warning("[StageAgent] 额度耗尽，切换备用模型重试: %s", e)
+                agent._model_client = make_fallback_model_client()
+                _quota_switched = True
+                continue
             is_network = any(k in str(e).lower() for k in _NETWORK_ERR_KEYWORDS)
             if is_network and attempt < _STAGE_MAX_RETRIES:
                 logger.warning("[StageAgent] 连接错误，%.0fs后重试（%d/%d）: %s",
@@ -192,8 +201,9 @@ async def _run_director_agent(
     bridge: "AutoGenStreamBridge",
     label: str = "DirectorAgent",
 ) -> Optional[list]:
-    """运行 DirectorAgent，处理 streaming 事件，返回解析后的 JSON 列表。连接错误时指数退避重试。"""
+    """运行 DirectorAgent，处理 streaming 事件，返回解析后的 JSON 列表。连接错误时指数退避重试；额度耗尽时换用备用模型。"""
     delay = _STAGE_RETRY_BASE_DELAY
+    _quota_switched = False
     for attempt in range(_STAGE_MAX_RETRIES + 1):
         thinking_started = False
         raw_content = None
@@ -223,6 +233,13 @@ async def _run_director_agent(
         except Exception as e:
             if thinking_started:
                 bridge.put_event({'type': 'thinking_done'})
+            if is_quota_error(e) and not _quota_switched:
+                logger.warning("[%s] 额度耗尽，切换备用模型重试: %s", label, e)
+                bridge.put_event({'type': 'thinking_chunk', 'agent': label,
+                                  'text': f'\n⚠️ 主模型额度耗尽，已切换备用模型重试...\n'})
+                director._model_client = make_fallback_model_client()
+                _quota_switched = True
+                continue
             is_network = any(k in str(e).lower() for k in _NETWORK_ERR_KEYWORDS)
             if is_network and attempt < _STAGE_MAX_RETRIES:
                 logger.warning("[%s] 连接错误，%.0fs后重试（%d/%d）: %s",
@@ -291,6 +308,7 @@ async def run_autogen_pipeline(
     scene_id = request_params.get('scene_id')
     creative_idea = (request_params.get('creative_idea') or '').strip()
     required_character_count = int(request_params.get('required_character_count', 0) or 0)
+    act_count = max(1, min(10, int(request_params.get('act_count', 3) or 3)))
 
     plot_outline = creative_idea
 
@@ -318,8 +336,8 @@ async def run_autogen_pipeline(
     concept = create_concept_agent(characters, scene, required_character_count)
     synopsis = create_synopsis_agent()
     bios = create_character_bios_agent()
-    treatment = create_treatment_agent()
-    director = create_director_agent(characters, scene, resource_loader, required_character_count)
+    treatment = create_treatment_agent(act_count=act_count)
+    director = create_director_agent(characters, scene, resource_loader, required_character_count, act_count=act_count)
     critic = create_critic_agent()
     dialogue = create_dialogue_agent()
     validator = create_validation_agent(resource_loader, scene) if model_supports_tools else None
@@ -388,6 +406,7 @@ async def run_autogen_pipeline(
         f"Concept：\n{json.dumps(stage_context['concept'], ensure_ascii=False, indent=2)}\n\n"
         f"Synopsis：\n{json.dumps(stage_context['synopsis'], ensure_ascii=False, indent=2)}\n\n"
         f"Character Bios：\n{json.dumps(stage_context['character_bios'], ensure_ascii=False, indent=2)}\n\n"
+        f"幕数要求：恰好生成 {act_count} 个节拍（beat），JSON 数组长度严格为 {act_count}。\n"
         "请生成分场大纲。"
     )
     treatment_result = await _run_stage_agent_json_object(treatment, treatment_prompt)
@@ -820,6 +839,19 @@ async def run_autogen_pipeline(
 
     _emit_stage_log(bridge, 'success', 'output', 'actors_profile', f'✅ 已生成角色档案：{len(actors_profile)} 位演员')
 
+    session_id = str(timestamp)
+    _registry.register_session(
+        ts=session_id,
+        files={
+            "script": filename,
+            "actors_profile": actors_profile_filename,
+            "position_plan": position_plan_filename,
+            "position_detail": position_detail_filename,
+        },
+        scene_id=scene_id or "",
+        act_count=act_count,
+    )
+
     logger.info("Pipeline 完成 | 剧本=%s 角色档案=%s 位置规划=%s 位置详情=%s",
                 filename, actors_profile_filename,
                 position_plan_filename or "（未生成）", position_detail_filename or "（未生成）")
@@ -829,5 +861,6 @@ async def run_autogen_pipeline(
         'actors_profile_filename': actors_profile_filename,
         'position_plan_filename': position_plan_filename,
         'position_detail_filename': position_detail_filename,
+        'session_id': session_id,
         'warnings': validation_result.get('warnings', []) if validation_result else []
     })

@@ -5,6 +5,16 @@ import urllib.error
 import urllib.request
 
 
+_QUOTA_ERR_KEYWORDS = ("quota", "rate_limit", "ratelimit", "insufficient", "arrearage", "exceeded", "billing")
+
+
+def _is_quota_http_error(exc) -> bool:
+    if isinstance(exc, urllib.error.HTTPError) and exc.code == 429:
+        return True
+    msg = str(exc).lower()
+    return any(k in msg for k in _QUOTA_ERR_KEYWORDS)
+
+
 class LLMJsonClient:
     DEFAULT_TIMEOUT = 120
     DEFAULT_MAX_TOKENS = 4096
@@ -16,6 +26,7 @@ class LLMJsonClient:
         self.api_url = raw_base + "/chat/completions"
         self.model = os.getenv("CINEMATOGRAPHY_MODEL") or os.getenv("MODEL", "deepseek-chat")
         self.model = self.model.strip()
+        self._fallback_model = os.getenv("FALLBACK_MODEL", "doubao-seed-2-0-mini-260215")
         self.timeout = self.DEFAULT_TIMEOUT
         self.max_tokens = self.DEFAULT_MAX_TOKENS
         self.retries = self.DEFAULT_RETRIES
@@ -42,6 +53,7 @@ class LLMJsonClient:
         }
 
         last_error = None
+        _quota_switched = False
         for attempt in range(1, self.retries + 1):
             try:
                 request = urllib.request.Request(
@@ -67,6 +79,11 @@ class LLMJsonClient:
                 return self._parse_json_object(content)
             except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError, ValueError, KeyError, RuntimeError) as exc:
                 last_error = exc
+                if _is_quota_http_error(exc) and not _quota_switched:
+                    # 额度耗尽：切换备用模型，立即重试（不计入 attempt 次数）
+                    payload["model"] = self._fallback_model
+                    _quota_switched = True
+                    continue
                 if attempt >= self.retries:
                     break
                 time.sleep(min(2 ** (attempt - 1), 4))

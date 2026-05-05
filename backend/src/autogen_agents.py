@@ -13,6 +13,29 @@ from .resource_loader import ResourceLoader, Character, Scene
 from .autogen_tools import make_validation_tools
 
 
+# 额度耗尽时的备用模型（同 API Key，同 BASE_URL）
+_FALLBACK_MODEL = os.getenv("FALLBACK_MODEL", "doubao-seed-2-0-mini-260215")
+
+# 触发切换的错误关键词（ARK / OpenAI 额度相关）
+_QUOTA_ERR_KEYWORDS = (
+    "rate_limit", "ratelimit", "429", "quota", "insufficient",
+    "arrearage", "exceeded", "billing", "account_quota",
+)
+
+
+def is_quota_error(exc: BaseException) -> bool:
+    """判断异常是否为额度耗尽 / 限流错误。"""
+    msg = str(exc).lower()
+    # openai Python SDK 专有异常类
+    try:
+        import openai
+        if isinstance(exc, openai.RateLimitError):
+            return True
+    except ImportError:
+        pass
+    return any(k in msg for k in _QUOTA_ERR_KEYWORDS)
+
+
 def make_model_client(model: Optional[str] = None) -> OpenAIChatCompletionClient:
     """创建 OpenAI 兼容的模型客户端（支持 DeepSeek / 火山引擎 ARK）"""
     api_key = os.getenv("API_KEY")
@@ -44,6 +67,11 @@ def make_model_client(model: Optional[str] = None) -> OpenAIChatCompletionClient
     )
 
 
+def make_fallback_model_client() -> OpenAIChatCompletionClient:
+    """额度耗尽后使用的备用模型客户端（同 API Key，同 BASE_URL）。"""
+    return make_model_client(model=_FALLBACK_MODEL)
+
+
 # ────────────────────────────────────────────────────────────────────────────
 # system_message 构建函数
 # ────────────────────────────────────────────────────────────────────────────
@@ -52,7 +80,8 @@ def build_director_system_message(
     characters: List[Character],
     scene: Scene,
     resource_loader: ResourceLoader,
-    required_character_count: int = 0
+    required_character_count: int = 0,
+    act_count: int = 3,
 ) -> str:
     """
     构建 DirectorAgent 的 system_message。
@@ -134,10 +163,16 @@ def build_director_system_message(
             f"全部由 AI 自由创作，但数量严格固定。"
         )
 
+    act_count_rule = (
+        f"0. **幕数（最高优先级）**: 输出 JSON 数组必须恰好包含 **{act_count}** 个场景对象（即 {act_count} 幕），不多不少。"
+    )
+
     task_info = (
         "\n## 你的任务\n\n"
         "你是一位专业的剧本导演AI。请根据上述信息生成完整的场景剧本JSON。\n\n"
         "**核心要求:**\n\n"
+        + act_count_rule
+        + "\n\n"
         + char_count_rule
         + "\n\n"
         + "2. **走位设计（以演出效果为唯一标准）**:\n"
@@ -314,7 +349,7 @@ def build_character_bios_system_message() -> str:
     )
 
 
-def build_treatment_system_message() -> str:
+def build_treatment_system_message(act_count: int = 3) -> str:
     return (
         "你是 TreatmentAgent，负责分场大纲（Beat Sheet）。\n"
         "你会收到前置阶段产物（Logline、Synopsis、Character Bios）。\n\n"
@@ -332,7 +367,8 @@ def build_treatment_system_message() -> str:
         "  ],\n"
         "  \"draft_guidance\": \"供导演生成 JSON 剧本时遵循的短指令\"\n"
         "}\n"
-        "3. 需形成清晰递进，可直接作为最终剧本初稿蓝图。"
+        "3. 需形成清晰递进，可直接作为最终剧本初稿蓝图。\n"
+        f"4. **幕数约束（最高优先级）**：`treatment` 数组必须恰好包含 **{act_count}** 个元素，不多不少。"
     )
 
 
@@ -409,10 +445,11 @@ def create_director_agent(
     scene: Scene,
     resource_loader: ResourceLoader,
     required_character_count: int = 0,
-    model: Optional[str] = None
+    act_count: int = 3,
+    model: Optional[str] = None,
 ) -> AssistantAgent:
     system_message = build_director_system_message(
-        characters, scene, resource_loader, required_character_count
+        characters, scene, resource_loader, required_character_count, act_count
     )
     return AssistantAgent(
         name="DirectorAgent",
@@ -458,11 +495,11 @@ def create_character_bios_agent(model: Optional[str] = None) -> AssistantAgent:
     )
 
 
-def create_treatment_agent(model: Optional[str] = None) -> AssistantAgent:
+def create_treatment_agent(act_count: int = 3, model: Optional[str] = None) -> AssistantAgent:
     return AssistantAgent(
         name="TreatmentAgent",
         model_client=make_model_client(model),
-        system_message=build_treatment_system_message(),
+        system_message=build_treatment_system_message(act_count),
     )
 
 

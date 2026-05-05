@@ -13,6 +13,8 @@ from dotenv import load_dotenv
 from src.resource_loader import ResourceLoader
 from src.autogen_bridge import AutoGenStreamBridge
 from src.autogen_pipeline import run_autogen_pipeline
+from src import registry as _registry
+from src.word_exporter import export_script_to_word
 
 # 加载环境变量
 load_dotenv()
@@ -39,13 +41,41 @@ app.config['JSON_AS_ASCII'] = False  # 支持中文
 CORS(app, resources={
     r"/api/*": {
         "origins": "*",
-        "methods": ["GET", "POST", "OPTIONS"],
+        "methods": ["GET", "POST", "PATCH", "OPTIONS"],
         "allow_headers": ["Content-Type"]
     }
 })
 
 # 初始化资源加载器
 resource_loader = ResourceLoader()
+
+
+@app.route('/api/shot_types', methods=['GET'])
+def get_shot_types():
+    """返回合法的 shot_type 和 shot_blend 枚举值"""
+    from src.schema import VALID_SHOT_TYPE, VALID_SHOT_BLEND
+    return jsonify({
+        'success': True,
+        'shot_types': sorted(VALID_SHOT_TYPE),
+        'shot_blends': sorted(VALID_SHOT_BLEND),
+    })
+
+
+@app.route('/api/actions', methods=['GET'])
+def get_actions():
+    """返回动作库列表（按 compatible_states 分组）"""
+    try:
+        groups = {}
+        for action in resource_loader.actions:
+            for state in (action.compatible_states or ['standing']):
+                groups.setdefault(state, []).append({
+                    'trigger': action.action_id,
+                    'description': action.description,
+                    'state': state,
+                })
+        return jsonify({'success': True, 'data': groups})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 @app.route('/api/styles', methods=['GET'])
@@ -474,6 +504,62 @@ def download_file(filename):
             'success': False,
             'error': str(e)
         }), 500
+
+
+@app.route('/api/history', methods=['GET'])
+def get_history():
+    """返回历史生成会话列表（按时间倒序）"""
+    try:
+        sessions = _registry.list_sessions_desc()
+        return jsonify({'success': True, 'data': sessions})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/history/<session_id>/label', methods=['PATCH'])
+def update_history_label(session_id):
+    """更新历史会话的自定义标签"""
+    try:
+        data = request.json or {}
+        label = str(data.get('label', ''))
+        ok = _registry.update_label(session_id, label)
+        if not ok:
+            return jsonify({'success': False, 'error': '会话不存在'}), 404
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/download_word/<filename>', methods=['GET'])
+def download_word(filename):
+    """将剧本 JSON 导出为 Word 文档并下载（只含对话和镜头描述）"""
+    try:
+        output_dir = Path('outputs')
+        json_path = output_dir / filename
+        if not json_path.exists() or json_path.suffix != '.json':
+            return jsonify({'success': False, 'error': '剧本文件不存在'}), 404
+
+        # 提取时间戳用于 docx 文件名和 session_id
+        stem = json_path.stem  # e.g. script_1746400000
+        ts = stem.split('_', 1)[-1] if '_' in stem else stem
+        docx_filename = f"script_{ts}.docx"
+        docx_path = output_dir / docx_filename
+
+        if not docx_path.exists():
+            with open(json_path, 'r', encoding='utf-8') as f:
+                script_data = json.load(f)
+            export_script_to_word(script_data, docx_path)
+            _registry.update_word_export(ts, docx_filename)
+
+        return send_file(
+            docx_path,
+            as_attachment=True,
+            download_name=docx_filename,
+            mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        )
+    except Exception as e:
+        logger.error("download_word 失败: %s", e)
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 @app.route('/', defaults={'path': ''})
