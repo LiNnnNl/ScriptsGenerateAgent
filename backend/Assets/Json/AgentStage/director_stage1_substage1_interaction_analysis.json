@@ -1,0 +1,127 @@
+{
+  "where": "LotusTown",
+  "substage": "interaction_analysis",
+  "results": [
+    {
+      "beat_index": 1,
+      "input": {
+        "where": "LotusTown",
+        "beat_index": 1,
+        "context_window_radius": 3,
+        "previous_line": {},
+        "context_window_before": [],
+        "current_line": {
+          "speaker": "A",
+          "content": "你好",
+          "actions": [
+            {
+              "character": "A",
+              "state": "standing",
+              "action": "Standing Idle",
+              "motion_detail": ""
+            }
+          ],
+          "move": [],
+          "current_position": [
+            {
+              "character": "A",
+              "position_id": "Position 1"
+            }
+          ],
+          "existing_shot_description": ""
+        },
+        "next_line": {},
+        "context_window_after": []
+      },
+      "raw_llm_output": {
+        "focus_character": "A",
+        "interaction_type": "dialogue",
+        "present_characters": [
+          "A"
+        ],
+        "main_interaction_characters": [
+          "A"
+        ],
+        "character_states": [
+          {
+            "character": "A",
+            "visibility": "foreground",
+            "participation": "primary",
+            "spatial_role": "leader",
+            "interaction_evidence": [
+              "A is the current speaker initiating opening dialogue"
+            ],
+            "observer_evidence": []
+          }
+        ],
+        "group_structure": "isolated",
+        "transition_type": "none",
+        "entering_characters": [],
+        "exiting_characters": [],
+        "upcoming_active_characters": []
+      },
+      "shared_raw_llm_output": {
+        "results": [
+          {
+            "beat_index": 1,
+            "interaction_analysis": {
+              "focus_character": "A",
+              "interaction_type": "dialogue",
+              "present_characters": [
+                "A"
+              ],
+              "main_interaction_characters": [
+                "A"
+              ],
+              "character_states": [
+                {
+                  "character": "A",
+                  "visibility": "foreground",
+                  "participation": "primary",
+                  "spatial_role": "leader",
+                  "interaction_evidence": [
+                    "A is the current speaker initiating opening dialogue"
+                  ],
+                  "observer_evidence": []
+                }
+              ],
+              "group_structure": "isolated",
+              "transition_type": "none",
+              "entering_characters": [],
+              "exiting_characters": [],
+              "upcoming_active_characters": []
+            },
+            "shot_description": "A stands alone in the center foreground of the frame at LotusTown. A delivers an opening greeting while remaining stationary in position."
+          }
+        ]
+      },
+      "normalized_output": {
+        "focus_character": "A",
+        "interaction_type": "dialogue",
+        "present_characters": [
+          "A"
+        ],
+        "main_interaction_characters": [
+          "A"
+        ],
+        "character_states": [
+          {
+            "character": "A",
+            "visibility": "foreground",
+            "participation": "primary",
+            "spatial_role": "leader",
+            "interaction_evidence": [
+              "A is the current speaker initiating opening dialogue"
+            ],
+            "observer_evidence": []
+          }
+        ],
+        "group_structure": "isolated",
+        "transition_type": "none",
+        "entering_characters": [],
+        "exiting_characters": [],
+        "upcoming_active_characters": []
+      }
+    }
+  ]
+}

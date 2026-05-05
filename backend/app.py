@@ -31,7 +31,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-app = Flask(__name__)
+FRONTEND_DIR = Path(__file__).parent.parent / "frontend"
+app = Flask(__name__, static_folder=str(FRONTEND_DIR), static_url_path='')
 app.config['JSON_AS_ASCII'] = False  # 支持中文
 
 # 启用CORS（跨域资源共享）
@@ -473,6 +474,16 @@ def download_file(filename):
             'success': False,
             'error': str(e)
         }), 500
+
+
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>')
+def serve_frontend(path):
+    """托管前端静态文件"""
+    from flask import send_from_directory
+    if path and (FRONTEND_DIR / path).exists():
+        return send_from_directory(str(FRONTEND_DIR), path)
+    return send_from_directory(str(FRONTEND_DIR), 'index.html')
 
 
 if __name__ == '__main__':

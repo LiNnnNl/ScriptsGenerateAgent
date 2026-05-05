@@ -17,6 +17,11 @@ from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
+# 网络错误关键词（用于区分连接抖动 vs 业务错误）
+_NETWORK_ERR_KEYWORDS = ("connection", "timeout", "network", "remotedisconnected", "connect error")
+_STAGE_MAX_RETRIES = 2       # 前置阶段 Agent 最大重试次数
+_STAGE_RETRY_BASE_DELAY = 3  # 秒，每次翻倍
+
 from autogen_agentchat.messages import TextMessage, ToolCallExecutionEvent, ModelClientStreamingChunkEvent
 from autogen_core import CancellationToken
 
@@ -155,17 +160,30 @@ def _filter_script_for_review(script: list) -> str:
 
 
 async def _run_stage_agent_json_object(agent, prompt: str) -> Optional[dict]:
-    """执行阶段 Agent 并提取 JSON 对象结果。"""
-    raw_content = None
-    async for event in agent.on_messages_stream(
-        [TextMessage(content=prompt, source="user")],
-        cancellation_token=CancellationToken()
-    ):
-        if hasattr(event, 'chat_message') and event.chat_message:
-            raw_content = event.chat_message.content
-    if not raw_content:
-        return None
-    return _extract_json_object_from_text(raw_content)
+    """执行阶段 Agent 并提取 JSON 对象结果。连接错误时指数退避重试。"""
+    delay = _STAGE_RETRY_BASE_DELAY
+    for attempt in range(_STAGE_MAX_RETRIES + 1):
+        try:
+            raw_content = None
+            async for event in agent.on_messages_stream(
+                [TextMessage(content=prompt, source="user")],
+                cancellation_token=CancellationToken()
+            ):
+                if hasattr(event, 'chat_message') and event.chat_message:
+                    raw_content = event.chat_message.content
+            if not raw_content:
+                return None
+            return _extract_json_object_from_text(raw_content)
+        except Exception as e:
+            is_network = any(k in str(e).lower() for k in _NETWORK_ERR_KEYWORDS)
+            if is_network and attempt < _STAGE_MAX_RETRIES:
+                logger.warning("[StageAgent] 连接错误，%.0fs后重试（%d/%d）: %s",
+                               delay, attempt + 1, _STAGE_MAX_RETRIES, e)
+                await asyncio.sleep(delay)
+                delay *= 2
+            else:
+                raise
+    return None
 
 
 async def _run_director_agent(
@@ -174,31 +192,48 @@ async def _run_director_agent(
     bridge: "AutoGenStreamBridge",
     label: str = "DirectorAgent",
 ) -> Optional[list]:
-    """运行 DirectorAgent，处理 streaming 事件，返回解析后的 JSON 列表。"""
-    thinking_started = False
-    raw_content = None
-    async for event in director.on_messages_stream(
-        [TextMessage(content=prompt, source="user")],
-        cancellation_token=CancellationToken()
-    ):
-        logger.debug("[%s] event type=%s", label, type(event).__name__)
-        if hasattr(event, 'inner_messages'):
-            for msg in (event.inner_messages or []):
-                if isinstance(msg, ModelClientStreamingChunkEvent):
-                    if not thinking_started:
-                        thinking_started = True
-                    bridge.put_event({'type': 'thinking_chunk', 'agent': label, 'text': msg.content})
-        if hasattr(event, 'chat_message') and event.chat_message:
-            raw_content = event.chat_message.content
-            logger.info("[%s] 原始输出（前500字）: %s", label, raw_content[:500])
+    """运行 DirectorAgent，处理 streaming 事件，返回解析后的 JSON 列表。连接错误时指数退避重试。"""
+    delay = _STAGE_RETRY_BASE_DELAY
+    for attempt in range(_STAGE_MAX_RETRIES + 1):
+        thinking_started = False
+        raw_content = None
+        try:
+            async for event in director.on_messages_stream(
+                [TextMessage(content=prompt, source="user")],
+                cancellation_token=CancellationToken()
+            ):
+                logger.debug("[%s] event type=%s", label, type(event).__name__)
+                if hasattr(event, 'inner_messages'):
+                    for msg in (event.inner_messages or []):
+                        if isinstance(msg, ModelClientStreamingChunkEvent):
+                            if not thinking_started:
+                                thinking_started = True
+                            bridge.put_event({'type': 'thinking_chunk', 'agent': label, 'text': msg.content})
+                if hasattr(event, 'chat_message') and event.chat_message:
+                    raw_content = event.chat_message.content
+                    logger.info("[%s] 原始输出（前500字）: %s", label, raw_content[:500])
+                    if thinking_started:
+                        bridge.put_event({'type': 'thinking_done'})
+                        thinking_started = False
             if thinking_started:
                 bridge.put_event({'type': 'thinking_done'})
-                thinking_started = False
-    if thinking_started:
-        bridge.put_event({'type': 'thinking_done'})
-    if not raw_content:
-        return None
-    return _extract_json_from_text(raw_content)
+            if not raw_content:
+                return None
+            return _extract_json_from_text(raw_content)
+        except Exception as e:
+            if thinking_started:
+                bridge.put_event({'type': 'thinking_done'})
+            is_network = any(k in str(e).lower() for k in _NETWORK_ERR_KEYWORDS)
+            if is_network and attempt < _STAGE_MAX_RETRIES:
+                logger.warning("[%s] 连接错误，%.0fs后重试（%d/%d）: %s",
+                               label, delay, attempt + 1, _STAGE_MAX_RETRIES, e)
+                bridge.put_event({'type': 'thinking_chunk', 'agent': label,
+                                  'text': f'\n⚠️ 连接错误，{delay:.0f}s 后重试（{attempt + 1}/{_STAGE_MAX_RETRIES}）...\n'})
+                await asyncio.sleep(delay)
+                delay *= 2
+            else:
+                raise
+    return None
 
 
 def _patch_shot_fields(target: list, source: list) -> None:
@@ -424,24 +459,34 @@ async def run_autogen_pipeline(
 
         # CriticAgent 审查
         critic_feedback = None
-        async for event in critic.on_messages_stream(
-            [TextMessage(content=f"以下是需要审查的剧本：\n\n{filtered_script_str}", source="user")],
-            cancellation_token=CancellationToken()
-        ):
-            if hasattr(event, 'chat_message') and event.chat_message:
-                critic_feedback = _extract_feedback_json(event.chat_message.content)
+        try:
+            async for event in critic.on_messages_stream(
+                [TextMessage(content=f"以下是需要审查的剧本：\n\n{filtered_script_str}", source="user")],
+                cancellation_token=CancellationToken()
+            ):
+                if hasattr(event, 'chat_message') and event.chat_message:
+                    critic_feedback = _extract_feedback_json(event.chat_message.content)
+        except Exception as _e:
+            logger.warning("[CriticAgent] 请求失败，跳过本轮审查: %s", _e)
+            _emit_stage_log(bridge, 'warning', 'review', 'critic_error',
+                            f'⚠️ [审核与迭代期] CriticAgent 请求失败，跳过本轮: {_e}')
 
         if critic_feedback:
             _emit_output(bridge, 'CriticAgent', critic_feedback, fmt='feedback')
 
         # DialogueAgent 审查
         dialogue_feedback = None
-        async for event in dialogue.on_messages_stream(
-            [TextMessage(content=f"以下是需要审查对白的剧本：\n\n{filtered_script_str}", source="user")],
-            cancellation_token=CancellationToken()
-        ):
-            if hasattr(event, 'chat_message') and event.chat_message:
-                dialogue_feedback = _extract_feedback_json(event.chat_message.content)
+        try:
+            async for event in dialogue.on_messages_stream(
+                [TextMessage(content=f"以下是需要审查对白的剧本：\n\n{filtered_script_str}", source="user")],
+                cancellation_token=CancellationToken()
+            ):
+                if hasattr(event, 'chat_message') and event.chat_message:
+                    dialogue_feedback = _extract_feedback_json(event.chat_message.content)
+        except Exception as _e:
+            logger.warning("[DialogueAgent] 请求失败，跳过本轮审查: %s", _e)
+            _emit_stage_log(bridge, 'warning', 'review', 'dialogue_error',
+                            f'⚠️ [审核与迭代期] DialogueAgent 请求失败，跳过本轮: {_e}')
 
         if dialogue_feedback:
             _emit_output(bridge, 'DialogueAgent', dialogue_feedback, fmt='feedback')
@@ -479,21 +524,26 @@ async def run_autogen_pipeline(
 
         revised_script = None
         thinking_started = False
-        async for event in director.on_messages_stream(
-            [TextMessage(content=revision_prompt, source="user")],
-            cancellation_token=CancellationToken()
-        ):
-            if hasattr(event, 'inner_messages'):
-                for msg in (event.inner_messages or []):
-                    if isinstance(msg, ModelClientStreamingChunkEvent):
-                        if not thinking_started:
-                            thinking_started = True
-                        bridge.put_event({'type': 'thinking_chunk', 'agent': 'DirectorAgent', 'text': msg.content})
-            if hasattr(event, 'chat_message') and event.chat_message:
-                if thinking_started:
-                    bridge.put_event({'type': 'thinking_done'})
-                    thinking_started = False
-                revised_script = _extract_json_from_text(event.chat_message.content)
+        try:
+            async for event in director.on_messages_stream(
+                [TextMessage(content=revision_prompt, source="user")],
+                cancellation_token=CancellationToken()
+            ):
+                if hasattr(event, 'inner_messages'):
+                    for msg in (event.inner_messages or []):
+                        if isinstance(msg, ModelClientStreamingChunkEvent):
+                            if not thinking_started:
+                                thinking_started = True
+                            bridge.put_event({'type': 'thinking_chunk', 'agent': 'DirectorAgent', 'text': msg.content})
+                if hasattr(event, 'chat_message') and event.chat_message:
+                    if thinking_started:
+                        bridge.put_event({'type': 'thinking_done'})
+                        thinking_started = False
+                    revised_script = _extract_json_from_text(event.chat_message.content)
+        except Exception as _e:
+            logger.warning("[DirectorAgent-revision] 请求失败，保留上一版本: %s", _e)
+            _emit_stage_log(bridge, 'warning', 'review', 'revise_error',
+                            f'⚠️ [审核与迭代期] 修改请求失败，保留上一版本: {_e}')
 
         if thinking_started:
             bridge.put_event({'type': 'thinking_done'})

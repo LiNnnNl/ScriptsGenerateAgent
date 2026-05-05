@@ -32,6 +32,8 @@ def make_model_client(model: Optional[str] = None) -> OpenAIChatCompletionClient
         base_url=base_url,
         max_tokens=8000,
         temperature=0.7,
+        timeout=120,
+        max_retries=3,
         model_info={
             "vision": False,
             "function_calling": function_calling,

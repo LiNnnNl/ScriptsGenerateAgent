@@ -27,7 +27,7 @@ VALID_SHOT_TYPE = {
 }
 
 # character beat 必须存在的字段
-_CHARACTER_REQUIRED = {"shot", "shot_blend", "shot_type", "Follow"}
+_CHARACTER_REQUIRED = {"shot", "shot_blend", "shot_type", "Follow", "motion_detail"}
 # scene beat 必须存在的字段
 _SCENE_REQUIRED = {"shot", "shot_blend", "camera"}
 
@@ -41,7 +41,15 @@ class CharacterBeat(BaseModel):
     shot_blend: str
     shot_type: str
     Follow: int
+    motion_detail: str
     shot_description: str = ""
+
+    @field_validator("motion_detail")
+    @classmethod
+    def check_motion_detail(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("motion_detail 必须是非空的自然语言描述")
+        return v
 
     @field_validator("shot_blend")
     @classmethod
@@ -123,9 +131,9 @@ def _check_beat_content(beat: dict) -> list[str]:
 
     try:
         if shot == "character":
-            CharacterBeat(**{k: beat[k] for k in CharacterBeat.model_fields if k in beat})
+            CharacterBeat(**beat)
         elif shot == "scene":
-            SceneBeat(**{k: beat[k] for k in SceneBeat.model_fields if k in beat})
+            SceneBeat(**beat)
         else:
             errors.append(f"shot 非法值 {shot!r}")
     except Exception as exc:
