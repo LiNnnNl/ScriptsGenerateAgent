@@ -19,7 +19,17 @@
       "Bash(cp \"E:/xwechat_files/wxid_y6x3ucns06th22_07fb/msg/file/2026-04/摄影指导智能体/摄影指导智能体/Input/CameraLib.json\" \"D:/Code/ScriptsGenerateAgent/backend/resources/cinematography/CameraLib.json\")",
       "Bash(cp \"E:/xwechat_files/wxid_y6x3ucns06th22_07fb/msg/file/2026-04/摄影指导智能体/摄影指导智能体/Input/LayoutLib.json\" \"D:/Code/ScriptsGenerateAgent/backend/resources/cinematography/LayoutLib.json\")",
       "Read(//e/xwechat_files/wxid_y6x3ucns06th22_07fb/msg/file/2026-04/DirectorTest3/DirectorTest3/Resualt/**)",
-      "Read(//e/xwechat_files/wxid_y6x3ucns06th22_07fb/msg/file/2026-04/DirectorTest3/DirectorTest3/**)"
+      "Read(//e/xwechat_files/wxid_y6x3ucns06th22_07fb/msg/file/2026-04/DirectorTest3/DirectorTest3/**)",
+      "Bash(.venv/Scripts/pip install *)",
+      "Bash(/c/Users/18245/AppData/Local/hermes/hermes-agent/venv/Scripts/python.exe -c 'import docx; print\\('\\\\''ok'\\\\''\\)')",
+      "Bash(/c/Users/18245/AppData/Local/hermes/hermes-agent/venv/Scripts/python.exe -m pip install python-docx)",
+      "Bash(/d/Code/ScriptsGenerateAgent/.venv/Scripts/python.exe -c 'import docx; print\\('\\\\''python-docx 已安装'\\\\''\\)')",
+      "Bash(/d/Code/ScriptsGenerateAgent/.venv/Scripts/python.exe -m pip install python-docx)",
+      "Bash(uv add *)",
+      "Bash(uv pip *)",
+      "Bash(.venv/Scripts/python.exe *)",
+      "Bash(../.venv/Scripts/python.exe -c ' *)",
+      "Bash(../.venv/Scripts/python.exe *)"
     ]
   }
 }

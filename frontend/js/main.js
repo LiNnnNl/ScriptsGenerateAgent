@@ -2,8 +2,30 @@
 document.addEventListener('DOMContentLoaded', init);
 
 async function init() {
-    await Promise.all([loadScenes(), loadCharacters()]);
+    await Promise.all([loadScenes(), loadCharacters(), loadActions(), loadShotTypes()]);
     setupEventListeners();
+    loadHistory();
+}
+
+async function loadActions() {
+    try {
+        const result = await API.getActions();
+        if (result.success) APP_STATE.availableActions = result.data;
+    } catch (e) {
+        console.error('加载动作库失败:', e);
+    }
+}
+
+async function loadShotTypes() {
+    try {
+        const result = await API.getShotTypes();
+        if (result.success) {
+            APP_STATE.shotTypes  = result.shot_types;
+            APP_STATE.shotBlends = result.shot_blends;
+        }
+    } catch (e) {
+        console.error('加载拍摄手法失败:', e);
+    }
 }
 
 // 加载场景列表
@@ -116,7 +138,8 @@ async function generateScript() {
             custom_characters: APP_STATE.generatedCharacters || [],
             scene_id: APP_STATE.selectedScene,
             creative_idea: document.getElementById('creativeIdea').value.trim(),
-            required_character_count: APP_STATE.requiredCharacterCount
+            required_character_count: APP_STATE.requiredCharacterCount,
+            act_count: APP_STATE.actCount
         }, (data) => {
             if (data.type === 'success') succeeded = true;
             handleStreamData(data);
@@ -158,8 +181,11 @@ function handleStreamData(data) {
             UI.addLog('success', `📋 位置详情: ${data.position_detail_filename}`);
         }
 
+        APP_STATE.currentSessionId = data.session_id || null;
         UI.showSuccess(data.filename, data.actors_profile_filename, data.position_filename, [], data.position_plan_filename, data.position_detail_filename);
+        UI.showVersionLabelSection(true);
         loadScriptEditor(data.filename);
+        loadHistory();
     } else if (data.type === 'error') {
         UI.addLog('error', '❌ ' + data.message);
         if (data.details) {
@@ -293,6 +319,30 @@ function setupEventListeners() {
         const file = e.dataTransfer.files[0];
         if (file) importCastJSON(file);
     });
+
+    // 幕数控件
+    document.getElementById('decreaseActBtn').addEventListener('click', () => {
+        if (APP_STATE.actCount > 1) updateActCount(APP_STATE.actCount - 1);
+    });
+    document.getElementById('increaseActBtn').addEventListener('click', () => {
+        if (APP_STATE.actCount < 10) updateActCount(APP_STATE.actCount + 1);
+    });
+    document.getElementById('actCountInput').addEventListener('input', (e) => {
+        const v = parseInt(e.target.value) || 3;
+        updateActCount(Math.max(1, Math.min(10, v)));
+    });
+
+    // 下载 Word 版剧本
+    document.getElementById('downloadWordBtn').addEventListener('click', () => {
+        if (APP_STATE.currentFilename) API.downloadWord(APP_STATE.currentFilename);
+    });
+
+    // 历史面板
+    document.getElementById('historyBtn').addEventListener('click', toggleHistoryPanel);
+    document.getElementById('historyCloseBtn').addEventListener('click', toggleHistoryPanel);
+
+    // 保存版本名称
+    document.getElementById('saveVersionLabelBtn').addEventListener('click', saveVersionLabel);
 }
 
 // 导入角色表 JSON 文件
@@ -334,6 +384,47 @@ function updateCount(count) {
     checkFormComplete();
 }
 
+// 更新幕数
+function updateActCount(count) {
+    APP_STATE.actCount = count;
+    document.getElementById('actCountInput').value = count;
+    const warning = document.getElementById('actCountWarning');
+    if (warning) warning.style.display = count > 5 ? 'inline' : 'none';
+}
+
+// 加载历史记录
+async function loadHistory() {
+    try {
+        const result = await API.getHistory();
+        if (result.success) UI.renderHistoryPanel(result.data);
+    } catch (e) {
+        console.error('加载历史记录失败:', e);
+    }
+}
+
+// 切换历史面板
+function toggleHistoryPanel() {
+    const panel = document.getElementById('historyPanel');
+    APP_STATE.historyPanelOpen = !APP_STATE.historyPanelOpen;
+    panel.classList.toggle('open', APP_STATE.historyPanelOpen);
+}
+
+// 保存版本名称
+async function saveVersionLabel() {
+    if (!APP_STATE.currentSessionId) return;
+    const input = document.getElementById('versionLabelInput');
+    const label = (input.value || '').trim();
+    if (!label) return;
+    try {
+        await API.updateHistoryLabel(APP_STATE.currentSessionId, label);
+        loadHistory();
+        input.value = '';
+        document.getElementById('versionLabelSection').style.display = 'none';
+    } catch (e) {
+        console.error('保存版本名称失败:', e);
+    }
+}
+
 // 加载剧本内容到可读编辑器
 async function loadScriptEditor(filename) {
     const panel = document.getElementById('scriptEditorPanel');
@@ -352,5 +443,26 @@ async function loadScriptEditor(filename) {
         }
     } catch (e) {
         viewer.innerHTML = `<p style="padding:20px;color:#f44336">网络错误：${e.message}</p>`;
+    }
+}
+
+// 从历史记录加载剧本
+async function loadHistoryScript(filename) {
+    toggleHistoryPanel();
+    await loadScriptEditor(filename);
+    APP_STATE.currentFilename = filename;
+    const panel = document.getElementById('scriptEditorPanel');
+    if (panel) panel.scrollIntoView({ behavior: 'smooth' });
+}
+
+// 历史记录标签内联编辑保存
+async function saveHistoryLabel(el) {
+    const sid = el.dataset.sid;
+    const label = el.textContent.trim();
+    if (!sid) return;
+    try {
+        await API.updateHistoryLabel(sid, label);
+    } catch (e) {
+        console.error('保存标签失败:', e);
     }
 }

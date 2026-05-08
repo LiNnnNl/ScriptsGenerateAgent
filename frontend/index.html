@@ -21,7 +21,19 @@
             <h1 class="title">SCRIPT AGENT</h1>
             <p class="subtitle">CINEMA-GRADE AI SCRIPT GENERATOR</p>
             <div class="divider"></div>
+            <button class="history-toggle-btn" id="historyBtn">📋 历史记录</button>
         </header>
+
+        <!-- 历史记录侧边栏 -->
+        <div class="history-panel" id="historyPanel">
+            <div class="history-header">
+                <span class="history-title">📋 HISTORY</span>
+                <button class="history-close-btn" id="historyCloseBtn">×</button>
+            </div>
+            <div class="history-list" id="historyList">
+                <div class="history-empty">暂无历史记录</div>
+            </div>
+        </div>
 
         <!-- 主卡片 -->
         <div class="main-card">
@@ -92,6 +104,16 @@
                     <span class="hint-icon">💡</span>
                     <span>输入主题、情节或氛围，AI 将据此创作；留空则完全自由发挥</span>
                 </div>
+                <div class="act-count-section">
+                    <label class="count-label">剧本幕数：</label>
+                    <div class="number-input-wrapper">
+                        <button class="num-btn" id="decreaseActBtn">−</button>
+                        <input type="number" id="actCountInput" class="number-input act-count-input" min="1" max="10" value="3">
+                        <button class="num-btn" id="increaseActBtn">+</button>
+                    </div>
+                    <span class="count-unit">幕</span>
+                    <span class="act-count-warning" id="actCountWarning" style="display:none">⚠ 幕数较多，生成时间会更长</span>
+                </div>
             </section>
 
             <!-- 生成角色按钮 -->
@@ -151,7 +173,16 @@
                 <div class="result-icon">✨</div>
                 <h3 class="result-title">剧本生成完成！</h3>
                 <p class="result-message" id="resultMessage"></p>
+                <!-- 版本命名行 -->
+                <div class="version-label-section" id="versionLabelSection" style="display:none;">
+                    <input type="text" id="versionLabelInput" class="version-label-input" placeholder="为此版本命名（可选）...">
+                    <button class="download-btn download-btn-secondary version-save-btn" id="saveVersionLabelBtn">保存名称</button>
+                </div>
                 <div class="download-btn-group">
+                    <button class="download-btn download-btn-secondary" id="downloadWordBtn" style="display:none;">
+                        <span>📄</span>
+                        <span>下载 Word 剧本</span>
+                    </button>
                     <button class="download-btn download-btn-secondary" id="downloadPositionPlanBtn" style="display:none;">
                         <span>📍</span>
                         <span>下载位置规划</span>

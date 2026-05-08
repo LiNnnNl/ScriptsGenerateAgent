@@ -1134,6 +1134,8 @@ body {
     display: flex;
     flex-direction: column;
     gap: 32px;
+    max-height: 70vh;
+    overflow-y: auto;
 }
 
 .sv-scene {
@@ -1282,6 +1284,212 @@ body {
     color: var(--gold);
     opacity: 0.6;
     font-size: 0.65rem;
+}
+
+/* ── 脚本编辑器扩展控件 ── */
+
+/* 对白行顶部：角色名下拉 + 删除按钮 */
+.sv-beat-top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+/* 说话人下拉 */
+.sv-speaker-select {
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid rgba(212,175,55,0.3);
+    color: var(--gold);
+    font-family: 'Cinzel', serif;
+    font-size: 0.85rem;
+    letter-spacing: 0.05em;
+    padding: 2px 4px;
+    outline: none;
+    cursor: pointer;
+    flex: 1;
+    max-width: 160px;
+}
+.sv-speaker-select option { background: #1a1a1a; color: var(--text-light); }
+.sv-speaker-select:focus { border-bottom-color: var(--gold); }
+
+/* 场景名下拉 */
+.sv-where-select {
+    background: transparent;
+    border: none;
+    border-bottom: 1px dashed rgba(212,175,55,0.3);
+    color: var(--gold-light);
+    font-family: 'Roboto Mono', monospace;
+    font-size: 0.8rem;
+    padding: 2px 4px;
+    outline: none;
+    cursor: pointer;
+    min-width: 80px;
+}
+.sv-where-select option { background: #1a1a1a; color: var(--text-light); }
+.sv-where-select:focus { border-bottom-color: var(--gold-light); }
+
+/* 场景概述 what 输入 */
+.sv-what-input {
+    width: 100%;
+    background: rgba(0,0,0,0.15);
+    border: 1px solid rgba(212,175,55,0.1);
+    border-radius: 3px;
+    color: rgba(224,224,224,0.65);
+    font-family: 'Roboto Mono', monospace;
+    font-size: 0.78rem;
+    font-style: italic;
+    line-height: 1.5;
+    padding: 6px 10px;
+    resize: vertical;
+    box-sizing: border-box;
+    outline: none;
+    margin: 4px 0 10px;
+}
+.sv-what-input:focus { border-color: rgba(212,175,55,0.3); }
+
+/* 删除幕 / 删除对话按钮 */
+.sv-del-scene,
+.sv-del-beat {
+    background: none;
+    border: none;
+    color: rgba(224,224,224,0.25);
+    font-size: 0.75rem;
+    cursor: pointer;
+    padding: 2px 5px;
+    transition: color 0.15s;
+    flex-shrink: 0;
+}
+.sv-del-scene:hover,
+.sv-del-beat:hover { color: #e07070; }
+
+/* 添加对话 / 添加幕按钮 */
+.sv-add-beat,
+.sv-add-scene {
+    background: none;
+    border: 1px dashed rgba(212,175,55,0.25);
+    border-radius: 3px;
+    color: rgba(212,175,55,0.5);
+    font-family: 'Roboto Mono', monospace;
+    font-size: 0.75rem;
+    letter-spacing: 1px;
+    padding: 5px 14px;
+    cursor: pointer;
+    margin-top: 10px;
+    transition: all 0.2s;
+    display: block;
+}
+.sv-add-beat:hover,
+.sv-add-scene:hover {
+    border-color: var(--gold);
+    color: var(--gold);
+    background: rgba(212,175,55,0.06);
+}
+.sv-add-scene {
+    width: 100%;
+    text-align: center;
+    margin-top: 20px;
+    margin-bottom: 10px;
+}
+
+/* 镜头手法编辑区 */
+.sv-shot-editor {
+    display: flex;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 6px;
+}
+.sv-shot-editor .sv-label {
+    line-height: 26px;
+}
+.sv-shot-type,
+.sv-shot-blend {
+    background: rgba(0,0,0,0.3);
+    border: 1px solid rgba(100,160,255,0.2);
+    border-radius: 3px;
+    color: rgba(160,200,255,0.85);
+    font-family: 'Roboto Mono', monospace;
+    font-size: 0.72rem;
+    padding: 3px 6px;
+    outline: none;
+    cursor: pointer;
+    height: 26px;
+}
+.sv-shot-type { width: 100px; }
+.sv-shot-blend { width: 110px; }
+.sv-shot-type:focus,
+.sv-shot-blend:focus { border-color: rgba(100,160,255,0.5); }
+.sv-shot-desc {
+    flex: 1 1 100%;
+    background: rgba(0,0,0,0.2);
+    border: 1px solid rgba(100,160,255,0.15);
+    border-radius: 3px;
+    color: rgba(224,224,224,0.65);
+    font-family: 'Roboto Mono', monospace;
+    font-size: 0.72rem;
+    padding: 4px 8px;
+    resize: vertical;
+    outline: none;
+}
+.sv-shot-desc:focus { border-color: rgba(100,160,255,0.4); }
+
+/* 动作编辑区 */
+.sv-actions-editor {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 8px;
+}
+.sv-action-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.sv-action-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.sv-action-char,
+.sv-action-name {
+    background: rgba(0,0,0,0.3);
+    border: 1px solid rgba(212,175,55,0.15);
+    border-radius: 3px;
+    color: rgba(224,224,224,0.8);
+    font-family: 'Roboto Mono', monospace;
+    font-size: 0.72rem;
+    padding: 3px 6px;
+    outline: none;
+    cursor: pointer;
+}
+.sv-action-char { width: 90px; }
+.sv-action-name { flex: 1; }
+.sv-action-char:focus,
+.sv-action-name:focus { border-color: rgba(212,175,55,0.4); }
+.sv-del-action,
+.sv-add-action {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 0.72rem;
+    padding: 2px 5px;
+    font-family: 'Roboto Mono', monospace;
+}
+.sv-del-action { color: rgba(224,224,224,0.25); }
+.sv-del-action:hover { color: #e07070; }
+.sv-add-action {
+    color: rgba(212,175,55,0.5);
+    border: 1px dashed rgba(212,175,55,0.2);
+    border-radius: 3px;
+    padding: 2px 8px;
+    margin-top: 2px;
+    align-self: flex-start;
+}
+.sv-add-action:hover {
+    color: var(--gold);
+    border-color: var(--gold);
 }
 
 /* 生成角色按钮（暗金变体） */
@@ -1649,4 +1857,199 @@ select.cast-input optgroup {
     opacity: 0.45;
     margin-top: 12px;
     letter-spacing: 1px;
+}
+
+/* ── 幕数控件 ── */
+.act-count-section {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 14px;
+    flex-wrap: wrap;
+}
+.act-count-section .count-label {
+    font-family: 'Roboto Mono', monospace;
+    font-size: 0.85em;
+    color: rgba(224, 224, 224, 0.7);
+    letter-spacing: 1px;
+}
+.act-count-section .count-unit {
+    font-family: 'Roboto Mono', monospace;
+    font-size: 0.85em;
+    color: rgba(224, 224, 224, 0.7);
+}
+.act-count-input {
+    width: 52px;
+    text-align: center;
+}
+.act-count-warning {
+    font-family: 'Roboto Mono', monospace;
+    font-size: 0.78em;
+    color: #e0a030;
+    letter-spacing: 0.5px;
+}
+
+/* ── 版本命名行 ── */
+.version-label-section {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 12px 0;
+}
+.version-label-input {
+    flex: 1;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(212,175,55,0.25);
+    border-radius: 4px;
+    color: var(--text-light);
+    font-family: 'Roboto Mono', monospace;
+    font-size: 0.85em;
+    padding: 6px 10px;
+    outline: none;
+}
+.version-label-input:focus {
+    border-color: var(--gold);
+}
+.version-save-btn {
+    white-space: nowrap;
+    padding: 6px 14px !important;
+    font-size: 0.8em !important;
+}
+
+/* ── 历史记录切换按钮 ── */
+.history-toggle-btn {
+    margin-top: 10px;
+    background: transparent;
+    border: 1px solid rgba(212,175,55,0.35);
+    border-radius: 4px;
+    color: var(--gold);
+    font-family: 'Roboto Mono', monospace;
+    font-size: 0.78em;
+    letter-spacing: 1.5px;
+    padding: 5px 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.history-toggle-btn:hover {
+    background: rgba(212,175,55,0.1);
+    border-color: var(--gold);
+}
+
+/* ── 历史记录侧边栏 ── */
+.history-panel {
+    position: fixed;
+    top: 30px;           /* 顶部胶片条高度 30px */
+    right: -380px;
+    width: 360px;
+    height: calc(100vh - 30px);
+    background: #141414;
+    border-left: 1px solid rgba(212,175,55,0.2);
+    z-index: 1100;       /* 高于胶片边框(1000)和顶部条(999) */
+    display: flex;
+    flex-direction: column;
+    transition: right 0.3s ease;
+    box-shadow: -4px 0 20px rgba(0,0,0,0.5);
+}
+.history-panel.open {
+    right: 50px;         /* 右侧胶片边框宽度 50px，面板不被遮住 */
+}
+.history-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 18px;
+    border-bottom: 1px solid rgba(212,175,55,0.15);
+}
+.history-title {
+    font-family: 'Cinzel', serif;
+    font-size: 0.85em;
+    color: var(--gold);
+    letter-spacing: 2px;
+}
+.history-close-btn {
+    background: none;
+    border: none;
+    color: rgba(224,224,224,0.5);
+    font-size: 1.3em;
+    cursor: pointer;
+    line-height: 1;
+    padding: 2px 6px;
+}
+.history-close-btn:hover {
+    color: var(--text-light);
+}
+.history-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px 12px;
+}
+.history-empty {
+    font-family: 'Roboto Mono', monospace;
+    font-size: 0.78em;
+    color: rgba(224,224,224,0.3);
+    text-align: center;
+    margin-top: 40px;
+    letter-spacing: 1px;
+}
+.history-session-item {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(212,175,55,0.1);
+    border-radius: 6px;
+    padding: 12px 14px;
+    margin-bottom: 10px;
+    transition: border-color 0.2s;
+}
+.history-session-item:hover {
+    border-color: rgba(212,175,55,0.3);
+}
+.history-session-header {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+.history-session-label {
+    font-family: 'Roboto Mono', monospace;
+    font-size: 0.82em;
+    color: var(--gold);
+    flex: 1;
+    outline: none;
+    cursor: text;
+    border-bottom: 1px dashed transparent;
+    transition: border-color 0.2s;
+}
+.history-session-label:focus {
+    border-bottom-color: var(--gold);
+}
+.history-session-meta {
+    font-family: 'Roboto Mono', monospace;
+    font-size: 0.72em;
+    color: rgba(224,224,224,0.4);
+    white-space: nowrap;
+}
+.history-session-time {
+    font-family: 'Roboto Mono', monospace;
+    font-size: 0.72em;
+    color: rgba(224,224,224,0.35);
+    margin-bottom: 8px;
+}
+.history-session-actions {
+    display: flex;
+    gap: 8px;
+}
+.history-action-btn {
+    background: transparent;
+    border: 1px solid rgba(212,175,55,0.3);
+    border-radius: 3px;
+    color: var(--gold);
+    font-family: 'Roboto Mono', monospace;
+    font-size: 0.72em;
+    padding: 3px 10px;
+    cursor: pointer;
+    letter-spacing: 0.5px;
+    transition: all 0.2s;
+}
+.history-action-btn:hover {
+    background: rgba(212,175,55,0.12);
+    border-color: var(--gold);
 }

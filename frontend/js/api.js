@@ -94,5 +94,38 @@ const API = {
     // 下载文件
     downloadFile(filename) {
         window.location.href = `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.DOWNLOAD}/${filename}`;
+    },
+
+    // 下载 Word 版剧本
+    downloadWord(filename) {
+        window.location.href = `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.DOWNLOAD_WORD}/${filename}`;
+    },
+
+    // 获取历史生成记录
+    async getHistory() {
+        const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.HISTORY}`);
+        return await response.json();
+    },
+
+    // 获取拍摄手法枚举
+    async getShotTypes() {
+        const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.SHOT_TYPES}`);
+        return await response.json();
+    },
+
+    // 获取动作库
+    async getActions() {
+        const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.ACTIONS}`);
+        return await response.json();
+    },
+
+    // 更新历史会话标签
+    async updateHistoryLabel(sessionId, label) {
+        const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.HISTORY}/${sessionId}/label`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ label })
+        });
+        return await response.json();
     }
 };

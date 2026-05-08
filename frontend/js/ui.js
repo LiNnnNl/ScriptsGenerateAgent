@@ -90,6 +90,9 @@ const UI = {
             actorsBtn.style.display = actorsProfileFilename ? '' : 'none';
         }
 
+        const wordBtn = document.getElementById('downloadWordBtn');
+        if (wordBtn) wordBtn.style.display = filename ? '' : 'none';
+
         const planBtn = document.getElementById('downloadPositionPlanBtn');
         if (planBtn) {
             planBtn.style.display = '';
@@ -630,62 +633,90 @@ const UI = {
     // 渲染剧本为可读格式（对白/氛围可编辑）
     renderScriptViewer(scriptData) {
         APP_STATE.currentScriptData = JSON.parse(JSON.stringify(scriptData));
-        const viewer = document.getElementById('scriptViewer');
+        this._redrawScriptViewer();
+    },
 
-        viewer.innerHTML = scriptData.map((scene, si) => {
-            const info    = scene['scene information'] || {};
-            const who     = (info.who || []).join('、');
-            const initPos = (scene['initial position'] || [])
+    _redrawScriptViewer() {
+        const viewer = document.getElementById('scriptViewer');
+        const scrollTop = viewer.scrollTop;
+        const data = APP_STATE.currentScriptData;
+
+        const allChars   = this._getCharList(data);
+        const actionsFlat = this._flatActions();
+        const sceneOpts  = this._getSceneOpts();
+
+        viewer.innerHTML = data.map((scene, si) => {
+            const info      = scene['scene information'] || {};
+            const who       = (info.who || []).join('、');
+            const initPos   = (scene['initial position'] || [])
                 .map(p => `${p.character} → ${p.position}`).join('　');
+            const sceneChars = (info.who && info.who.length) ? info.who : allChars;
+
+            // 场景名下拉
+            const whereOpts = sceneOpts.map(s =>
+                `<option value="${this._esc(s.id)}"${s.id === info.where ? ' selected' : ''}>${this._esc(s.label)}</option>`
+            ).join('');
 
             const beats = (scene['scene'] || []).map((beat, bi) => {
                 if (beat.speaker !== undefined) {
-                    const actions = (beat.actions || [])
-                        .map(a => `[${a.character}] ${a.action}${a.state ? ' (' + a.state + ')' : ''}`)
-                        .join(' · ');
                     const positions = (beat['current position'] || [])
                         .map(p => `${p.character}→${p.position}`).join('　');
+                    // 说话人下拉
+                    const speakerOpts = sceneChars.map(c =>
+                        `<option value="${this._esc(c)}"${c === beat.speaker ? ' selected' : ''}>${this._esc(c)}</option>`
+                    ).join('');
+                    const actionsHtml = this._renderActionEditor(si, bi, beat.actions || [], sceneChars, actionsFlat);
+                    const shotHtml    = this._renderShotSelects(si, bi, beat);
                     return `
-                    <div class="sv-beat sv-beat-dialogue">
-                        <div class="sv-speaker">${beat.speaker}</div>
+                    <div class="sv-beat sv-beat-dialogue" data-scene="${si}" data-beat="${bi}">
+                        <div class="sv-beat-top">
+                            <select class="sv-speaker-select" data-scene="${si}" data-beat="${bi}">
+                                ${speakerOpts}
+                            </select>
+                            <button class="sv-del-beat" data-scene="${si}" data-beat="${bi}" title="删除此对话">✕</button>
+                        </div>
                         <textarea class="sv-content sv-editable"
                             data-scene="${si}" data-beat="${bi}" data-field="content"
-                            rows="3"></textarea>
-                        ${actions ? `<div class="sv-meta"><span class="sv-label">动作</span><span class="sv-value">${actions}</span></div>` : ''}
-                        ${positions ? `<div class="sv-meta"><span class="sv-label">站位</span><span class="sv-value">${positions}</span></div>` : ''}
-                        ${beat.motion_description !== undefined ? `
-                        <div class="sv-meta sv-atmosphere">
-                            <span class="sv-label">氛围</span>
-                            <input class="sv-motion-desc sv-editable"
-                                data-scene="${si}" data-beat="${bi}" data-field="motion_description">
-                        </div>` : ''}
+                            rows="3" placeholder="对话内容..."></textarea>
+                        ${shotHtml}
+                        ${actionsHtml}
+                        ${positions ? `<div class="sv-meta"><span class="sv-label">站位</span><span class="sv-value">${this._esc(positions)}</span></div>` : ''}
                     </div>`;
                 } else if (beat.move) {
                     const moves = (beat.move || [])
                         .map(m => `${m.character} 移至 ${m.destination}`).join('　');
                     return `
-                    <div class="sv-beat sv-beat-move">
+                    <div class="sv-beat sv-beat-move" data-scene="${si}" data-beat="${bi}">
                         <span class="sv-move-arrow">▶</span>
-                        <span class="sv-move-text">${moves}</span>
+                        <span class="sv-move-text">${this._esc(moves)}</span>
+                        <button class="sv-del-beat" data-scene="${si}" data-beat="${bi}" title="删除">✕</button>
                     </div>`;
                 }
                 return '';
             }).join('');
 
             return `
-            <div class="sv-scene">
+            <div class="sv-scene" data-scene="${si}">
                 <div class="sv-scene-header">
                     <span class="sv-scene-num">第 ${si + 1} 幕</span>
-                    <span class="sv-scene-where">${info.where || ''}</span>
-                    <span class="sv-scene-who">${who}</span>
+                    <select class="sv-where-select" data-scene="${si}">
+                        ${whereOpts}
+                    </select>
+                    <span class="sv-scene-who">${this._esc(who)}</span>
+                    <button class="sv-del-scene" data-scene="${si}" title="删除此幕">✕</button>
                 </div>
-                ${info.what ? `<p class="sv-scene-what">${info.what}</p>` : ''}
-                ${initPos ? `<div class="sv-init-pos"><span class="sv-label">初始站位</span> ${initPos}</div>` : ''}
+                <textarea class="sv-what-input"
+                    data-scene="${si}" data-field="what"
+                    rows="2" placeholder="场景核心事件描述...">${this._esc(info.what || '')}</textarea>
+                ${initPos ? `<div class="sv-init-pos"><span class="sv-label">初始站位</span> ${this._esc(initPos)}</div>` : ''}
                 <div class="sv-beats">${beats}</div>
+                <button class="sv-add-beat" data-scene="${si}">＋ 添加对话</button>
             </div>`;
         }).join('');
 
-        // 设置可编辑字段的初始值（避免 HTML 转义问题）
+        viewer.innerHTML += `<button class="sv-add-scene">＋ 添加幕</button>`;
+
+        // content textarea 赋值（避免 HTML 转义）
         viewer.querySelectorAll('.sv-editable').forEach(el => {
             const si    = parseInt(el.dataset.scene);
             const bi    = parseInt(el.dataset.beat);
@@ -694,19 +725,282 @@ const UI = {
             el.value = val;
         });
 
+        viewer.scrollTop = scrollTop;
         this._attachScriptViewerListeners(viewer);
     },
 
+    // 获取角色列表：优先 generatedCharacters，否则从剧本提取
+    _getCharList(data) {
+        if (APP_STATE.generatedCharacters?.length) {
+            return APP_STATE.generatedCharacters.map(c => c.name).filter(Boolean);
+        }
+        return this._collectChars(data);
+    },
+
+    // 获取场景选项：优先 APP_STATE.scenes，否则从剧本提取
+    _getSceneOpts() {
+        if (APP_STATE.scenes?.length) {
+            return APP_STATE.scenes.map(s => ({ id: s.id, label: s.name || s.id }));
+        }
+        const set = new Set();
+        (APP_STATE.currentScriptData || []).forEach(scene => {
+            const w = scene['scene information']?.where;
+            if (w) set.add(w);
+        });
+        return [...set].map(w => ({ id: w, label: w }));
+    },
+
+    _collectChars(data) {
+        const set = new Set();
+        data.forEach(scene => {
+            (scene['scene information']?.who || []).forEach(c => set.add(c));
+            (scene['scene'] || []).forEach(beat => { if (beat.speaker) set.add(beat.speaker); });
+        });
+        return [...set];
+    },
+
+    _flatActions() {
+        const result = [];
+        const groups = APP_STATE.availableActions || {};
+        Object.values(groups).forEach(list => list.forEach(a => {
+            if (!result.find(x => x.trigger === a.trigger)) result.push(a);
+        }));
+        return result;
+    },
+
+    _renderShotSelects(si, bi, beat) {
+        const shotTypes  = APP_STATE.shotTypes  || [];
+        const shotBlends = APP_STATE.shotBlends || [];
+        const curType  = beat.shot_type  || '';
+        const curBlend = beat.shot_blend || '';
+
+        const typeOpts  = shotTypes.map(t =>
+            `<option value="${this._esc(t)}"${t === curType  ? ' selected' : ''}>${this._esc(t)}</option>`
+        ).join('');
+        const blendOpts = shotBlends.map(b =>
+            `<option value="${this._esc(b)}"${b === curBlend ? ' selected' : ''}>${this._esc(b)}</option>`
+        ).join('');
+
+        return `
+        <div class="sv-shot-editor">
+            <span class="sv-label">镜头</span>
+            <select class="sv-shot-type" data-scene="${si}" data-beat="${bi}">${typeOpts}</select>
+            <select class="sv-shot-blend" data-scene="${si}" data-beat="${bi}">${blendOpts}</select>
+            <textarea class="sv-shot-desc sv-editable"
+                data-scene="${si}" data-beat="${bi}" data-field="shot_description"
+                rows="2" placeholder="镜头描述..."></textarea>
+        </div>`;
+    },
+
+    _renderActionEditor(si, bi, actions, sceneChars, actionsFlat) {
+        const rows = actions.map((act, ai) => `
+            <div class="sv-action-row" data-ai="${ai}">
+                <select class="sv-action-char" data-scene="${si}" data-beat="${bi}" data-ai="${ai}">
+                    ${sceneChars.map(c => `<option value="${this._esc(c)}"${c === act.character ? ' selected' : ''}>${this._esc(c)}</option>`).join('')}
+                </select>
+                <select class="sv-action-name" data-scene="${si}" data-beat="${bi}" data-ai="${ai}">
+                    ${actionsFlat.map(a => `<option value="${this._esc(a.trigger)}"${a.trigger === act.action ? ' selected' : ''} title="${this._esc(a.description||'')}">${this._esc(a.trigger)}</option>`).join('')}
+                </select>
+                <button class="sv-del-action" data-scene="${si}" data-beat="${bi}" data-ai="${ai}">✕</button>
+            </div>`).join('');
+
+        return `
+        <div class="sv-actions-editor">
+            <span class="sv-label">动作</span>
+            <div class="sv-action-list">${rows}</div>
+            <button class="sv-add-action" data-scene="${si}" data-beat="${bi}">＋ 动作</button>
+        </div>`;
+    },
+
     _attachScriptViewerListeners(viewer) {
+        const data = APP_STATE.currentScriptData;
+
+        // 对话内容 textarea
         viewer.querySelectorAll('.sv-editable').forEach(el => {
             el.addEventListener('input', () => {
-                const si    = parseInt(el.dataset.scene);
-                const bi    = parseInt(el.dataset.beat);
-                const field = el.dataset.field;
-                if (APP_STATE.currentScriptData[si]?.['scene']?.[bi]) {
-                    APP_STATE.currentScriptData[si]['scene'][bi][field] = el.value;
+                const si = parseInt(el.dataset.scene);
+                const bi = parseInt(el.dataset.beat);
+                if (data[si]?.['scene']?.[bi]) {
+                    data[si]['scene'][bi][el.dataset.field] = el.value;
                 }
             });
+        });
+
+        // 场景概述 textarea
+        viewer.querySelectorAll('.sv-what-input').forEach(el => {
+            el.addEventListener('input', () => {
+                const si = parseInt(el.dataset.scene);
+                if (data[si]?.['scene information']) {
+                    data[si]['scene information'].what = el.value;
+                }
+            });
+        });
+
+        // 场景名下拉
+        viewer.querySelectorAll('.sv-where-select').forEach(sel => {
+            sel.addEventListener('change', () => {
+                const si = parseInt(sel.dataset.scene);
+                if (data[si]?.['scene information']) {
+                    data[si]['scene information'].where = sel.value;
+                }
+            });
+        });
+
+        // 说话人下拉
+        viewer.querySelectorAll('.sv-speaker-select').forEach(sel => {
+            sel.addEventListener('change', () => {
+                const si = parseInt(sel.dataset.scene);
+                const bi = parseInt(sel.dataset.beat);
+                if (data[si]?.['scene']?.[bi]) {
+                    data[si]['scene'][bi].speaker = sel.value;
+                }
+            });
+        });
+
+        // 拍摄手法下拉
+        viewer.querySelectorAll('.sv-shot-type').forEach(sel => {
+            sel.addEventListener('change', () => {
+                const si = parseInt(sel.dataset.scene), bi = parseInt(sel.dataset.beat);
+                if (data[si]?.['scene']?.[bi]) data[si]['scene'][bi].shot_type = sel.value;
+            });
+        });
+
+        // 镜头衔接方式下拉
+        viewer.querySelectorAll('.sv-shot-blend').forEach(sel => {
+            sel.addEventListener('change', () => {
+                const si = parseInt(sel.dataset.scene), bi = parseInt(sel.dataset.beat);
+                if (data[si]?.['scene']?.[bi]) data[si]['scene'][bi].shot_blend = sel.value;
+            });
+        });
+
+        // 动作角色下拉
+        viewer.querySelectorAll('.sv-action-char').forEach(sel => {
+            sel.addEventListener('change', () => {
+                const si = parseInt(sel.dataset.scene);
+                const bi = parseInt(sel.dataset.beat);
+                const ai = parseInt(sel.dataset.ai);
+                if (data[si]?.['scene']?.[bi]?.actions?.[ai]) {
+                    data[si]['scene'][bi].actions[ai].character = sel.value;
+                }
+            });
+        });
+
+        // 动作名称下拉
+        viewer.querySelectorAll('.sv-action-name').forEach(sel => {
+            sel.addEventListener('change', () => {
+                const si = parseInt(sel.dataset.scene);
+                const bi = parseInt(sel.dataset.beat);
+                const ai = parseInt(sel.dataset.ai);
+                if (data[si]?.['scene']?.[bi]?.actions?.[ai]) {
+                    const found = this._flatActions().find(a => a.trigger === sel.value);
+                    data[si]['scene'][bi].actions[ai].action = sel.value;
+                    if (found) data[si]['scene'][bi].actions[ai].state = found.state;
+                }
+            });
+        });
+
+        // 删除动作
+        viewer.querySelectorAll('.sv-del-action').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const si = parseInt(btn.dataset.scene), bi = parseInt(btn.dataset.beat), ai = parseInt(btn.dataset.ai);
+                data[si]?.['scene']?.[bi]?.actions?.splice(ai, 1);
+                this._redrawScriptViewer();
+            });
+        });
+
+        // 添加动作（默认：第一个角色 + 第一个动作）
+        viewer.querySelectorAll('.sv-add-action').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const si = parseInt(btn.dataset.scene), bi = parseInt(btn.dataset.beat);
+                if (!data[si]?.['scene']?.[bi]) return;
+                const chars = this._getCharList(data);
+                const flat  = this._flatActions();
+                if (!data[si]['scene'][bi].actions) data[si]['scene'][bi].actions = [];
+                data[si]['scene'][bi].actions.push({
+                    character: chars[0] || '',
+                    action: flat[0]?.trigger || '',
+                    state: flat[0]?.state || 'standing',
+                    motion_detail: '',
+                });
+                this._redrawScriptViewer();
+            });
+        });
+
+        // 删除对话行
+        viewer.querySelectorAll('.sv-del-beat').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const si = parseInt(btn.dataset.scene), bi = parseInt(btn.dataset.beat);
+                data[si]?.['scene']?.splice(bi, 1);
+                this._redrawScriptViewer();
+            });
+        });
+
+        // 添加对话行（默认：第一个角色 + 第一个动作）
+        viewer.querySelectorAll('.sv-add-beat').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const si = parseInt(btn.dataset.scene);
+                const chars = this._getCharList(data);
+                const flat  = this._flatActions();
+                if (!data[si]['scene']) data[si]['scene'] = [];
+                data[si]['scene'].push({
+                    speaker: chars[0] || '',
+                    content: '',
+                    shot: 'character',
+                    shot_type: '中景',
+                    shot_blend: 'Cut',
+                    Follow: 0,
+                    shot_description: '',
+                    actions: flat[0] ? [{
+                        character: chars[0] || '',
+                        action: flat[0].trigger,
+                        state: flat[0].state || 'standing',
+                        motion_detail: '',
+                    }] : [],
+                    'current position': [],
+                });
+                this._redrawScriptViewer();
+            });
+        });
+
+        // 删除幕
+        viewer.querySelectorAll('.sv-del-scene').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const si = parseInt(btn.dataset.scene);
+                if (data.length <= 1) return;
+                data.splice(si, 1);
+                this._redrawScriptViewer();
+            });
+        });
+
+        // 添加幕（默认：第一个场景 + 所有角色 + 第一条对话）
+        viewer.querySelector('.sv-add-scene')?.addEventListener('click', () => {
+            const chars     = this._getCharList(data);
+            const sceneOpts = this._getSceneOpts();
+            const flat      = this._flatActions();
+            const defaultWhere = sceneOpts[0]?.id || '';
+            data.push({
+                'scene information': { who: chars, where: defaultWhere, what: '' },
+                'initial position': chars.map((c, i) => ({ character: c, position: `Position ${i + 1}` })),
+                'scene': [{
+                    speaker: chars[0] || '',
+                    content: '',
+                    shot: 'character',
+                    shot_type: '中景',
+                    shot_blend: 'Cut',
+                    Follow: 0,
+                    shot_description: '',
+                    actions: flat[0] ? [{
+                        character: chars[0] || '',
+                        action: flat[0].trigger,
+                        state: flat[0].state || 'standing',
+                        motion_detail: '',
+                    }] : [],
+                    'current position': chars.map((c, i) => ({ character: c, position: `Position ${i + 1}` })),
+                }],
+            });
+            this._redrawScriptViewer();
+            const scenes = viewer.querySelectorAll('.sv-scene');
+            scenes[scenes.length - 1]?.scrollIntoView({ behavior: 'smooth' });
         });
     },
 
@@ -898,5 +1192,57 @@ const UI = {
 
     disableGenerateBtn() {
         document.getElementById('generateBtn').disabled = true;
+    },
+
+    // 显示/隐藏版本命名行
+    showVersionLabelSection(show) {
+        const el = document.getElementById('versionLabelSection');
+        if (el) {
+            el.style.display = show ? 'flex' : 'none';
+            if (show) {
+                const input = document.getElementById('versionLabelInput');
+                if (input) input.value = '';
+            }
+        }
+    },
+
+    // 渲染历史记录面板
+    renderHistoryPanel(sessions) {
+        const list = document.getElementById('historyList');
+        if (!list) return;
+
+        if (!sessions || sessions.length === 0) {
+            list.innerHTML = '<div class="history-empty">暂无历史记录</div>';
+            return;
+        }
+
+        list.innerHTML = sessions.map(s => {
+            const label = s.label || '（未命名）';
+            const dt = s.created_at ? s.created_at.replace('T', ' ') : '';
+            const scene = s.scene_id || '';
+            const acts = s.act_count || '?';
+            const files = s.files || {};
+            const scriptFile = files.script || '';
+            const wordFile = s.word_export || '';
+
+            const loadBtn = scriptFile
+                ? `<button class="history-action-btn" onclick="loadHistoryScript('${scriptFile}')">加载剧本</button>`
+                : '';
+            const wordBtn = scriptFile
+                ? `<button class="history-action-btn" onclick="API.downloadWord('${scriptFile}')">下载 Word</button>`
+                : '';
+
+            return `
+<div class="history-session-item">
+  <div class="history-session-header">
+    <span class="history-session-label" contenteditable="true"
+          data-sid="${s.session_id}"
+          onblur="saveHistoryLabel(this)">${label}</span>
+    <span class="history-session-meta">${acts} 幕 · ${scene}</span>
+  </div>
+  <div class="history-session-time">${dt}</div>
+  <div class="history-session-actions">${loadBtn}${wordBtn}</div>
+</div>`;
+        }).join('');
     }
 };
