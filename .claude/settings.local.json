@@ -29,7 +29,9 @@
       "Bash(uv pip *)",
       "Bash(.venv/Scripts/python.exe *)",
       "Bash(../.venv/Scripts/python.exe -c ' *)",
-      "Bash(../.venv/Scripts/python.exe *)"
+      "Bash(../.venv/Scripts/python.exe *)",
+      "Bash(Get-ChildItem -Path \"D:\\\\Code\\\\ScriptsGenerateAgent\" -Directory)",
+      "Bash(Select-Object -ExpandProperty Name)"
     ]
   }
 }
