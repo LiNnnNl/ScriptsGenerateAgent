@@ -23,6 +23,8 @@ _STAGE_MAX_RETRIES = 2       # 前置阶段 Agent 最大重试次数
 _STAGE_RETRY_BASE_DELAY = 3  # 秒，每次翻倍
 
 from autogen_agentchat.messages import TextMessage, ToolCallExecutionEvent, ModelClientStreamingChunkEvent
+from autogen_agentchat.teams import RoundRobinGroupChat
+from autogen_agentchat.conditions import MaxMessageTermination, TextMentionTermination
 from autogen_core import CancellationToken
 
 from .autogen_bridge import AutoGenStreamBridge
@@ -36,6 +38,9 @@ from .autogen_agents import (
     create_critic_agent,
     create_dialogue_agent,
     create_validation_agent,
+    create_concept_pitch_agent,
+    create_character_voice_agent,
+    create_narrative_arch_agent,
     is_quota_error,
     make_fallback_model_client,
 )
@@ -324,79 +329,78 @@ async def run_autogen_pipeline(
     model_supports_tools = os.getenv("MODEL_FUNCTION_CALLING", "false").lower() == "true"
     _emit_stage_log(bridge, 'info', 'setup', 'init', '🤖 初始化多 Agent 系统...')
 
-    concept = create_concept_agent(characters, scene, required_character_count)
-    synopsis = create_synopsis_agent()
-    bios = create_character_bios_agent()
     treatment = create_treatment_agent(act_count=act_count)
     director = create_director_agent(characters, scene, resource_loader, required_character_count, act_count=act_count)
     critic = create_critic_agent()
     dialogue = create_dialogue_agent()
     validator = create_validation_agent(resource_loader, scene) if model_supports_tools else None
 
-    _emit_stage_log(bridge, 'success', 'setup', 'ready', '✅ Agents 初始化完成（概念、梗概、人物、大纲、导演、审查、验证）')
+    _emit_stage_log(bridge, 'success', 'setup', 'ready', '✅ Agents 初始化完成（创意会议、大纲、导演、审查、验证）')
 
     # 阶段化上下文（内存态，不落盘）
-    stage_context: Dict[str, Dict[str, Any]] = {
-        "concept": {},
-        "synopsis": {},
-        "character_bios": {},
+    stage_context: Dict[str, Any] = {
+        "meeting_minutes": "",
         "treatment": {},
     }
 
     # ════════════════════════════════════════════════
-    # 阶段一：前置统筹（概念链路 Logline → Synopsis → Bios → Treatment）
+    # 阶段一：创意会议（ConceptPitch / CharacterVoice / NarrativeArch 轮流发言）
     # ════════════════════════════════════════════════
-    _emit_stage_log(bridge, 'info', 'concept', 'start', '🧠 [概念孵化期] ConceptAgent 生成 Logline...')
-    concept_prompt = (
-        f"创作想法：{plot_outline or '（无）'}\n"
-        "请产出 Logline 结果。"
-    )
-    concept_result = await _run_stage_agent_json_object(concept, concept_prompt)
-    if concept_result:
-        stage_context["concept"] = concept_result
-        _emit_output(bridge, 'ConceptAgent', concept_result, fmt='stage')
-        _emit_stage_log(bridge, 'success', 'concept', 'summary', '✅ [概念孵化期] Logline 已生成')
-    else:
-        _emit_stage_log(bridge, 'warning', 'concept', 'fallback', '⚠️ [概念孵化期] 输出解析失败，使用最小上下文继续')
-        stage_context["concept"] = {"logline": plot_outline or scene.description}
+    _emit_stage_log(bridge, 'info', 'meeting', 'start',
+                    '🎭 [创意会议] 三位创作顾问开始头脑风暴（每人最多发言 2 轮）...')
 
-    _emit_stage_log(bridge, 'info', 'synopsis', 'start', '📚 [故事梗概期] SynopsisAgent 扩展梗概...')
-    synopsis_prompt = (
-        f"创作想法：{plot_outline or '（无）'}\n\n"
-        f"Concept 结果：\n{json.dumps(stage_context['concept'], ensure_ascii=False, indent=2)}\n\n"
-        "请输出故事梗概。"
-    )
-    synopsis_result = await _run_stage_agent_json_object(synopsis, synopsis_prompt)
-    if synopsis_result:
-        stage_context["synopsis"] = synopsis_result
-        _emit_output(bridge, 'SynopsisAgent', synopsis_result, fmt='stage')
-        _emit_stage_log(bridge, 'success', 'synopsis', 'summary', '✅ [故事梗概期] Synopsis 已生成')
-    else:
-        _emit_stage_log(bridge, 'warning', 'synopsis', 'fallback', '⚠️ [故事梗概期] 输出解析失败，使用最小上下文继续')
-        stage_context["synopsis"] = {"synopsis": plot_outline or scene.description}
+    concept_pitch = create_concept_pitch_agent(characters, scene, required_character_count)
+    character_voice = create_character_voice_agent()
+    narrative_arch = create_narrative_arch_agent()
 
-    _emit_stage_log(bridge, 'info', 'character_bios', 'start', '👥 [人物塑形期] CharacterBiosAgent 生成人物小传...')
-    bios_prompt = (
-        f"创作想法：{plot_outline or '（无）'}\n\n"
-        f"Concept：\n{json.dumps(stage_context['concept'], ensure_ascii=False, indent=2)}\n\n"
-        f"Synopsis：\n{json.dumps(stage_context['synopsis'], ensure_ascii=False, indent=2)}\n\n"
-        f"指定角色：\n{json.dumps(custom_characters_input, ensure_ascii=False, indent=2)}\n\n"
-        f"角色总数要求：{required_character_count or len(characters) or 2}"
+    # 每位最多 2 轮 = 最多 6 条消息；任意一位写出 [AGREE] 则提前终止
+    _meeting_termination = MaxMessageTermination(6) | TextMentionTermination("[AGREE]")
+    meeting_room = RoundRobinGroupChat(
+        [concept_pitch, character_voice, narrative_arch],
+        termination_condition=_meeting_termination,
     )
-    bios_result = await _run_stage_agent_json_object(bios, bios_prompt)
-    if bios_result:
-        stage_context["character_bios"] = bios_result
-        _emit_output(bridge, 'CharacterBiosAgent', bios_result, fmt='stage')
-        _emit_stage_log(bridge, 'success', 'character_bios', 'summary', '✅ [人物塑形期] Character Bios 已生成')
-    else:
-        _emit_stage_log(bridge, 'warning', 'character_bios', 'fallback', '⚠️ [人物塑形期] 输出解析失败，使用最小上下文继续')
-        stage_context["character_bios"] = {"character_bios": custom_characters_input}
 
-    _emit_stage_log(bridge, 'info', 'treatment', 'start', '🗂️ [分场规划期] TreatmentAgent 生成分场大纲...')
+    meeting_brief = (
+        "创意会议开始，请各位从自己的专业角度展开讨论。\n\n"
+        f"创作想法：{plot_outline or '（AI 自由创作）'}\n"
+        f"场景：{scene.name} — {scene.description}\n"
+        f"角色数量：{required_character_count or len(characters) or 2} 位"
+        + (f"\n已指定角色：{', '.join(c.name for c in characters)}" if characters else "")
+        + "\n\n请 ConceptPitchAgent 先行发言，提出你的创意概念。"
+    )
+
+    meeting_messages: list = []
+    try:
+        meeting_result = await meeting_room.run(task=meeting_brief)
+        for msg in meeting_result.messages:
+            src = getattr(msg, 'source', '')
+            content = getattr(msg, 'content', '')
+            if not src or src == 'user' or not content:
+                continue
+            meeting_messages.append({"agent": src, "content": content})
+            _emit_stage_log(bridge, 'info', 'meeting', src,
+                            f'💬 [{src}]\n{content}')
+            _emit_output(bridge, src, content, fmt='meeting')
+        _emit_stage_log(bridge, 'success', 'meeting', 'done',
+                        f'✅ [创意会议] 完成，共 {len(meeting_messages)} 条发言')
+    except Exception as _meet_exc:
+        logger.warning("[Meeting] 会议异常：%s", _meet_exc)
+        _emit_stage_log(bridge, 'warning', 'meeting', 'error',
+                        f'⚠️ [创意会议] 出现异常，跳过会议阶段：{_meet_exc}')
+
+    meeting_transcript = "\n\n".join(
+        f"【{m['agent']}】{m['content']}" for m in meeting_messages
+    ) if meeting_messages else f"创作方向：{plot_outline or '自由创作'}"
+    stage_context["meeting_minutes"] = meeting_transcript
+
+    # ════════════════════════════════════════════════
+    # 阶段一后半：TreatmentAgent 将会议记录转化为分场大纲
+    # ════════════════════════════════════════════════
+    _emit_stage_log(bridge, 'info', 'treatment', 'start',
+                    '🗂️ [分场规划期] TreatmentAgent 根据会议记录生成分场大纲...')
     treatment_prompt = (
-        f"Concept：\n{json.dumps(stage_context['concept'], ensure_ascii=False, indent=2)}\n\n"
-        f"Synopsis：\n{json.dumps(stage_context['synopsis'], ensure_ascii=False, indent=2)}\n\n"
-        f"Character Bios：\n{json.dumps(stage_context['character_bios'], ensure_ascii=False, indent=2)}\n\n"
+        f"以下是创意会议的讨论记录，请据此生成分场大纲：\n\n{meeting_transcript}\n\n"
+        f"指定角色约束：{json.dumps(custom_characters_input, ensure_ascii=False)}\n"
         f"幕数要求：恰好生成 {act_count} 个节拍（beat），JSON 数组长度严格为 {act_count}。\n"
         "请生成分场大纲。"
     )
@@ -406,7 +410,8 @@ async def run_autogen_pipeline(
         _emit_output(bridge, 'TreatmentAgent', treatment_result, fmt='stage')
         _emit_stage_log(bridge, 'success', 'treatment', 'summary', '✅ [分场规划期] Treatment 已生成')
     else:
-        _emit_stage_log(bridge, 'warning', 'treatment', 'fallback', '⚠️ [分场规划期] 输出解析失败，使用最小上下文继续')
+        _emit_stage_log(bridge, 'warning', 'treatment', 'fallback',
+                        '⚠️ [分场规划期] 输出解析失败，使用最小上下文继续')
         stage_context["treatment"] = {"draft_guidance": "保持冲突递进，保证角色动机一致。"}
 
     # ════════════════════════════════════════════════
@@ -414,13 +419,13 @@ async def run_autogen_pipeline(
     # ════════════════════════════════════════════════
     _emit_stage_log(bridge, 'info', 'draft', 'start', '🎬 [剧本起草期] DirectorAgent 开始生成剧本初稿...')
 
-    base_user_prompt = "请开始生成剧本，直接输出 JSON 格式，不要有其他说明文字。"
-    if plot_outline:
-        base_user_prompt = (
-            f"创作想法：{plot_outline}\n\n"
-            f"阶段化上下文：\n{json.dumps(stage_context, ensure_ascii=False, indent=2)}\n\n"
-            "请根据以上阶段结果生成剧本，直接输出 JSON 格式，不要有其他说明文字。"
-        )
+    treatment_summary = json.dumps(stage_context.get("treatment", {}), ensure_ascii=False, indent=2)
+    base_user_prompt = (
+        f"创作想法：{plot_outline or '（AI 自由创作）'}\n\n"
+        f"## 创意会议纪要\n{stage_context.get('meeting_minutes', '（无）')}\n\n"
+        f"## 分场大纲\n{treatment_summary}\n\n"
+        "请根据以上创意会议纪要和分场大纲生成剧本，直接输出 JSON 格式，不要有其他说明文字。"
+    )
 
     draft_script = None
     MAX_SHOT_STRUCT_RETRIES = 2

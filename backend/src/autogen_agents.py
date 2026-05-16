@@ -416,6 +416,46 @@ def build_dialogue_system_message() -> str:
     )
 
 
+def build_concept_pitch_system_message(
+    characters: List[Character],
+    scene: Scene,
+    required_character_count: int = 0,
+) -> str:
+    common = _build_stage_common_context(characters, scene, required_character_count)
+    return (
+        "你是 ConceptPitchAgent（概念导演），负责在创意会议中提出故事概念、主题与情感核心。\n\n"
+        "## 已知背景\n"
+        f"{common}\n\n"
+        "## 发言规则\n"
+        "- 最多发言两轮；若已达成共识，在任意发言末尾单独一行写 [AGREE] 即可提前结束会议\n"
+        "- 第一轮：主动提出 logline、核心冲突、情感基调，言简意赅\n"
+        "- 第二轮：回应其他成员的意见，提炼或修正方向\n"
+        "- 每次发言不超过 200 字，使用自然语言，无需输出 JSON"
+    )
+
+
+def build_character_voice_system_message() -> str:
+    return (
+        "你是 CharacterVoiceAgent（角色顾问），负责在创意会议中从人物动机、弧线和角色关系角度审视方案。\n\n"
+        "## 发言规则\n"
+        "- 最多发言两轮；若已达成共识，在任意发言末尾单独一行写 [AGREE] 即可提前结束会议\n"
+        "- 第一轮：针对当前概念，指出角色层面的需求、风险或可行之处\n"
+        "- 第二轮：确认角色弧线在修正方案中是否得到保障，给出最终意见\n"
+        "- 每次发言不超过 200 字，使用自然语言，无需输出 JSON"
+    )
+
+
+def build_narrative_arch_system_message() -> str:
+    return (
+        "你是 NarrativeArchAgent（叙事结构师），负责在创意会议中评估故事结构的可行性与节奏设计。\n\n"
+        "## 发言规则\n"
+        "- 最多发言两轮；若已达成共识，在任意发言末尾单独一行写 [AGREE] 即可提前结束会议\n"
+        "- 第一轮：从节拍/幕次视角分析概念，给出结构建议\n"
+        "- 第二轮：确认方案结构合理性，或给出最终修正意见\n"
+        "- 每次发言不超过 200 字，使用自然语言，无需输出 JSON"
+    )
+
+
 def build_validation_system_message() -> str:
     return (
         "你是一位技术验证员，负责验证剧本的技术约束。\n\n"
@@ -508,6 +548,35 @@ def create_dialogue_agent(model: Optional[str] = None) -> AssistantAgent:
         name="DialogueAgent",
         model_client=make_model_client(model),
         system_message=build_dialogue_system_message(),
+    )
+
+
+def create_concept_pitch_agent(
+    characters: List[Character],
+    scene: Scene,
+    required_character_count: int = 0,
+    model: Optional[str] = None,
+) -> AssistantAgent:
+    return AssistantAgent(
+        name="ConceptPitchAgent",
+        model_client=make_model_client(model),
+        system_message=build_concept_pitch_system_message(characters, scene, required_character_count),
+    )
+
+
+def create_character_voice_agent(model: Optional[str] = None) -> AssistantAgent:
+    return AssistantAgent(
+        name="CharacterVoiceAgent",
+        model_client=make_model_client(model),
+        system_message=build_character_voice_system_message(),
+    )
+
+
+def create_narrative_arch_agent(model: Optional[str] = None) -> AssistantAgent:
+    return AssistantAgent(
+        name="NarrativeArchAgent",
+        model_client=make_model_client(model),
+        system_message=build_narrative_arch_system_message(),
     )
 
 
