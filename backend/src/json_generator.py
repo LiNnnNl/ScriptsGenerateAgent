@@ -99,7 +99,7 @@ class ScriptJSONGenerator:
             seg["shot_description"] = ""
         seg.setdefault("Follow", 0)
         for action in seg.get("actions", []):
-            action["motion_detail"] = ""
+            action.setdefault("motion_detail", "")
         return seg
 
     def _build_title(self, title: str) -> Dict:

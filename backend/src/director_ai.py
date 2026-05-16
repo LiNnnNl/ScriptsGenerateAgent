@@ -200,7 +200,7 @@ class DirectorAI:
             "character": "角色名",
             "state": "standing",
             "action": "Standing Thinking",
-            "motion_detail": "动作细节英文描述（可留空字符串）"
+            "motion_detail": "Character shifts weight, subtle hand movement while speaking"
           }
         ],
         "current position": [
@@ -221,14 +221,14 @@ class DirectorAI:
             "character": "角色名",
             "state": "standing",
             "action": "Standing Speech 2",
-            "motion_detail": ""
+            "motion_detail": "Slight forward lean, hands gesture emphasis"
           },
           {
             "character": "另一角色名",
             "state": "standing",
             "action": "Standing Thinking",
-            "motion_detail": ""
-          }
+            "motion_detail": "Arms crossed, slight head tilt, listening posture"
+          },
         ],
         "current position": [
           {"character": "角色名1", "position": "Position X"},
@@ -269,7 +269,7 @@ class DirectorAI:
 - `Follow`: 必填，整数，默认为 0
 - `motion_description`: 可选，氛围或运镜诗意描述
 - `camera_description`: 可选，具体镜头运动说明
-- `motion_detail`: 动作细节英文描述，可为空字符串 ""
+- `motion_detail`: 动作细节英文描述，必填，不得为空字符串，每个角色的动作行为都需要具体描述
 - 必须追踪每个角色的当前位置，`current position` 须包含场景内所有在场角色
 - 只使用可用点位列表中的位置ID和可用动作库中的动作名称，不得编造
 - 对白/旁白片段中，`actions` 列出的所有角色的 `current position` 必须属于同一camera_group

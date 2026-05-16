@@ -157,6 +157,7 @@ def _filter_script_for_review(script: list) -> str:
             filtered_scene["scene"].append({
                 "speaker": seg.get("speaker", ""),
                 "content": seg.get("content", ""),
+                "actions": [{"character": a.get("character", ""), "motion_detail": a.get("motion_detail", "")} for a in seg.get("actions", [])],
             })
         filtered.append(filtered_scene)
     return json.dumps(filtered, ensure_ascii=False, indent=2)
@@ -533,7 +534,7 @@ async def run_autogen_pipeline(
         revision_prompt = (
             f"请根据以下审查意见修改剧本，输出完整的修改后 JSON，不要有其他说明文字：\n\n"
             + "\n".join(revision_parts)
-            + f"\n\n当前剧本：\n```json\n{json.dumps(draft_script, ensure_ascii=False, indent=2)}\n```"
+            + "\n\n重要：每个角色动作的 `motion_detail` 字段必须保留原有内容，不得将其置为空字符串。\n\n当前剧本：\n```json\n{json.dumps(draft_script, ensure_ascii=False, indent=2)}\n```"
         )
 
         _emit_stage_log(

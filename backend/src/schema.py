@@ -12,7 +12,7 @@ position plan：
 from __future__ import annotations
 
 from typing import Any, List, Literal, Union
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, model_validator
 
 
 VALID_SHOT_BLEND = {
@@ -63,6 +63,13 @@ class CharacterBeat(BaseModel):
     def check_follow(cls, v: int) -> int:
         if v not in (0, 1):
             raise ValueError(f"Follow 必须是 0 或 1，得到 {v!r}")
+        return v
+
+    @field_validator("motion_detail")
+    @classmethod
+    def check_motion_detail(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("motion_detail 不得为空，必须填写角色动作细节英文描述")
         return v
 
 
@@ -177,15 +184,22 @@ class _PositionGroup(BaseModel):
     group_id: str
     layout: str
     region: str
-    neartarget: str
     positions: List[_PositionEntry]
+    # neartarget 只存在于 single，group 用锚点采样点位，不需要此字段
 
-    @field_validator("group_id", "layout", "region", "neartarget")
+    @field_validator("group_id", "layout", "region")
     @classmethod
     def not_empty(cls, v: str) -> str:
         if not v or not v.strip():
             raise ValueError("不能为空")
         return v
+
+    @model_validator(mode="before")
+    @classmethod
+    def drop_neartarget(cls, data: dict) -> dict:
+        # neartarget 只在 single 点位有效，group 点位强制丢弃
+        data.pop("neartarget", None)
+        return data
 
 
 class _PositionSingle(BaseModel):

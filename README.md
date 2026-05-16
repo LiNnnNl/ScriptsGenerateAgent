@@ -12,7 +12,7 @@
 start_backend.bat
 ```
 
-浏览器访问 `http://localhost:5000`，前端已由 Flask 一并托管。
+浏览器访问 `http://localhost:5001`，前端已由 Flask 一并托管。
 
 ### 方式二：命令行（uv）
 
@@ -141,6 +141,6 @@ ScriptsGenerateAgent/
 |------|---------|
 | `ModuleNotFoundError` | `uv pip install -r backend/requirements.txt --python .venv/Scripts/python.exe` |
 | API Key 错误 | 检查 `backend/.env` 中 `API_KEY` 是否正确 |
-| 端口被占用 | 修改 `backend/app.py` 末尾 `port=5000` |
+| 端口被占用 | 修改 `backend/app.py` 末尾 `port=5001` |
 | Word 导出失败 | 确认 `python-docx` 已安装到 `.venv` |
 | 摄影指导未生效 | `.env` 中设置 `ENABLE_CINEMATOGRAPHY=true` |

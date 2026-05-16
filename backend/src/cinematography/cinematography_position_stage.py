@@ -209,6 +209,9 @@ class CinematographyPositionStage:
 
                 plan_validation = validate_position_plan(result)
                 if plan_validation["valid"]:
+                    # 写入 outputs 前强制丢弃 group 层的 neartarget
+                    for g in result.get("groups", []):
+                        g.pop("neartarget", None)
                     return result
 
                 error_msg = format_position_plan_errors(plan_validation["errors"])
@@ -226,9 +229,15 @@ class CinematographyPositionStage:
 
             except Exception as exc:
                 logger.warning("[Stage2][planning] LLM failed (%s), using fallback", exc)
-                return self._fallback_planning(where, grouping)
+                result = self._fallback_planning(where, grouping)
+                for g in result.get("groups", []):
+                    g.pop("neartarget", None)
+                return result
 
-        return self._fallback_planning(where, grouping)
+        result = self._fallback_planning(where, grouping)
+        for g in result.get("groups", []):
+            g.pop("neartarget", None)
+        return result
 
     def _run_coordinates(self, planning: Dict) -> Dict:
         """Substage 3: call CoordinateSkill to compute x/y/z (stored separately)."""
@@ -276,28 +285,63 @@ class CinematographyPositionStage:
         Flatten position_plan into the per-position detail format expected by Stage 3.
         groups: one entry per position_id (flat, with group_id/character/layout/region/lookat)
         signals: singles list (matches position_plan.singles format)
+
+        lookat resolution (matches download版的 position_detail_converter._convert_group):
+          - mode="center"  → all positions get lookat="center"
+          - mode="target" + target_character → target gets lookat="center",
+            others get lookat=<target_position_id>
+          - mode="target" + target_object → all get lookat=<target_object>
         """
         flat_groups = []
         for group in planning.get("groups", []):
+            # neartarget 只在 single 点位有效，group 点位强制丢弃
+            group = {k: v for k, v in group.items() if k != "neartarget"}
             group_id = group.get("group_id", "")
             layout = group.get("layout", "")
             region = group.get("region", "")
-            lookat_obj = group.get("lookat", {})
-            lookat_str = (
-                lookat_obj.get("mode", "center")
-                if isinstance(lookat_obj, dict)
-                else str(lookat_obj)
-            )
+            lookat_obj = group.get("lookat", {}) if isinstance(group.get("lookat"), dict) else {}
+
+            # Build character → position_id map (for target_character resolution)
+            char_to_pos = {}
+            for item in group.get("positions", []):
+                if isinstance(item, dict):
+                    char = item.get("character", "")
+                    pos = item.get("position_id", "")
+                    if char and pos:
+                        char_to_pos[char] = pos
+
+            mode = lookat_obj.get("mode", "center")
+
             for item in group.get("positions", []):
                 if not isinstance(item, dict):
                     continue
+                pos_id = item.get("position_id", "")
+                character = item.get("character", "")
+
+                if mode == "center":
+                    resolved_lookat = "center"
+                elif mode == "target":
+                    target_char = lookat_obj.get("target_character", "")
+                    target_obj = lookat_obj.get("target_object", "")
+                    if target_char:
+                        if character == target_char:
+                            resolved_lookat = "center"
+                        else:
+                            resolved_lookat = char_to_pos.get(target_char, "center")
+                    elif target_obj:
+                        resolved_lookat = target_obj
+                    else:
+                        resolved_lookat = "center"
+                else:
+                    resolved_lookat = "center"
+
                 flat_groups.append({
-                    "position_id": item.get("position_id", ""),
+                    "position_id": pos_id,
                     "group_id": group_id,
                     "region": region,
-                    "character": item.get("character", ""),
+                    "character": character,
                     "layout": layout,
-                    "lookat": lookat_str,
+                    "lookat": resolved_lookat,
                 })
 
         signals = [
