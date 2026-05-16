@@ -1,5 +1,5 @@
 """
-Pydantic schema — shot 字段校验 + position plan 字段校验
+Pydantic schema — shot 字段校验 + position plan 字段校验 + camera_script 字段校验
 
 shot 两阶段：
   validate_script_shot_structure  初稿后调用，只查字段是否存在（不校验值）
@@ -7,11 +7,14 @@ shot 两阶段：
 
 position plan：
   validate_position_plan          Stage 2 规划完成后调用，校验关键字段不为空
+
+camera_script：
+  validate_camera_script          _build_camera_script 后调用，校验每个 event 字段合法性
 """
 
 from __future__ import annotations
 
-from typing import Any, List, Literal, Union
+from typing import Any, List, Literal, Optional, Union
 from pydantic import BaseModel, field_validator, model_validator
 
 
@@ -279,3 +282,110 @@ def format_shot_content_errors(errors: list[dict]) -> str:
 def format_position_plan_errors(errors: list[str]) -> str:
     """将 validate_position_plan 错误列表格式化为自然语言"""
     return "\n".join(errors) if errors else ""
+
+
+# ─────────────────────────────────────────────
+# camera_script 校验（cinematography pipeline 完成后）
+# ─────────────────────────────────────────────
+
+# camera_script 中 shot_blend 已经过 _normalise_shot_blend 规范化为小写三值
+VALID_CAMERA_SHOT_BLEND = {"cut", "blend", "easein"}
+
+
+class CameraScriptEvent(BaseModel):
+    event_index: int
+    shot: str
+    target: str
+    target_position: str
+    shot_type: str
+    shot_blend: str
+    follow: int
+    camera: Optional[int] = None
+    shot_description: str
+    motion_enabled: bool
+    motion_preset: str
+    play_motion_on_activate: Optional[bool] = None
+    motion_start_delay: Optional[float] = None
+    motion_reset_on_replay: Optional[bool] = None
+
+    @field_validator("shot_type")
+    @classmethod
+    def check_shot_type(cls, v: str) -> str:
+        if v not in VALID_SHOT_TYPE:
+            raise ValueError(f"shot_type 非法值 {v!r}，可选: {sorted(VALID_SHOT_TYPE)}")
+        return v
+
+    @field_validator("shot_blend")
+    @classmethod
+    def check_shot_blend(cls, v: str) -> str:
+        if v not in VALID_CAMERA_SHOT_BLEND:
+            raise ValueError(f"shot_blend 非法值 {v!r}，可选: {sorted(VALID_CAMERA_SHOT_BLEND)}")
+        return v
+
+    @field_validator("follow")
+    @classmethod
+    def check_follow(cls, v: int) -> int:
+        if v not in (0, 1):
+            raise ValueError(f"follow 必须是 0 或 1，得到 {v!r}")
+        return v
+
+    @field_validator("shot_description")
+    @classmethod
+    def check_shot_description(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("shot_description 不得为空，必须填写镜头英文描述")
+        return v
+
+    @field_validator("target_position")
+    @classmethod
+    def check_target_position(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("target_position 不得为空，必须对应角色的当前锚点位置")
+        return v
+
+
+class CameraScriptScene(BaseModel):
+    scene_index: int
+    events: List[CameraScriptEvent]
+
+
+class CameraScriptModel(BaseModel):
+    scenes: List[CameraScriptScene]
+
+
+def validate_camera_script(camera_script: dict) -> dict:
+    """
+    _build_camera_script 完成后调用。校验每个 event 的字段值是否合法。
+    返回 {"valid": bool, "errors": [...]}
+    """
+    all_errors = []
+    for scene in camera_script.get("scenes", []):
+        scene_index = scene.get("scene_index", 0)
+        for event in scene.get("events", []):
+            event_index = event.get("event_index", 0)
+            try:
+                CameraScriptEvent(**event)
+            except Exception as exc:
+                errors: list[str] = []
+                if hasattr(exc, "errors"):
+                    for e in exc.errors():
+                        loc = " -> ".join(str(x) for x in e["loc"])
+                        errors.append(f"{loc}: {e['msg']}")
+                else:
+                    errors.append(str(exc))
+                all_errors.append({
+                    "scene_index": scene_index,
+                    "event_index": event_index,
+                    "errors": errors,
+                })
+    return {"valid": len(all_errors) == 0, "errors": all_errors}
+
+
+def format_camera_script_errors(errors: list[dict]) -> str:
+    """将 validate_camera_script 错误列表格式化为自然语言（供日志和 LLM prompt 使用）"""
+    lines = []
+    for item in errors:
+        prefix = f"scene {item['scene_index']} event {item['event_index']}"
+        for err in item["errors"]:
+            lines.append(f"{prefix}: {err}")
+    return "\n".join(lines)

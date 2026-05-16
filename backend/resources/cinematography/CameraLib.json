@@ -3,90 +3,553 @@
     "画面范围": "人物全身入画",
     "主要用途": "展示站姿、走路、动作、角色登场",
     "规则": {
-      "Position": "(0, 1.8, 5)",
-      "Rotation": "(0, 180, 0)",
-      "FOV": 70
+      "Mode": "FramedShot",
+      "HeightRatio": 1.2,
+      "HeightOffsetRatio": 0.62,
+      "FOV": 50,
+      "Margin": 1.35,
+      "YawOffset": 180,
+      "Pitch": 0,
+      "Roll": 0,
+      "YawCandidates": [
+        180,
+        165,
+        195,
+        150,
+        210,
+        135,
+        225
+      ],
+      "MaxDistance": 6.2,
+      "AutoAdjustFOV": true,
+      "MaxAutoFOV": 72,
+      "FallbackShotType": "中景"
+    },
+    "DefaultMotionPreset": "none",
+    "MotionPresets": {
+      "none": {
+        "type": "none"
+      },
+      "slow_push": {
+        "type": "dolly_in",
+        "duration": 3.8,
+        "distance": 0.5,
+        "ease": "ease_out"
+      },
+      "slow_pull": {
+        "type": "dolly_out",
+        "duration": 4.5,
+        "distance": 0.8,
+        "ease": "ease_in_out"
+      },
+      "gentle_pan_left": {
+        "type": "pan",
+        "duration": 3.2,
+        "angle": -12,
+        "ease": "ease_in_out"
+      },
+      "gentle_pan_right": {
+        "type": "pan",
+        "duration": 3.2,
+        "angle": 12,
+        "ease": "ease_in_out"
+      }
     }
   },
   "中景": {
     "画面范围": "膝盖以上或腰部以上",
     "主要用途": "日常叙事、对话、简单动作",
     "规则": {
-      "Position": "(0, 1.5, 3.5)",
-      "Rotation": "(0, 180, 0)",
-      "FOV": 40
+      "Mode": "FramedShot",
+      "HeightRatio": 0.75,
+      "HeightOffsetRatio": 0.66,
+      "FOV": 46,
+      "Margin": 1.24,
+      "YawOffset": 180,
+      "Pitch": 0,
+      "Roll": 0,
+      "YawCandidates": [
+        180,
+        165,
+        195,
+        150,
+        210
+      ],
+      "MaxDistance": 4.2,
+      "AutoAdjustFOV": true,
+      "MaxAutoFOV": 62,
+      "FallbackShotType": "中近景"
+    },
+    "DefaultMotionPreset": "gentle_push",
+    "MotionPresets": {
+      "none": {
+        "type": "none"
+      },
+      "gentle_push": {
+        "type": "dolly_in",
+        "duration": 3.0,
+        "distance": 0.35,
+        "ease": "ease_out"
+      },
+      "gentle_pull": {
+        "type": "dolly_out",
+        "duration": 3.2,
+        "distance": 0.45,
+        "ease": "ease_in_out"
+      },
+      "small_pan_left": {
+        "type": "pan",
+        "duration": 2.4,
+        "angle": -8,
+        "ease": "ease_in_out"
+      },
+      "small_pan_right": {
+        "type": "pan",
+        "duration": 2.4,
+        "angle": 8,
+        "ease": "ease_in_out"
+      },
+      "small_truck_left": {
+        "type": "truck",
+        "duration": 2.8,
+        "distance": -0.25,
+        "ease": "ease_in_out"
+      },
+      "small_truck_right": {
+        "type": "truck",
+        "duration": 2.8,
+        "distance": 0.25,
+        "ease": "ease_in_out"
+      },
+      "small_zoom_in": {
+        "type": "zoom_in",
+        "duration": 3.0,
+        "ease": "ease_out",
+        "fov_delta": -4.0,
+        "min_fov": 18,
+        "max_fov": 70
+      },
+      "small_zoom_out": {
+        "type": "zoom_out",
+        "duration": 2.0,
+        "ease": "ease_in_out",
+        "fov_delta": 4.0,
+        "min_fov": 18,
+        "max_fov": 70
+      }
     }
   },
   "中近景": {
     "画面范围": "胸部以上",
     "主要用途": "对话、轻情绪表达、人物交流",
     "规则": {
-      "Position": "(0, 1.5, 3)",
-      "Rotation": "(0, 180, 0)",
-      "FOV": 40
+      "Mode": "FramedShot",
+      "HeightRatio": 0.52,
+      "HeightOffsetRatio": 0.78,
+      "FOV": 40,
+      "Margin": 1.18,
+      "YawOffset": 180,
+      "Pitch": 0,
+      "Roll": 0,
+      "YawCandidates": [
+        180,
+        170,
+        190,
+        160,
+        200
+      ],
+      "MaxDistance": 3.1,
+      "AutoAdjustFOV": true,
+      "MaxAutoFOV": 56,
+      "FallbackShotType": "近景"
+    },
+    "DefaultMotionPreset": "dialogue_push",
+    "MotionPresets": {
+      "none": {
+        "type": "none"
+      },
+      "dialogue_push": {
+        "type": "dolly_in",
+        "duration": 2.6,
+        "distance": 0.25,
+        "ease": "ease_out"
+      },
+      "dialogue_pull": {
+        "type": "dolly_out",
+        "duration": 2.8,
+        "distance": 0.3,
+        "ease": "ease_in_out"
+      },
+      "reaction_push": {
+        "type": "dolly_in",
+        "duration": 2.0,
+        "distance": 0.18,
+        "ease": "ease_out"
+      },
+      "small_zoom_in": {
+        "type": "zoom_in",
+        "duration": 2.0,
+        "fov_delta": -4,
+        "ease": "ease_out"
+      },
+      "small_zoom_out": {
+        "type": "zoom_out",
+        "duration": 2.0,
+        "fov_delta": 4,
+        "ease": "ease_in_out"
+      }
     }
   },
   "近景": {
     "画面范围": "头肩构图",
     "主要用途": "表情展示、视线引导、人物反应",
     "规则": {
-      "Position": "(0, 1.5, 1.5)",
-      "Rotation": "(0, 180, 0)",
-      "FOV": 60
+      "Mode": "FramedShot",
+      "HeightRatio": 0.34,
+      "HeightOffsetRatio": 0.86,
+      "FOV": 35,
+      "Margin": 1.14,
+      "YawOffset": 180,
+      "Pitch": 0,
+      "Roll": 0,
+      "YawCandidates": [
+        180,
+        172,
+        188,
+        165,
+        195
+      ],
+      "MaxDistance": 2.3,
+      "AutoAdjustFOV": true,
+      "MaxAutoFOV": 48,
+      "FallbackShotType": "特写"
+    },
+    "DefaultMotionPreset": "emotion_push",
+    "MotionPresets": {
+      "none": {
+        "type": "none"
+      },
+      "emotion_push": {
+        "type": "dolly_in",
+        "duration": 2.0,
+        "distance": 0.18,
+        "ease": "ease_out"
+      },
+      "emotion_pull": {
+        "type": "dolly_out",
+        "duration": 2.2,
+        "distance": 0.2,
+        "ease": "ease_in_out"
+      },
+      "tight_zoom_in": {
+        "type": "zoom_in",
+        "duration": 1.8,
+        "fov_delta": -5,
+        "ease": "ease_out"
+      }
+    }
+  },
+  "特写": {
+    "画面范围": "头部",
+    "主要用途": "对话、表情、细腻刻画",
+    "规则": {
+      "Mode": "FramedShot",
+      "HeightRatio": 0.2,
+      "HeightOffsetRatio": 0.92,
+      "FOV": 30,
+      "Margin": 1.1,
+      "YawOffset": 180,
+      "Pitch": 0,
+      "Roll": 0,
+      "YawCandidates": [
+        180,
+        175,
+        185,
+        170,
+        190
+      ],
+      "MaxDistance": 1.5,
+      "AutoAdjustFOV": true,
+      "MaxAutoFOV": 42,
+      "FallbackShotType": "特写"
+    },
+    "DefaultMotionPreset": "tight_reveal",
+    "MotionPresets": {
+      "none": {
+        "type": "none"
+      },
+      "tight_reveal": {
+        "type": "zoom_in",
+        "duration": 1.8,
+        "fov_delta": -4,
+        "ease": "ease_out"
+      },
+      "micro_push": {
+        "type": "dolly_in",
+        "duration": 1.6,
+        "distance": 0.1,
+        "ease": "ease_out"
+      }
     }
   },
   "第一人称镜头": {
-    "画面范围": "角色所见画面",
+    "画面范围": "角色主观所见画面",
     "主要用途": "沉浸感、互动、主观体验",
     "规则": {
-      "Position": "(0, 1.5, 0.1)",
-      "Rotation": "(0, 0, 0)",
-      "FOV": 100
+      "Mode": "FirstPerson",
+      "AnchorName": "Head",
+      "LocalOffset": [
+        0.0,
+        -0.2,
+        0.08
+      ],
+      "FOV": 45,
+      "YawOffset": 0,
+      "Pitch": 0,
+      "Roll": 0,
+      "FallbackShotType": "肩后镜头"
+    },
+    "DefaultMotionPreset": "none",
+    "MotionPresets": {
+      "none": {
+        "type": "none"
+      },
+      "micro_push": {
+        "type": "dolly_in",
+        "duration": 1.2,
+        "distance": 0.08,
+        "ease": "ease_out"
+      },
+      "micro_pull": {
+        "type": "dolly_out",
+        "duration": 1.2,
+        "distance": 0.08,
+        "ease": "ease_in_out"
+      }
     }
   },
   "肩后镜头": {
     "画面范围": "从角色肩后看前方",
     "主要用途": "对话、观察目标、任务引导",
     "规则": {
-      "Position": "(0.3, 1.5, -1)",
-      "Rotation": "(0, 0, 0)",
-      "FOV": 60
+      "Mode": "OverShoulder",
+      "AnchorName": "Head",
+      "ShoulderSide": "Right",
+      "SideOffset": 0.22,
+      "BackOffset": 0.32,
+      "ForwardOffset": 0.05,
+      "HeightOffsetRatio": 0.88,
+      "FOV": 50,
+      "YawOffset": 0,
+      "Pitch": 0,
+      "Roll": 0,
+      "FallbackShotType": "中近景"
+    },
+    "DefaultMotionPreset": "shoulder_push",
+    "MotionPresets": {
+      "none": {
+        "type": "none"
+      },
+      "shoulder_push": {
+        "type": "dolly_in",
+        "duration": 2.2,
+        "distance": 0.2,
+        "ease": "ease_out"
+      },
+      "shoulder_pull": {
+        "type": "dolly_out",
+        "duration": 2.4,
+        "distance": 0.25,
+        "ease": "ease_in_out"
+      },
+      "shoulder_pan_left": {
+        "type": "pan",
+        "duration": 1.8,
+        "angle": -10,
+        "ease": "ease_in_out"
+      },
+      "shoulder_pan_right": {
+        "type": "pan",
+        "duration": 1.8,
+        "angle": 10,
+        "ease": "ease_in_out"
+      }
     }
   },
   "侧跟镜头": {
     "画面范围": "角色侧面跟拍",
     "主要用途": "行走、奔跑、轮廓展示",
     "规则": {
-      "Position": "(3, 1.5, 0)",
-      "Rotation": "(0, 90, 0)",
-      "FOV": 80
+      "Mode": "FramedShot",
+      "HeightRatio": 0.86,
+      "HeightOffsetRatio": 0.72,
+      "FOV": 65,
+      "Margin": 1.2,
+      "YawOffset": 90,
+      "Pitch": 0,
+      "Roll": 0,
+      "YawCandidates": [
+        90,
+        75,
+        105,
+        60,
+        120
+      ],
+      "MaxDistance": 4.0,
+      "AutoAdjustFOV": true,
+      "MaxAutoFOV": 78,
+      "FallbackShotType": "中景"
+    },
+    "DefaultMotionPreset": "side_truck",
+    "MotionPresets": {
+      "none": {
+        "type": "none"
+      },
+      "side_truck": {
+        "type": "truck",
+        "duration": 3.5,
+        "distance": 0.5,
+        "ease": "linear"
+      },
+      "side_push": {
+        "type": "dolly_in",
+        "duration": 2.4,
+        "distance": 0.3,
+        "ease": "ease_out"
+      }
     }
   },
   "环绕镜头": {
-    "画面范围": "围绕角色旋转",
-    "主要用途": "登场、高潮、展示角色魅力",
     "规则": {
-      "Position": "",
-      "Rotation": "",
-      "FOV": 60
+      "Mode": "OrbitShot",
+      "HeightOffsetRatio": 0.75,
+      "OrbitRadiusRatio": 1.8,
+      "OrbitYawRange": [-45, 45],
+      "OrbitDirection": "left_to_right",
+      "FOV": 45,
+      "Pitch": 0,
+      "Roll": 0,
+      "FallbackShotType": "中景"
+    },
+    "DefaultMotionPreset": "hero_orbit",
+    "MotionPresets": {
+      "none": {
+        "type": "none"
+      },
+      "hero_orbit": {
+        "type": "orbit",
+        "duration": 5.5,
+        "yaw_range": [-45, 45],
+        "direction": "left_to_right",
+        "ease": "ease_in_out"
+      },
+      "slow_orbit": {
+        "type": "orbit",
+        "duration": 7.0,
+        "yaw_range": [-45, 45],
+        "direction": "left_to_right",
+        "ease": "ease_in_out"
+      },
+      "reverse_orbit": {
+        "type": "orbit",
+        "duration": 5.5,
+        "yaw_range": [-45, 45],
+        "direction": "right_to_left",
+        "ease": "ease_in_out"
+      },
+      "hero_back_orbit": {
+        "type": "orbit",
+        "duration": 5.5,
+        "yaw_range": [135, 225],
+        "direction": "left_to_right",
+        "ease": "ease_in_out"
+      }
     }
   },
   "仰拍镜头": {
     "画面范围": "从低处向上拍",
     "主要用途": "表现强大、威严、英雄感",
     "规则": {
-      "Position": "(0, 1, 3)",
-      "Rotation": "(-10, 180, 0)",
-      "FOV": 40
+      "Mode": "FramedShot",
+      "HeightRatio": 1.08,
+      "HeightOffsetRatio": 0.32,
+      "FOV": 46,
+      "Margin": 1.3,
+      "YawOffset": 180,
+      "Pitch": -15,
+      "Roll": 0,
+      "YawCandidates": [
+        180,
+        170,
+        190,
+        160,
+        200
+      ],
+      "MaxDistance": 4.8,
+      "AutoAdjustFOV": true,
+      "MaxAutoFOV": 62,
+      "FallbackShotType": "全景"
+    },
+    "DefaultMotionPreset": "power_push",
+    "MotionPresets": {
+      "none": {
+        "type": "none"
+      },
+      "power_push": {
+        "type": "dolly_in",
+        "duration": 2.6,
+        "distance": 0.35,
+        "ease": "ease_out"
+      },
+      "power_zoom": {
+        "type": "zoom_in",
+        "duration": 2.0,
+        "fov_delta": -5,
+        "ease": "ease_out"
+      }
     }
   },
   "俯拍镜头": {
     "画面范围": "从高处向下拍",
     "主要用途": "表现弱小、孤独、压迫感",
     "规则": {
-      "Position": "(0, 2, 3)",
-      "Rotation": "(15, 180, 0)",
-      "FOV": 40
+      "Mode": "FramedShot",
+      "HeightRatio": 1.08,
+      "HeightOffsetRatio": 1.18,
+      "FOV": 46,
+      "Margin": 1.3,
+      "YawOffset": 180,
+      "Pitch": 18,
+      "Roll": 0,
+      "YawCandidates": [
+        180,
+        170,
+        190,
+        160,
+        200
+      ],
+      "MaxDistance": 4.8,
+      "AutoAdjustFOV": true,
+      "MaxAutoFOV": 62,
+      "FallbackShotType": "全景"
+    },
+    "DefaultMotionPreset": "pressure_push",
+    "MotionPresets": {
+      "none": {
+        "type": "none"
+      },
+      "pressure_push": {
+        "type": "dolly_in",
+        "duration": 2.6,
+        "distance": 0.28,
+        "ease": "ease_out"
+      },
+      "pressure_pull": {
+        "type": "dolly_out",
+        "duration": 3.0,
+        "distance": 0.35,
+        "ease": "ease_in_out"
+      }
     }
   }
 }

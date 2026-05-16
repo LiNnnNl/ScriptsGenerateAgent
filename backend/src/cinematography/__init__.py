@@ -13,6 +13,12 @@ from .shot_planning_stage import ShotPlanningStage
 from .cinematography_position_stage import CinematographyPositionStage
 from .camera_planning_stage import CameraPlanningStage
 
+# Lazy import to avoid circular dependency — schema lives outside this package
+def _get_camera_validators():
+    import sys, importlib
+    mod = importlib.import_module("src.schema")
+    return mod.validate_camera_script, mod.format_camera_script_errors
+
 logger = logging.getLogger(__name__)
 
 # ───────────────��──────────────────────────────
@@ -84,6 +90,8 @@ def run_cinematography_pipeline(script, scene, resource_dir, output_dir, timesta
         stage3_all = []
         last_position_plan = None
         last_position_detail = None
+        # Per-scene data kept for the Stage-3 retry loop
+        _scene_retry_data = []
 
         for scene_obj in (script if isinstance(script, list) else [script]):
             if not isinstance(scene_obj, dict):
@@ -175,6 +183,12 @@ def run_cinematography_pipeline(script, scene, resource_dir, output_dir, timesta
             _normalise_shot_blend(final_scene)
 
             enriched_script.append(final_scene)
+            _scene_retry_data.append({
+                "scene_obj": final_scene,
+                "scene_info": scene_info,
+                "position_plan": position_plan_json,
+                "position_detail": position_detail_json,
+            })
 
         # Save intermediate results
         inter_path = output_dir / f"cinematography_{timestamp}.json"
@@ -183,6 +197,64 @@ def run_cinematography_pipeline(script, scene, resource_dir, output_dir, timesta
                 {"stage1_results": stage1_all, "stage2_results": stage2_all, "stage3_results": stage3_all},
                 f, ensure_ascii=False, indent=2,
             )
+
+        # Build camera_script and validate; retry Stage 3 once if invalid
+        camera_script = _build_camera_script(enriched_script, camera_lib)
+        try:
+            _validate_camera_script, _format_camera_script_errors = _get_camera_validators()
+            validation = _validate_camera_script(camera_script)
+            if not validation["valid"]:
+                error_desc = _format_camera_script_errors(validation["errors"])
+                logger.warning("[Cinematography] camera_script validation failed:\n%s", error_desc)
+
+                failed_scene_indices = {err["scene_index"] for err in validation["errors"]}
+                for retry_si in failed_scene_indices:
+                    if retry_si >= len(_scene_retry_data):
+                        continue
+                    data = _scene_retry_data[retry_si]
+                    logger.info("[Cinematography] Retrying Stage 3 for scene %d", retry_si)
+                    try:
+                        stage3_retry = CameraPlanningStage(
+                            script_json=data["scene_obj"],
+                            scene_info_json=data["scene_info"],
+                            camera_lib_json=camera_lib,
+                            position_plan_json=data["position_plan"],
+                            position_detail_json=data["position_detail"],
+                            llm_client=client,
+                            output_dir=stage_output_dir,
+                            stage_output_dir=stage_output_dir,
+                        )
+                        retry_result = stage3_retry.run()
+                        new_scene = retry_result.get("script_with_camera_plan")
+                        if new_scene:
+                            if isinstance(new_scene, list) and new_scene:
+                                new_scene = new_scene[0]
+                            backup = _backup_scene_shots(data["scene_obj"])
+                            _restore_scene_shots(new_scene, backup)
+                            _normalise_shot_blend(new_scene)
+                            enriched_script[retry_si] = new_scene
+                            logger.info("[Cinematography] Stage 3 retry done for scene %d", retry_si)
+                    except Exception as retry_exc:
+                        logger.warning("[Cinematography] Stage 3 retry failed for scene %d: %s", retry_si, retry_exc)
+
+                # Rebuild camera_script with (possibly corrected) enriched_script
+                camera_script = _build_camera_script(enriched_script, camera_lib)
+                retry_validation = _validate_camera_script(camera_script)
+                if retry_validation["valid"]:
+                    logger.info("[Cinematography] camera_script validation passed after Stage 3 retry")
+                else:
+                    logger.warning(
+                        "[Cinematography] camera_script still invalid after retry (using best-effort):\n%s",
+                        _format_camera_script_errors(retry_validation["errors"]),
+                    )
+            else:
+                logger.info("[Cinematography] camera_script validation passed")
+        except Exception as val_exc:
+            logger.warning("[Cinematography] camera_script validation error (skipped): %s", val_exc)
+
+        camera_script_filename = f"camera_script_{timestamp}.json"
+        with open(output_dir / camera_script_filename, "w", encoding="utf-8") as f:
+            json.dump(camera_script, f, ensure_ascii=False, indent=2)
 
         # Always save position_plan and position_detail as standalone downloadable files
         position_plan_filename = f"position_plan_{timestamp}.json"
@@ -196,6 +268,7 @@ def run_cinematography_pipeline(script, scene, resource_dir, output_dir, timesta
             "ok": True,
             "enriched_script": enriched_script,
             "filename": inter_path.name,
+            "camera_script_filename": camera_script_filename,
             "position_plan_filename": position_plan_filename,
             "position_detail_filename": position_detail_filename,
         }
@@ -277,6 +350,67 @@ def get_scene_info_json(scene, resource_dir):
         with open(custom_path, "r", encoding="utf-8-sig") as f:
             return json.load(f)
     return _build_scene_info_from_scene(scene)
+
+
+def _build_camera_script(enriched_script, camera_lib):
+    """
+    Extract camera fields from the enriched script into a standalone camera_script structure.
+    Each event maps 1-to-1 with a scene beat via event_index.
+    Motion settings are derived from CameraLib DefaultMotionPreset for the chosen shot_type.
+    """
+    scenes = []
+    script_list = enriched_script if isinstance(enriched_script, list) else [enriched_script]
+    for scene_index, scene_obj in enumerate(script_list):
+        if not isinstance(scene_obj, dict):
+            continue
+        events = []
+        for event_index, beat in enumerate(scene_obj.get("scene", [])):
+            if not isinstance(beat, dict):
+                continue
+
+            shot_type = beat.get("shot_type", "")
+            cam_def = camera_lib.get(shot_type, {})
+            default_preset = cam_def.get("DefaultMotionPreset", "none")
+            motion_enabled = default_preset != "none"
+
+            # Camera subject: speaker for dialogue beats, first mover for move beats
+            target = beat.get("speaker") or ""
+            if not target:
+                moves = beat.get("move") or []
+                if moves and isinstance(moves, list):
+                    target = moves[0].get("character", "")
+
+            # Find target's current position
+            target_position = ""
+            if target:
+                for pos_entry in beat.get("current position", []):
+                    if isinstance(pos_entry, dict) and pos_entry.get("character") == target:
+                        target_position = pos_entry.get("position", "")
+                        break
+
+            event = {
+                "event_index": event_index,
+                "shot": beat.get("shot", "character"),
+                "target": target,
+                "target_position": target_position,
+                "shot_type": shot_type,
+                "shot_blend": beat.get("shot_blend", "cut"),
+                "follow": beat.get("Follow", 0),
+                "camera": beat.get("camera", None),
+                "shot_description": beat.get("shot_description", ""),
+                "motion_enabled": motion_enabled,
+                "motion_preset": default_preset,
+            }
+            if motion_enabled:
+                event["play_motion_on_activate"] = True
+                event["motion_start_delay"] = 0.0
+                event["motion_reset_on_replay"] = True
+
+            events.append(event)
+
+        scenes.append({"scene_index": scene_index, "events": events})
+
+    return {"scenes": scenes}
 
 
 def _build_scene_info_from_scene(scene):

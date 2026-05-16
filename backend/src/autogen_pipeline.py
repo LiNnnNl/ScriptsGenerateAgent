@@ -44,8 +44,8 @@ from .resource_loader import ResourceLoader, Character, Scene
 from .json_generator import ScriptJSONGenerator
 from .cinematography import run_cinematography_pipeline
 from .schema import (
-    validate_script_shot_structure, validate_script_shots,
-    format_shot_structure_errors, format_shot_content_errors,
+    validate_script_shot_structure,
+    format_shot_structure_errors,
 )
 
 
@@ -252,16 +252,6 @@ async def _run_director_agent(
             else:
                 raise
     return None
-
-
-def _patch_shot_fields(target: list, source: list) -> None:
-    """将 source 中每个 beat 的 shot 相关字段更新到 target（in-place）。"""
-    shot_keys = ("shot", "shot_blend", "shot_type", "Follow", "camera")
-    for t_scene, s_scene in zip(target, source):
-        for t_beat, s_beat in zip(t_scene.get("scene", []), s_scene.get("scene", [])):
-            for key in shot_keys:
-                if key in s_beat:
-                    t_beat[key] = s_beat[key]
 
 
 def _extract_position_files(final_json: list, scene_id: str):
@@ -671,6 +661,7 @@ async def run_autogen_pipeline(
     generator.export_to_file(final_json, str(filepath))
 
     # ── 阶段五前：从剧本直接提取位置文件（兜底，始终生成） ──
+    camera_script_filename = None
     position_plan_filename = f"position_plan_{timestamp}.json"
     position_detail_filename = f"position_detail_{timestamp}.json"
     _base_plan, _base_detail = _extract_position_files(final_json, scene.id)
@@ -694,50 +685,14 @@ async def run_autogen_pipeline(
             )
             if cine_result.get("ok"):
                 draft_script = cine_result["enriched_script"]
+                camera_script_filename = cine_result.get("camera_script_filename")
                 position_plan_filename = cine_result.get("position_plan_filename")
                 position_detail_filename = cine_result.get("position_detail_filename")
                 # 用摄影指导结果重新生成并覆写 script_*.json（保留已填写的摄影字段）
                 final_json = generator.generate_final_json(draft_script, plot_summary, preserve_shot_fields=True)
                 generator.export_to_file(final_json, str(filepath))
                 _emit_stage_log(bridge, 'success', 'cinematography', 'result',
-                                f'✅ [摄影指导期] 摄影规划完成，已更新剧本镜头参数')
-
-                MAX_SHOT_CONTENT_RETRIES = 1
-                for content_attempt in range(MAX_SHOT_CONTENT_RETRIES + 1):
-                    shot_content = validate_script_shots(final_json)
-                    if shot_content["valid"]:
-                        _emit_stage_log(bridge, 'success', 'cinematography', 'shot_check',
-                                        '✅ [shot内容] 所有镜头字段值合规')
-                        break
-
-                    error_desc = format_shot_content_errors(shot_content["errors"])
-                    _emit_stage_log(bridge, 'warning', 'cinematography', 'shot_check',
-                                    f'⚠️ [shot内容] 字段值有问题，正在修正...\n{error_desc}')
-
-                    if content_attempt >= MAX_SHOT_CONTENT_RETRIES:
-                        _emit_stage_log(bridge, 'warning', 'cinematography', 'shot_check',
-                                        '⚠️ 已达最大重试次数')
-                        break
-
-                    fix_prompt = (
-                        f"以下 shot 字段值不符合规范，请修正后输出完整剧本 JSON：\n\n"
-                        f"{error_desc}\n\n"
-                        f"当前剧本：\n```json\n{json.dumps(draft_script, ensure_ascii=False, indent=2)}\n```"
-                    )
-                    _emit_stage_log(bridge, 'info', 'cinematography', 'shot_retry',
-                                    '✏️ DirectorAgent 修正 shot 字段值...')
-                    corrected_draft = await _run_director_agent(
-                        director, fix_prompt, bridge, "DirectorAgent（shot内容修正）"
-                    )
-                    if corrected_draft:
-                        _patch_shot_fields(final_json, corrected_draft)
-                        generator.export_to_file(final_json, str(filepath))
-                        _emit_stage_log(bridge, 'info', 'cinematography', 'shot_retry',
-                                        '✅ shot 字段已修正，重新校验...')
-                    else:
-                        _emit_stage_log(bridge, 'warning', 'cinematography', 'shot_retry',
-                                        '⚠️ DirectorAgent 输出解析失败，跳过修正')
-                        break
+                                f'✅ [摄影指导期] 摄影规划完成，镜头参数已写入 camera_script')
             else:
                 _emit_stage_log(bridge, 'warning', 'cinematography', 'failed',
                                 f'⚠️ [摄影指导期] 摄影规划失败（{cine_result.get("error")}），使用基础镜头参数继续')
@@ -845,6 +800,7 @@ async def run_autogen_pipeline(
         ts=session_id,
         files={
             "script": filename,
+            "camera_script": camera_script_filename,
             "actors_profile": actors_profile_filename,
             "position_plan": position_plan_filename,
             "position_detail": position_detail_filename,
@@ -859,6 +815,7 @@ async def run_autogen_pipeline(
     bridge.put_event({
         'type': 'success',
         'filename': filename,
+        'camera_script_filename': camera_script_filename,
         'actors_profile_filename': actors_profile_filename,
         'position_plan_filename': position_plan_filename,
         'position_detail_filename': position_detail_filename,

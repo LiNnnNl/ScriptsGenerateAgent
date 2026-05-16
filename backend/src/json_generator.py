@@ -43,20 +43,26 @@ class ScriptJSONGenerator:
             result = []
             for scene_obj in ai_script:
                 scene_obj = dict(scene_obj)
-                # 插入 title（在 scene information 之后）
-                ordered = {}
                 scene_info_default = scene_obj.get("scene information", {})
                 scene_info_default["where"] = self.scene.id
                 if "who" not in scene_info_default:
                     scene_info_default["who"] = [char.name for char in self.characters]
                 if "what" not in scene_info_default:
                     scene_info_default["what"] = plot_summary
-                ordered["scene information"] = scene_info_default
-                ordered["initial position"] = scene_obj.get(
-                    "initial position",
-                    [{"character": char.name, "position": ""} for char in self.characters]
-                )
-                ordered["scene"] = [self._normalize_segment(seg, preserve_shot_fields) for seg in scene_obj.get("scene", [])]
+                normalized_beats = []
+                for i, seg in enumerate(scene_obj.get("scene", [])):
+                    normalized = self._normalize_segment(seg, preserve_shot_fields)
+                    normalized.setdefault("event_index", i)
+                    normalized_beats.append(normalized)
+                # 强制保证字段顺序：scene information → initial position → scene
+                ordered = {
+                    "scene information": scene_info_default,
+                    "initial position": scene_obj.get(
+                        "initial position",
+                        [{"character": char.name, "position": ""} for char in self.characters]
+                    ),
+                    "scene": normalized_beats,
+                }
                 result.append(ordered)
             return result
 
@@ -93,11 +99,12 @@ class ScriptJSONGenerator:
         ]
 
     def _normalize_segment(self, seg: Dict, preserve_shot_fields: bool = False) -> Dict:
-        """shot_description 由摄影指导填写，其余摄影字段由编剧填写保留原值。"""
         seg = dict(seg)
-        if not preserve_shot_fields:
-            seg["shot_description"] = ""
-        seg.setdefault("Follow", 0)
+        # Camera-only fields are written to camera_script; strip them from the main script.
+        # Also strip current_position (underscore) — it's an internal processing artifact;
+        # the canonical field is "current position" (with space).
+        for field in ("shot", "shot_type", "shot_blend", "Follow", "camera", "current_position"):
+            seg.pop(field, None)
         for action in seg.get("actions", []):
             action.setdefault("motion_detail", "")
         return seg

@@ -72,7 +72,7 @@ const UI = {
     },
 
     // 显示成功结果
-    showSuccess(filename, actorsProfileFilename, positionFilename, warnings = [], positionPlanFilename = null, positionDetailFilename = null) {
+    showSuccess(filename, actorsProfileFilename, positionFilename, warnings = [], positionPlanFilename = null, positionDetailFilename = null, cameraScriptFilename = null) {
         const resultPanel = document.getElementById('resultPanel');
         const messageEl = document.getElementById('resultMessage');
 
@@ -84,6 +84,7 @@ const UI = {
         APP_STATE.currentPositionFilename = positionFilename || null;
         APP_STATE.currentPositionPlanFilename = positionPlanFilename || null;
         APP_STATE.currentPositionDetailFilename = positionDetailFilename || null;
+        APP_STATE.currentCameraScriptFilename = cameraScriptFilename || null;
 
         const actorsBtn = document.getElementById('downloadActorsBtn');
         if (actorsBtn) {
@@ -103,6 +104,11 @@ const UI = {
         if (detailBtn) {
             detailBtn.style.display = '';
             detailBtn.disabled = !positionDetailFilename;
+        }
+
+        const cameraBtn = document.getElementById('downloadCameraScriptBtn');
+        if (cameraBtn) {
+            cameraBtn.style.display = cameraScriptFilename ? '' : 'none';
         }
     },
 

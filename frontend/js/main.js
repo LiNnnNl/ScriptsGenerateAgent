@@ -182,7 +182,10 @@ function handleStreamData(data) {
         }
 
         APP_STATE.currentSessionId = data.session_id || null;
-        UI.showSuccess(data.filename, data.actors_profile_filename, data.position_filename, [], data.position_plan_filename, data.position_detail_filename);
+        if (data.camera_script_filename) {
+            UI.addLog('success', `🎥 镜头脚本: ${data.camera_script_filename}`);
+        }
+        UI.showSuccess(data.filename, data.actors_profile_filename, data.position_filename, [], data.position_plan_filename, data.position_detail_filename, data.camera_script_filename);
         UI.showVersionLabelSection(true);
         loadScriptEditor(data.filename);
         loadHistory();
@@ -276,6 +279,13 @@ function setupEventListeners() {
     document.getElementById('downloadPositionDetailBtn').addEventListener('click', () => {
         if (APP_STATE.currentPositionDetailFilename) {
             API.downloadFile(APP_STATE.currentPositionDetailFilename);
+        }
+    });
+
+    // 下载按钮 - 镜头脚本
+    document.getElementById('downloadCameraScriptBtn').addEventListener('click', () => {
+        if (APP_STATE.currentCameraScriptFilename) {
+            API.downloadFile(APP_STATE.currentCameraScriptFilename);
         }
     });
 
