@@ -823,6 +823,35 @@ body {
 /* 验证格式 */
 .ob-val-error { font-size: 0.78rem; color: #ef9a9a; padding: 2px 0; }
 .ob-val-warn  { font-size: 0.78rem; color: #ffcc80; padding: 2px 0; }
+
+/* 创意会议格式 */
+.ob-meeting-entry {
+    border-left-color: rgba(149,117,205,0.7);
+    background: rgba(103,58,183,0.08);
+    padding: 7px 12px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+.ob-meeting-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.ob-meeting-agent {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #b39ddb;
+    letter-spacing: 0.03em;
+}
+.ob-meeting-content {
+    font-size: 0.82rem;
+    color: rgba(224,224,224,0.85);
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+    padding-left: 2px;
+}
 .log-entry.thinking {
     border-left-color: #9c27b0;
     background: linear-gradient(90deg, #2a1a2e, var(--dark-gray));

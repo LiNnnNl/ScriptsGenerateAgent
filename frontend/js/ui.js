@@ -50,6 +50,7 @@ const UI = {
         if (!meta || !meta.stage) return '';
         const labels = {
             setup: '流程准备期',
+            meeting: '创意会议',
             concept: '概念孵化期',
             synopsis: '故事梗概期',
             character_bios: '人物塑形期',
@@ -1148,6 +1149,19 @@ const UI = {
                 ...errors.map(e => `<div class="ob-val-error">✗ ${this._esc(e)}</div>`),
                 ...warnings.map(w => `<div class="ob-val-warn">⚠ ${this._esc(w)}</div>`)
             ].join('');
+        } else if (fmt === 'meeting') {
+            const content = typeof data === 'string' ? data : JSON.stringify(data);
+            wrap.className = 'log-entry output-block-entry ob-meeting-entry';
+            wrap.innerHTML = `
+                <div class="ob-meeting-row">
+                    <span class="log-timestamp">[${timestamp}]</span>
+                    <span class="ob-meeting-agent">${this._esc(agent)}</span>
+                </div>
+                <div class="ob-meeting-content">${this._esc(content)}</div>
+            `;
+            logContent.appendChild(wrap);
+            logContent.scrollTop = logContent.scrollHeight;
+            return;
         }
 
         const isCollapsible = fmt === 'script';
