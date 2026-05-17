@@ -1,0 +1,20 @@
+{
+  "where": "scene_school_rooftop",
+  "groups": [],
+  "singles": [
+    {
+      "position_id": "Position 1",
+      "character": "林星",
+      "region": "",
+      "neartarget": "",
+      "lookat": ""
+    },
+    {
+      "position_id": "Position 2",
+      "character": "苏野",
+      "region": "",
+      "neartarget": "",
+      "lookat": ""
+    }
+  ]
+}

@@ -1,0 +1,415 @@
+[
+  {
+    "scene information": {
+      "who": [
+        "林晓",
+        "苏漾"
+      ],
+      "where": "scene_school_rooftop",
+      "what": "林晓维持封闭独处的日常，苏漾鼓起勇气来到天台，准备坦白藏了两年的秘密"
+    },
+    "initial position": [
+      {
+        "character": "林晓",
+        "position": "Position 1"
+      },
+      {
+        "character": "苏漾",
+        "position": "Position 2"
+      }
+    ],
+    "scene": [
+      {
+        "speaker": "林晓",
+        "content": "今天风也挺舒服的...",
+        "shot_blend": "Cut",
+        "shot": "character",
+        "shot_type": "中近景",
+        "shot_description": "",
+        "Follow": 0,
+        "actions": [
+          {
+            "character": "林晓",
+            "state": "standing",
+            "action": "Standing Normal",
+            "motion_detail": ""
+          }
+        ],
+        "current position": [
+          {
+            "character": "林晓",
+            "position": "Position 1"
+          },
+          {
+            "character": "苏漾",
+            "position": "Position 2"
+          }
+        ]
+      },
+      {
+        "speaker": "苏漾",
+        "content": "林晓，我...我有话想跟你说，关于两年前你原来学校的那件事。",
+        "shot_blend": "Ease In",
+        "shot": "character",
+        "shot_type": "中景",
+        "shot_description": "",
+        "Follow": 0,
+        "actions": [
+          {
+            "character": "苏漾",
+            "state": "standing",
+            "action": "Standing Talking 1",
+            "motion_detail": ""
+          }
+        ],
+        "current position": [
+          {
+            "character": "林晓",
+            "position": "Position 1"
+          },
+          {
+            "character": "苏漾",
+            "position": "Position 2"
+          }
+        ]
+      },
+      {
+        "move": [
+          {
+            "character": "苏漾",
+            "destination": "Position 1"
+          }
+        ],
+        "shot_blend": "Cut",
+        "shot": "scene",
+        "camera": 1,
+        "current position": [
+          {
+            "character": "林晓",
+            "position": "Position 1"
+          },
+          {
+            "character": "苏漾",
+            "position": "Position 2"
+          }
+        ],
+        "shot_description": "",
+        "Follow": 0
+      },
+      {
+        "speaker": "苏漾",
+        "content": "我就是当年那件事里，唯一知道真相的人...对不起，这个秘密我藏了整整两年。",
+        "shot_blend": "Cut",
+        "shot": "character",
+        "shot_type": "中近景",
+        "shot_description": "",
+        "Follow": 0,
+        "actions": [
+          {
+            "character": "苏漾",
+            "state": "standing",
+            "action": "Standing Talking 3",
+            "motion_detail": ""
+          }
+        ],
+        "current position": [
+          {
+            "character": "林晓",
+            "position": "Position 1"
+          },
+          {
+            "character": "苏漾",
+            "position": "Position 1"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "scene information": {
+      "who": [
+        "林晓",
+        "苏漾"
+      ],
+      "where": "scene_school_rooftop",
+      "what": "林晓得知真相后暴怒崩溃，两人摊开各自深埋心底对信任的恐惧与心结"
+    },
+    "initial position": [
+      {
+        "character": "林晓",
+        "position": "Position 1"
+      },
+      {
+        "character": "苏漾",
+        "position": "Position 1"
+      }
+    ],
+    "scene": [
+      {
+        "speaker": "林晓",
+        "content": "你说什么？你早就知道真相？那你当年为什么不说一句？！",
+        "shot_blend": "Cut",
+        "shot": "character",
+        "shot_type": "近景",
+        "shot_description": "",
+        "Follow": 0,
+        "actions": [
+          {
+            "character": "林晓",
+            "state": "standing",
+            "action": "Standing Surprise",
+            "motion_detail": ""
+          }
+        ],
+        "current position": [
+          {
+            "character": "林晓",
+            "position": "Position 1"
+          },
+          {
+            "character": "苏漾",
+            "position": "Position 1"
+          }
+        ]
+      },
+      {
+        "speaker": "林晓",
+        "content": "你看着我被栽赃作弊，身败名裂被迫转学，就眼睁睁看着？为什么要等到今天才说！",
+        "shot_blend": "Ease In",
+        "shot": "character",
+        "shot_type": "近景",
+        "shot_description": "",
+        "Follow": 0,
+        "actions": [
+          {
+            "character": "林晓",
+            "state": "standing",
+            "action": "Standing Angry 1",
+            "motion_detail": ""
+          }
+        ],
+        "current position": [
+          {
+            "character": "林晓",
+            "position": "Position 1"
+          },
+          {
+            "character": "苏漾",
+            "position": "Position 1"
+          }
+        ]
+      },
+      {
+        "speaker": "苏漾",
+        "content": "我对不起你...我那时候太胆小了，我怕她会联合所有人孤立我，我不敢站出来，我错了...",
+        "shot_blend": "Cut",
+        "shot": "character",
+        "shot_type": "中近景",
+        "shot_description": "",
+        "Follow": 0,
+        "actions": [
+          {
+            "character": "苏漾",
+            "state": "standing",
+            "action": "Standing Depressed",
+            "motion_detail": ""
+          }
+        ],
+        "current position": [
+          {
+            "character": "林晓",
+            "position": "Position 1"
+          },
+          {
+            "character": "苏漾",
+            "position": "Position 1"
+          }
+        ]
+      },
+      {
+        "speaker": "林晓",
+        "content": "所以我所有的委屈、我失去的一切，都换不来你当年一句真话？我再也不会相信任何人了，所有人都会为了自己出卖我！",
+        "shot_blend": "Ease In",
+        "shot": "character",
+        "shot_type": "近景",
+        "shot_description": "",
+        "Follow": 0,
+        "actions": [
+          {
+            "character": "林晓",
+            "state": "standing",
+            "action": "Standing Cry",
+            "motion_detail": ""
+          }
+        ],
+        "current position": [
+          {
+            "character": "林晓",
+            "position": "Position 1"
+          },
+          {
+            "character": "苏漾",
+            "position": "Position 1"
+          }
+        ]
+      },
+      {
+        "speaker": "苏漾",
+        "content": "我知道我不配被原谅，我只是不想再带着秘密活下去了...我太怕永远背着这份愧疚了，我懂你的恐惧，我也怕，怕说了真话还是会被所有人抛弃。",
+        "shot_blend": "Cut",
+        "shot": "character",
+        "shot_type": "中近景",
+        "shot_description": "",
+        "Follow": 0,
+        "actions": [
+          {
+            "character": "苏漾",
+            "state": "standing",
+            "action": "Standing Upset 1",
+            "motion_detail": ""
+          }
+        ],
+        "current position": [
+          {
+            "character": "林晓",
+            "position": "Position 1"
+          },
+          {
+            "character": "苏漾",
+            "position": "Position 1"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "scene information": {
+      "who": [
+        "林晓",
+        "苏漾"
+      ],
+      "where": "scene_school_rooftop",
+      "what": "两人平复情绪后做出选择，决定放下过往，尝试重建信任完成自我成长"
+    },
+    "initial position": [
+      {
+        "character": "林晓",
+        "position": "Position 1"
+      },
+      {
+        "character": "苏漾",
+        "position": "Position 1"
+      }
+    ],
+    "scene": [
+      {
+        "speaker": "林晓",
+        "content": "我躲了半年，每天都在这里，就是怕再交出去真心，又换来一身伤...可其实我也好想，能有人跟我说一句真话。",
+        "shot_blend": "Ease Out",
+        "shot": "character",
+        "shot_type": "中近景",
+        "shot_description": "",
+        "Follow": 0,
+        "actions": [
+          {
+            "character": "林晓",
+            "state": "standing",
+            "action": "Standing Thinking",
+            "motion_detail": ""
+          }
+        ],
+        "current position": [
+          {
+            "character": "林晓",
+            "position": "Position 1"
+          },
+          {
+            "character": "苏漾",
+            "position": "Position 1"
+          }
+        ]
+      },
+      {
+        "speaker": "苏漾",
+        "content": "我们都被过去困住了对不对？我们能不能重新试试？我不会再逃了，我想陪着你，一起走出来。",
+        "shot_blend": "Cut",
+        "shot": "character",
+        "shot_type": "中近景",
+        "shot_description": "",
+        "Follow": 0,
+        "actions": [
+          {
+            "character": "苏漾",
+            "state": "standing",
+            "action": "Standing Talking 1",
+            "motion_detail": ""
+          }
+        ],
+        "current position": [
+          {
+            "character": "林晓",
+            "position": "Position 1"
+          },
+          {
+            "character": "苏漾",
+            "position": "Position 1"
+          }
+        ]
+      },
+      {
+        "speaker": "林晓",
+        "content": "好...那我们试试。我试着再相信一次，你也放下你背了两年的愧疚，好不好？",
+        "shot_blend": "Cut",
+        "shot": "character",
+        "shot_type": "近景",
+        "shot_description": "",
+        "Follow": 0,
+        "actions": [
+          {
+            "character": "林晓",
+            "state": "standing",
+            "action": "Standing Agree 1",
+            "motion_detail": ""
+          }
+        ],
+        "current position": [
+          {
+            "character": "林晓",
+            "position": "Position 1"
+          },
+          {
+            "character": "苏漾",
+            "position": "Position 1"
+          }
+        ]
+      },
+      {
+        "speaker": "苏漾",
+        "content": "谢谢你...真的谢谢你愿意相信我。",
+        "shot_blend": "Cut",
+        "shot": "character",
+        "shot_type": "中近景",
+        "shot_description": "",
+        "Follow": 0,
+        "actions": [
+          {
+            "character": "苏漾",
+            "state": "standing",
+            "action": "Standing Happy",
+            "motion_detail": ""
+          }
+        ],
+        "current position": [
+          {
+            "character": "林晓",
+            "position": "Position 1"
+          },
+          {
+            "character": "苏漾",
+            "position": "Position 1"
+          }
+        ]
+      }
+    ]
+  }
+]

@@ -324,8 +324,8 @@ class PositionAgent:
             region = single.get("region")
             if region not in self.region_map:
                 raise ValueError(f"Invalid region for single {position_id!r}: {region!r}")
-            neartarget = single.get("neartarget")
-            if neartarget not in self.region_targets.get(region, []):
+            neartarget = single.get("neartarget", "")
+            if neartarget and neartarget not in self.region_targets.get(region, []):
                 raise ValueError(f"Invalid neartarget for single {position_id!r}: {neartarget!r}")
             lookat = single.get("lookat")
             if not isinstance(lookat, str) or not lookat.strip():
@@ -1701,11 +1701,13 @@ class PositionAgent:
             stage2_single = stage2_single_map[position_id]
             final_region = self._coerce_valid_region(raw_single.get("region"), stage2_single["region"])
             lookat = stage2_single.get("lookat") or raw_single.get("lookat") or ""
+            neartarget = stage2_single.get("neartarget") or raw_single.get("neartarget") or ""
             plan["singles"].append(
                 {
                     "position_id": position_id,
                     "character": self.position_map[position_id]["character"],
                     "region": final_region,
+                    "neartarget": neartarget,
                     "lookat": lookat,
                 }
             )
@@ -1735,6 +1737,7 @@ class PositionAgent:
                     "position_id": single["position_id"],
                     "character": single["character"],
                     "region": stage2_single["region"],
+                    "neartarget": stage2_single.get("neartarget", ""),
                     "lookat": stage2_single.get("lookat", ""),
                 }
             )
@@ -2257,7 +2260,9 @@ class PositionAgent:
         region = self._coerce_valid_region(raw_plan.get("region"), default_region)
         return {
             "position_id": stage1_single["position_id"],
+            "character": stage1_single["character"],
             "region": region,
+            "neartarget": raw_plan.get("neartarget", ""),
             "lookat": raw_plan.get("lookat", ""),
         }
 

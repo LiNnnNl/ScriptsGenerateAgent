@@ -1,0 +1,365 @@
+[
+  {
+    "scene information": {
+      "who": [
+        "林星",
+        "苏野"
+      ],
+      "where": "scene_school_rooftop",
+      "what": "林星带着三天后出国的机票和道歉信登上天台，准备挽回决裂的友谊兑现约定，意外发现苏野早已在此等候"
+    },
+    "initial position": [
+      {
+        "character": "林星",
+        "position": "Position 1"
+      },
+      {
+        "character": "苏野",
+        "position": "Position 2"
+      }
+    ],
+    "scene": [
+      {
+        "speaker": "林星",
+        "content": "（攥着衣角轻声自语）他应该不会来了吧，毕竟我那样对他...",
+        "shot_blend": "Cut",
+        "shot": "character",
+        "shot_type": "中近景",
+        "shot_description": "",
+        "Follow": 0,
+        "actions": [
+          {
+            "character": "林星",
+            "state": "standing",
+            "action": "Standing Thinking",
+            "motion_detail": ""
+          }
+        ],
+        "current position": [
+          {
+            "character": "林星",
+            "position": "Position 1"
+          },
+          {
+            "character": "苏野",
+            "position": "Position 2"
+          }
+        ]
+      },
+      {
+        "speaker": "苏野",
+        "content": "你来了，我等你很久了。",
+        "shot_blend": "Ease In",
+        "shot": "character",
+        "shot_type": "侧跟镜头",
+        "shot_description": "",
+        "Follow": 1,
+        "actions": [
+          {
+            "character": "苏野",
+            "state": "standing",
+            "action": "Standing Normal",
+            "motion_detail": ""
+          }
+        ],
+        "current position": [
+          {
+            "character": "林星",
+            "position": "Position 1"
+          },
+          {
+            "character": "苏野",
+            "position": "Position 2"
+          }
+        ]
+      },
+      {
+        "speaker": "林星",
+        "content": "苏野？你怎么会...在这里...",
+        "shot_blend": "Cut",
+        "shot": "character",
+        "shot_type": "近景",
+        "shot_description": "",
+        "Follow": 0,
+        "actions": [
+          {
+            "character": "林星",
+            "state": "standing",
+            "action": "Standing Surprise",
+            "motion_detail": ""
+          }
+        ],
+        "current position": [
+          {
+            "character": "林星",
+            "position": "Position 1"
+          },
+          {
+            "character": "苏野",
+            "position": "Position 2"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "scene information": {
+      "who": [
+        "林星",
+        "苏野"
+      ],
+      "where": "scene_school_rooftop",
+      "what": "林星坦白隐瞒转学刻意疏远的原因，苏野说出积压的情绪与早已猜到真相的事实，核心误会开始消解"
+    },
+    "initial position": [
+      {
+        "character": "林星",
+        "position": "Position 1"
+      },
+      {
+        "character": "苏野",
+        "position": "Position 1"
+      }
+    ],
+    "scene": [
+      {
+        "speaker": "林星",
+        "content": "对不起，我不是故意要骗你的。三天后我就要出国转学了，我怕说出来会刺激到你...我怕你觉得我也跟以前那些人一样，会抛弃你，所以我才故意疏远你，我以为这样伤害会小一点...",
+        "shot_blend": "Cut",
+        "shot": "character",
+        "shot_type": "中近景",
+        "shot_description": "",
+        "Follow": 0,
+        "actions": [
+          {
+            "character": "林星",
+            "state": "standing",
+            "action": "Standing Talking 3",
+            "motion_detail": ""
+          }
+        ],
+        "current position": [
+          {
+            "character": "林星",
+            "position": "Position 1"
+          },
+          {
+            "character": "苏野",
+            "position": "Position 1"
+          }
+        ]
+      },
+      {
+        "speaker": "苏野",
+        "content": "你突然冷漠的时候，我真的以为...我又被背叛了。我好不容易才敢重新相信一个人，我以为我这次终于没看错人...",
+        "shot_blend": "Ease In",
+        "shot": "character",
+        "shot_type": "中近景",
+        "shot_description": "",
+        "Follow": 0,
+        "actions": [
+          {
+            "character": "苏野",
+            "state": "standing",
+            "action": "Standing Upset 2",
+            "motion_detail": ""
+          }
+        ],
+        "current position": [
+          {
+            "character": "林星",
+            "position": "Position 1"
+          },
+          {
+            "character": "苏野",
+            "position": "Position 1"
+          }
+        ]
+      },
+      {
+        "speaker": "苏野",
+        "content": "其实我早就察觉到你的反常了，也猜到你可能要走了。我已经在这儿等你好几天了，就是想等你亲口告诉我，等你愿意信任我一次。",
+        "shot_blend": "Linear",
+        "shot": "character",
+        "shot_type": "近景",
+        "shot_description": "",
+        "Follow": 0,
+        "actions": [
+          {
+            "character": "苏野",
+            "state": "standing",
+            "action": "Standing Talking 2",
+            "motion_detail": ""
+          }
+        ],
+        "current position": [
+          {
+            "character": "林星",
+            "position": "Position 1"
+          },
+          {
+            "character": "苏野",
+            "position": "Position 1"
+          }
+        ]
+      },
+      {
+        "speaker": "林星",
+        "content": "苏野...我...",
+        "shot_blend": "Cut",
+        "shot": "character",
+        "shot_type": "近景",
+        "shot_description": "",
+        "Follow": 0,
+        "actions": [
+          {
+            "character": "林星",
+            "state": "standing",
+            "action": "Standing Depressed",
+            "motion_detail": ""
+          }
+        ],
+        "current position": [
+          {
+            "character": "林星",
+            "position": "Position 1"
+          },
+          {
+            "character": "苏野",
+            "position": "Position 1"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "scene information": {
+      "who": [
+        "林星",
+        "苏野"
+      ],
+      "where": "scene_school_rooftop",
+      "what": "两人并肩等到金色日落，彻底解开误会重建信任，定下未来再共看日落的约定，完成青春和解"
+    },
+    "initial position": [
+      {
+        "character": "林星",
+        "position": "Position 1"
+      },
+      {
+        "character": "苏野",
+        "position": "Position 1"
+      }
+    ],
+    "scene": [
+      {
+        "speaker": "苏野",
+        "content": "好了，误会都说开了。我们不是早就约定好了，今天要一起在这里看日落吗？",
+        "shot_blend": "Cut",
+        "shot": "character",
+        "shot_type": "中景",
+        "shot_description": "",
+        "Follow": 0,
+        "actions": [
+          {
+            "character": "苏野",
+            "state": "standing",
+            "action": "Standing Agree 1",
+            "motion_detail": ""
+          }
+        ],
+        "current position": [
+          {
+            "character": "林星",
+            "position": "Position 1"
+          },
+          {
+            "character": "苏野",
+            "position": "Position 1"
+          }
+        ]
+      },
+      {
+        "speaker": "林星",
+        "content": "你看！日落出来了...整座城市都变成金色了，跟我们当初说的一模一样。",
+        "shot_blend": "Ease In Out",
+        "shot": "character",
+        "shot_type": "中景",
+        "shot_description": "",
+        "Follow": 0,
+        "actions": [
+          {
+            "character": "林星",
+            "state": "standing",
+            "action": "Standing Happy",
+            "motion_detail": ""
+          }
+        ],
+        "current position": [
+          {
+            "character": "林星",
+            "position": "Position 1"
+          },
+          {
+            "character": "苏野",
+            "position": "Position 1"
+          }
+        ]
+      },
+      {
+        "speaker": "苏野",
+        "content": "等你以后回来，我们还来这里看日落。",
+        "shot_blend": "Linear",
+        "shot": "character",
+        "shot_type": "侧跟镜头",
+        "shot_description": "",
+        "Follow": 1,
+        "actions": [
+          {
+            "character": "苏野",
+            "state": "standing",
+            "action": "Standing Talking 1",
+            "motion_detail": ""
+          }
+        ],
+        "current position": [
+          {
+            "character": "林星",
+            "position": "Position 1"
+          },
+          {
+            "character": "苏野",
+            "position": "Position 1"
+          }
+        ]
+      },
+      {
+        "speaker": "林星",
+        "content": "好，一言为定。",
+        "shot_blend": "Ease Out",
+        "shot": "character",
+        "shot_type": "全景",
+        "shot_description": "",
+        "Follow": 0,
+        "actions": [
+          {
+            "character": "林星",
+            "state": "standing",
+            "action": "Standing Agree 1",
+            "motion_detail": ""
+          }
+        ],
+        "current position": [
+          {
+            "character": "林星",
+            "position": "Position 1"
+          },
+          {
+            "character": "苏野",
+            "position": "Position 1"
+          }
+        ]
+      }
+    ]
+  }
+]
