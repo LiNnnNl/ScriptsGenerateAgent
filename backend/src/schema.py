@@ -209,9 +209,9 @@ class _PositionSingle(BaseModel):
     position_id: str
     character: str
     region: str
-    neartarget: str
+    lookat: str = ""
 
-    @field_validator("position_id", "character", "region", "neartarget")
+    @field_validator("position_id", "character", "region")
     @classmethod
     def not_empty(cls, v: str) -> str:
         if not v or not v.strip():

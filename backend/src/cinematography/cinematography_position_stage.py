@@ -349,7 +349,6 @@ class CinematographyPositionStage:
                 "position_id": s.get("position_id", ""),
                 "character": s.get("character", ""),
                 "region": s.get("region", ""),
-                "neartarget": s.get("neartarget", ""),
                 "lookat": s.get("lookat", ""),
             }
             for s in planning.get("singles", [])
@@ -384,12 +383,12 @@ class CinematographyPositionStage:
             break
 
         planned_groups = [
-            {**g, "region": first_region, "neartarget": first_anchor,
+            {**g, "region": first_region,
              "lookat": {"mode": "center"}}
             for g in grouping.get("groups", [])
         ]
         planned_singles = [
-            {**s, "region": first_region, "neartarget": first_anchor, "lookat": "center"}
+            {**s, "region": first_region, "lookat": "center"}
             for s in grouping.get("singles", [])
         ]
         return {"where": where, "groups": planned_groups, "singles": planned_singles}

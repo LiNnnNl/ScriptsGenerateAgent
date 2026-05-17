@@ -1700,25 +1700,13 @@ class PositionAgent:
             raw_single = raw_single_map.get(position_id, {})
             stage2_single = stage2_single_map[position_id]
             final_region = self._coerce_valid_region(raw_single.get("region"), stage2_single["region"])
-            context = self.position_map[position_id].get("context", "")
-            fallback_neartarget = stage2_single["neartarget"]
-            if fallback_neartarget not in self.region_targets.get(final_region, []):
-                fallback_neartarget = self._choose_neartarget(final_region, context)
-            final_neartarget = self._coerce_valid_neartarget(
-                raw_single.get("neartarget"),
-                final_region,
-                fallback_neartarget,
-            )
-            fallback_lookat = stage2_single["lookat"]
-            if not isinstance(fallback_lookat, str) or fallback_lookat.strip() not in self.all_targets:
-                fallback_lookat = self._choose_single_lookat(final_region, context, final_neartarget)
+            lookat = stage2_single.get("lookat") or raw_single.get("lookat") or ""
             plan["singles"].append(
                 {
                     "position_id": position_id,
                     "character": self.position_map[position_id]["character"],
                     "region": final_region,
-                    "neartarget": final_neartarget,
-                    "lookat": self._coerce_valid_single_lookat(raw_single.get("lookat"), fallback_lookat),
+                    "lookat": lookat,
                 }
             )
 
@@ -1747,8 +1735,7 @@ class PositionAgent:
                     "position_id": single["position_id"],
                     "character": single["character"],
                     "region": stage2_single["region"],
-                    "neartarget": stage2_single["neartarget"],
-                    "lookat": stage2_single["lookat"],
+                    "lookat": stage2_single.get("lookat", ""),
                 }
             )
         return plan
@@ -2268,14 +2255,10 @@ class PositionAgent:
         context = self.position_map[stage1_single["position_id"]].get("context", "")
         default_region = self._choose_region(context)
         region = self._coerce_valid_region(raw_plan.get("region"), default_region)
-        neartarget = self._coerce_valid_neartarget(raw_plan.get("neartarget"), region, self._choose_neartarget(region, context))
-        default_lookat = self._choose_single_lookat(region, context, neartarget)
         return {
             "position_id": stage1_single["position_id"],
             "region": region,
-            "neartarget": neartarget,
-            "lookat": self._coerce_valid_single_lookat(raw_plan.get("lookat"), default_lookat),
-            "reason": self._sanitize_reason_for_region(raw_plan.get("reason"), region, "Planned deterministically."),
+            "lookat": raw_plan.get("lookat", ""),
         }
 
     def _coerce_valid_region(self, candidate, fallback):

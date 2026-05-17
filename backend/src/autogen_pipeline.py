@@ -280,10 +280,10 @@ def _extract_position_files(final_json: list, scene_id: str):
                 if pos and pos not in char_pos:
                     char_pos[pos] = char
 
-    singles = [{"position_id": p, "character": c, "region": "", "neartarget": "", "lookat": ""}
+    singles = [{"position_id": p, "character": c, "region": "", "lookat": ""}
                for p, c in char_pos.items() if p]
     plan = {"where": scene_id, "groups": [], "singles": singles}
-    detail_signals = [{"position_id": p, "character": c, "region": "", "neartarget": "", "lookat": ""}
+    detail_signals = [{"position_id": p, "character": c, "region": "", "lookat": ""}
                       for p, c in char_pos.items() if p]
     detail = {"where": scene_id, "groups": [], "signals": detail_signals}
     return plan, detail
@@ -749,6 +749,13 @@ async def run_autogen_pipeline(
                 return cdata['gameobject_name']
         return ''
 
+    # 构建 character_bios 查找表（用于 AI 创作角色补充信息）
+    bios_lookup = {}
+    bios_data = stage_context.get("character_bios", {})
+    if isinstance(bios_data, dict) and "character_bios" in bios_data:
+        for bio in bios_data["character_bios"]:
+            bios_lookup[bio.get("name", "")] = bio
+
     actors_profile = []
     for name in actor_names:
         if name in char_map:
@@ -776,22 +783,19 @@ async def run_autogen_pipeline(
                 "background": item.get('background') or item.get('description') or f"用户自定义角色：{name}"
             })
         else:
-            # AI 创作角色：先精确匹配，匹配不到则 fallback 选近似角色
-            char_data = char_map.get(name)
-            if char_data:
-                actors_profile.append(char_data)
-            else:
-                gameobject_name = _find_fallback_gameobject_name(name)
-                actors_profile.append({
-                    "name": name,
-                    "age": None,
-                    "gender": "未知",
-                    "gameobject_name": gameobject_name,
-                    "appearance": {"height": "", "body_type": "", "hair": "", "face": ""},
-                    "acting_style": '',
-                    "traits": [],
-                    "background": f"AI自由创作角色：{name}"
-                })
+            # AI 创作角色：优先从 character_bios 提取信息，否则 fallback
+            bio = bios_lookup.get(name, {})
+            gameobject_name = _find_fallback_gameobject_name(name, bio.get('gender') or '')
+            actors_profile.append({
+                "name": name,
+                "age": bio.get('age'),
+                "gender": bio.get('gender') or '未知',
+                "gameobject_name": gameobject_name,
+                "appearance": bio.get('appearance') or {"height": "", "body_type": "", "hair": "", "face": ""},
+                "acting_style": '',
+                "traits": bio.get('traits') or [],
+                "background": bio.get('background') or f"AI自由创作角色：{name}"
+            })
 
     actors_profile_filename = f"actors_profile_{timestamp}.json"
     actors_filepath = output_dir / actors_profile_filename
