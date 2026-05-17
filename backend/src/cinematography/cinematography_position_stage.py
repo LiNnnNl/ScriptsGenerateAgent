@@ -27,6 +27,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from .coordinate_skill import CoordinateSkill
+from .position_detail_converter import PositionDetailConverter
 from ..schema import validate_position_plan, format_position_plan_errors
 
 logger = logging.getLogger(__name__)
@@ -86,8 +87,8 @@ class CinematographyPositionStage:
         logger.info("[Stage2][coordinates] positions resolved=%d",
                     len(self.coordinate_result.get("positions", {})))
 
-        # Build position_detail by flattening position_plan
-        position_detail = self._build_position_detail(where, self.planning_result)
+        # Build position_detail via PositionDetailConverter (same as Unity)
+        position_detail = PositionDetailConverter(self.planning_result).convert()
 
         stage_result = {
             "where": where,
@@ -279,83 +280,6 @@ class CinematographyPositionStage:
             "where": planning.get("where", ""),
             "positions": positions,
         }
-
-    def _build_position_detail(self, where: str, planning: Dict) -> Dict:
-        """
-        Flatten position_plan into the per-position detail format expected by Stage 3.
-        groups: one entry per position_id (flat, with group_id/character/layout/region/lookat)
-        signals: singles list (matches position_plan.singles format)
-
-        lookat resolution (matches download版的 position_detail_converter._convert_group):
-          - mode="center"  → all positions get lookat="center"
-          - mode="target" + target_character → target gets lookat="center",
-            others get lookat=<target_position_id>
-          - mode="target" + target_object → all get lookat=<target_object>
-        """
-        flat_groups = []
-        for group in planning.get("groups", []):
-            # neartarget 只在 single 点位有效，group 点位强制丢弃
-            group = {k: v for k, v in group.items() if k != "neartarget"}
-            group_id = group.get("group_id", "")
-            layout = group.get("layout", "")
-            region = group.get("region", "")
-            lookat_obj = group.get("lookat", {}) if isinstance(group.get("lookat"), dict) else {}
-
-            # Build character → position_id map (for target_character resolution)
-            char_to_pos = {}
-            for item in group.get("positions", []):
-                if isinstance(item, dict):
-                    char = item.get("character", "")
-                    pos = item.get("position_id", "")
-                    if char and pos:
-                        char_to_pos[char] = pos
-
-            mode = lookat_obj.get("mode", "center")
-
-            for item in group.get("positions", []):
-                if not isinstance(item, dict):
-                    continue
-                pos_id = item.get("position_id", "")
-                character = item.get("character", "")
-
-                if mode == "center":
-                    resolved_lookat = "center"
-                elif mode == "target":
-                    target_char = lookat_obj.get("target_character", "")
-                    target_obj = lookat_obj.get("target_object", "")
-                    if target_char:
-                        if character == target_char:
-                            resolved_lookat = "center"
-                        else:
-                            resolved_lookat = char_to_pos.get(target_char, "center")
-                    elif target_obj:
-                        resolved_lookat = target_obj
-                    else:
-                        resolved_lookat = "center"
-                else:
-                    resolved_lookat = "center"
-
-                flat_groups.append({
-                    "position_id": pos_id,
-                    "group_id": group_id,
-                    "region": region,
-                    "character": character,
-                    "layout": layout,
-                    "lookat": resolved_lookat,
-                })
-
-        signals = [
-            {
-                "position_id": s.get("position_id", ""),
-                "character": s.get("character", ""),
-                "region": s.get("region", ""),
-                "lookat": s.get("lookat", ""),
-            }
-            for s in planning.get("singles", [])
-            if isinstance(s, dict)
-        ]
-
-        return {"where": where, "groups": flat_groups, "signals": signals}
 
     # ──────────────────────────────────────────────
     # Fallbacks
