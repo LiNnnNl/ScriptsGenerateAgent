@@ -16,7 +16,7 @@ position_plan_json   – {where, groups: [{group_id, layout, region, neartarget,
                         positions: [{position_id, character}], lookat}],
                         singles: [{position_id, character, region, neartarget, lookat}]}
 position_detail_json – {where, groups: [{position_id, group_id, region, character,
-                        layout, lookat}], signals: [{position_id, character, region,
+                        layout, lookat}], singles: [{position_id, character, region,
                         neartarget, lookat}]}
 """
 
