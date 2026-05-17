@@ -23,6 +23,17 @@ VALID_SHOT_BLEND = {
     "Hard In", "Hard Out", "Linear", "Custom",
 }
 
+VALID_LAYOUTS = Literal[
+    "two_person",
+    "L_shape",
+    "triangle",
+    "line",
+    "square",
+    "arc",
+    "cluster",
+    "layered",
+]
+
 VALID_SHOT_TYPE = {
     "全景", "中景", "中近景", "近景",
     "第一人称镜头", "肩后镜头", "侧跟镜头", "环绕镜头",
@@ -185,12 +196,12 @@ class _PositionEntry(BaseModel):
 
 class _PositionGroup(BaseModel):
     group_id: str
-    layout: str
+    layout: VALID_LAYOUTS
     region: str
     positions: List[_PositionEntry]
     # neartarget 只存在于 single，group 用锚点采样点位，不需要此字段
 
-    @field_validator("group_id", "layout", "region")
+    @field_validator("group_id", "region")
     @classmethod
     def not_empty(cls, v: str) -> str:
         if not v or not v.strip():
