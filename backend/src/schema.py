@@ -209,6 +209,7 @@ class _PositionSingle(BaseModel):
     position_id: str
     character: str
     region: str
+    neartarget: str = ""
     lookat: str = ""
 
     @field_validator("position_id", "character", "region")
