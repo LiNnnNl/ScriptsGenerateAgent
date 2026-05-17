@@ -285,7 +285,7 @@ def _extract_position_files(final_json: list, scene_id: str):
     plan = {"where": scene_id, "groups": [], "singles": singles}
     detail_signals = [{"position_id": p, "character": c, "region": "", "lookat": ""}
                       for p, c in char_pos.items() if p]
-    detail = {"where": scene_id, "groups": [], "signals": detail_signals}
+    detail = {"where": scene_id, "groups": [], "singles": detail_signals}
     return plan, detail
 
 

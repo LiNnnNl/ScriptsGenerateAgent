@@ -262,7 +262,7 @@ def run_cinematography_pipeline(script, scene, resource_dir, output_dir, timesta
         with open(output_dir / position_plan_filename, "w", encoding="utf-8") as f:
             json.dump(last_position_plan or {"where": "", "groups": [], "singles": []}, f, ensure_ascii=False, indent=2)
         with open(output_dir / position_detail_filename, "w", encoding="utf-8") as f:
-            json.dump(last_position_detail or {"where": "", "groups": [], "signals": []}, f, ensure_ascii=False, indent=2)
+            json.dump(last_position_detail or {"where": "", "groups": [], "singles": []}, f, ensure_ascii=False, indent=2)
 
         return {
             "ok": True,

@@ -541,7 +541,7 @@ class CameraPlanningStage:
                 }
             )
 
-        for item in source.get("signals", []):
+        for item in source.get("singles", []):
             if not isinstance(item, dict):
                 continue
             pos_id = self._stringify(item.get("position_id"))

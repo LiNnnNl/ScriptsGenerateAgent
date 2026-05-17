@@ -32,7 +32,7 @@ class PositionDetailConverter:
         result = {
             "where": where,
             "groups": detail_groups,
-            "signals": detail_signals,
+            "singles": detail_signals,
         }
         return result
 
