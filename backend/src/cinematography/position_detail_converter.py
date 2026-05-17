@@ -140,8 +140,8 @@ class PositionDetailConverter:
         position_id = self._require_non_empty_string(single.get("position_id"), "single.position_id")
         character = self._require_non_empty_string(single.get("character"), "single.character")
         region = self._require_non_empty_string(single.get("region"), "single.region")
-        lookat = single.get("lookat", "")
-        neartarget = single.get("neartarget", "")
+        neartarget = self._require_non_empty_string(single.get("neartarget"), "single.neartarget")
+        lookat = self._require_non_empty_string(single.get("lookat"), "single.lookat")
 
         if position_id in used_position_ids:
             raise ValueError(f"position_id {position_id!r} appears more than once in position_plan.")
