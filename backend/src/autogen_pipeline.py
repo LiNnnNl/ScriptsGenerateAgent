@@ -665,6 +665,30 @@ async def run_autogen_pipeline(
     filepath = output_dir / filename
     generator.export_to_file(final_json, str(filepath))
 
+    # 计算剧本估算时长（基于对白长度）
+    def _calc_duration(script_json: list) -> dict:
+        total_chars = 0
+        total_lines = 0
+        for scene in script_json:
+            for line in scene.get('scene', []):
+                speaker = line.get('speaker', '') or ''
+                content = line.get('content', '') or ''
+                if speaker and content:
+                    total_lines += 1
+                    total_chars += len(content)
+        # 按每字5字符/秒估算，附加场景/动作描述用时
+        dialogue_secs = total_chars / 5
+        # 场景切换、动作描述额外时间（按行数*3秒估算）
+        scene_secs = total_lines * 3
+        estimated_secs = dialogue_secs + scene_secs
+        return {
+            'estimated_duration_seconds': round(estimated_secs),
+            'dialogue_lines': total_lines,
+            'dialogue_chars': total_chars,
+        }
+
+    duration_info = _calc_duration(final_json)
+
     # ── 阶段五前：从剧本直接提取位置文件（兜底，始终生成） ──
     camera_script_filename = None
     position_plan_filename = f"position_plan_{timestamp}.json"
@@ -844,5 +868,6 @@ async def run_autogen_pipeline(
         'position_plan_filename': position_plan_filename,
         'position_detail_filename': position_detail_filename,
         'session_id': session_id,
+        'estimated_duration': duration_info,
         'warnings': validation_result.get('warnings', []) if validation_result else []
     })
