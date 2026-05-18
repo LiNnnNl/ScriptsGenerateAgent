@@ -6,8 +6,14 @@
 import argparse
 import asyncio
 import json
+import os
 import sys
 from pathlib import Path
+
+# macOS 修复 SSL 证书问题（使用 certifi 提供的证书）
+import certifi
+os.environ['SSL_CERT_FILE'] = certifi.where()
+os.environ['SSL_CERT_DIR'] = '/etc/ssl/certs'
 
 sys.path.insert(0, str(Path(__file__).parent))
 

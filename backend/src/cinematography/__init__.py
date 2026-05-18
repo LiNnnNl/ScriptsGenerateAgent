@@ -132,6 +132,7 @@ def run_cinematography_pipeline(script, scene, resource_dir, output_dir, timesta
             # ── Stage 2: CinematographyPositionStage ──────────────────
             position_plan_json = None
             position_detail_json = None
+            stage2_result = None
             try:
                 stage2 = CinematographyPositionStage(
                     script_json=enriched_scene,
@@ -140,14 +141,13 @@ def run_cinematography_pipeline(script, scene, resource_dir, output_dir, timesta
                     llm_client=client,
                     stage_output_dir=stage_output_dir,
                 )
-                result2 = stage2.run()
-                position_plan_json = result2.get("position_plan")
-                position_detail_json = result2.get("position_detail")
-                if position_plan_json:
-                    last_position_plan = position_plan_json
-                if position_detail_json:
-                    last_position_detail = position_detail_json
-                stage2_all.append(result2)
+                stage2_result = stage2.run()
+                position_plan_json = stage2_result.get("position_plan")
+                position_detail_json = stage2_result.get("position_detail")
+                # Stage2 成功时立即更新 last_position_*；Stage3 失败时用 Stage2 的正确结果
+                last_position_plan = position_plan_json
+                last_position_detail = position_detail_json
+                stage2_all.append(stage2_result)
                 logger.info("[Cinematography] Stage 2 done: %s",
                             scene_obj.get("scene information", {}).get("where", "?"))
             except Exception as e:

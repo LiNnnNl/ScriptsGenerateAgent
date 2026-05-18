@@ -693,6 +693,21 @@ async def run_autogen_pipeline(
                 camera_script_filename = cine_result.get("camera_script_filename")
                 position_plan_filename = cine_result.get("position_plan_filename")
                 position_detail_filename = cine_result.get("position_detail_filename")
+                # 摄影管线返回的 position_plan/position_detail 可能已被 Stage3 部分覆写；
+                # 重新从 Stage2 的原始产出读取（未被 Stage3 破坏的版本）以确保 region/lookat 正确
+                _stage2_plan_path = output_dir / "CinematographyStages" / "position_stage2_planning.json"
+                _stage2_detail_path = output_dir / "CinematographyStages" / "director_stage2_position_planning.json"
+                if _stage2_plan_path.exists():
+                    with open(_stage2_plan_path, "r", encoding="utf-8") as _f:
+                        _stage2_plan = json.load(_f)
+                    with open(output_dir / position_plan_filename, "w", encoding="utf-8") as _f:
+                        json.dump(_stage2_plan, _f, ensure_ascii=False, indent=2)
+                if _stage2_detail_path.exists():
+                    with open(_stage2_detail_path, "r", encoding="utf-8") as _f:
+                        _raw = json.load(_f)
+                        _stage2_detail = _raw.get("position_detail") or _raw
+                    with open(output_dir / position_detail_filename, "w", encoding="utf-8") as _f:
+                        json.dump(_stage2_detail, _f, ensure_ascii=False, indent=2)
                 # 用摄影指导结果重新生成并覆写 script_*.json（保留已填写的摄影字段）
                 final_json = generator.generate_final_json(draft_script, plot_summary, preserve_shot_fields=True)
                 generator.export_to_file(final_json, str(filepath))
