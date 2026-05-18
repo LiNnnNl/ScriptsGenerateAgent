@@ -185,7 +185,7 @@ function handleStreamData(data) {
         if (data.camera_script_filename) {
             UI.addLog('success', `🎥 镜头脚本: ${data.camera_script_filename}`);
         }
-        UI.showSuccess(data.filename, data.actors_profile_filename, data.position_filename, [], data.position_plan_filename, data.position_detail_filename, data.camera_script_filename);
+        UI.showSuccess(data.filename, data.actors_profile_filename, data.position_filename, [], data.position_plan_filename, data.position_detail_filename, data.camera_script_filename, data.estimated_duration);
         UI.showVersionLabelSection(true);
         loadScriptEditor(data.filename);
         loadHistory();

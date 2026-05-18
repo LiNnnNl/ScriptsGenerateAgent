@@ -921,7 +921,13 @@ body {
     font-size: 1.1em;
     line-height: 1.6;
     color: var(--text-light);
-    margin-bottom: 30px;
+    margin-bottom: 6px;
+}
+
+.result-duration {
+    font-size: 0.95em;
+    color: var(--gold);
+    margin-bottom: 24px;
 }
 
 .download-btn {

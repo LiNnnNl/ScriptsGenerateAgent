@@ -73,11 +73,23 @@ const UI = {
     },
 
     // 显示成功结果
-    showSuccess(filename, actorsProfileFilename, positionFilename, warnings = [], positionPlanFilename = null, positionDetailFilename = null, cameraScriptFilename = null) {
+    showSuccess(filename, actorsProfileFilename, positionFilename, warnings = [], positionPlanFilename = null, positionDetailFilename = null, cameraScriptFilename = null, estimatedDuration = null) {
         const resultPanel = document.getElementById('resultPanel');
         const messageEl = document.getElementById('resultMessage');
+        const durationEl = document.getElementById('resultDuration');
 
         messageEl.textContent = `剧本：${filename}`;
+        if (estimatedDuration) {
+            const secs = estimatedDuration.estimated_duration_seconds;
+            const lowSecs = Math.max(0, secs - 30);
+            const highSecs = secs + 30;
+            const lowMin = Math.floor(secs / 60);
+            const highMin = Math.ceil((secs + 30) / 60);
+            durationEl.textContent = `⏱ 估算时长：约 ${lowMin}-${highMin}分钟（对白${estimatedDuration.dialogue_lines}句，共${estimatedDuration.dialogue_chars}字）`;
+            durationEl.style.display = '';
+        } else {
+            durationEl.style.display = 'none';
+        }
         resultPanel.style.display = 'block';
 
         APP_STATE.currentFilename = filename;
