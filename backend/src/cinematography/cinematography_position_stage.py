@@ -299,6 +299,7 @@ class CinematographyPositionStage:
         """Assign everything to the first available region/anchor."""
         first_region = ""
         first_anchor = ""
+        first_layout = "two_person"
         for region in self.scene_info_json.get("regions", []):
             first_region = region.get("name", "")
             anchors = region.get("anchors", [])
@@ -307,12 +308,13 @@ class CinematographyPositionStage:
             break
 
         planned_groups = [
-            {**g, "region": first_region,
+            {**g, "region": first_region, "layout": first_layout,
              "lookat": {"mode": "center"}}
             for g in grouping.get("groups", [])
         ]
         planned_singles = [
-            {**s, "region": first_region, "lookat": "center"}
+            {**s, "region": first_region, "neartarget": first_anchor,
+             "layout": first_layout, "lookat": "center"}
             for s in grouping.get("singles", [])
         ]
         return {"where": where, "groups": planned_groups, "singles": planned_singles}
