@@ -6,24 +6,26 @@
 
 ## 快速启动
 
-### 方式一：双击 bat（推荐）
+### macOS / Linux
+
+```bash
+# 首次运行，创建虚拟环境并安装依赖
+cd backend
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+
+# 启动后端
+python -m flask run --port 5001
+```
+
+### Windows（双击 bat）
 
 ```
 start_backend.bat
 ```
 
-浏览器访问 `http://localhost:5001`，前端已由 Flask 一并托管。
-
-### 方式二：命令行（uv）
-
-```powershell
-# 首次运行，安装依赖
-uv pip install -r backend/requirements.txt --python .venv/Scripts/python.exe
-
-# 启动
-cd backend
-../.venv/Scripts/python.exe app.py
-```
+> 摄影指导后处理默认启用（无需额外配置）。
 
 ---
 
@@ -40,7 +42,7 @@ copy backend\.env.example backend\.env
 | `API_KEY` | 火山引擎 ARK API Key | — |
 | `BASE_URL` | API 接入点 | `https://ark.cn-beijing.volces.com/api/v3` |
 | `MODEL` | 主模型名称 | `doubao-seed-2-0-lite-260215` |
-| `ENABLE_CINEMATOGRAPHY` | 是否开启摄影指导后处理 | `false` |
+| `ENABLE_CINEMATOGRAPHY` | 是否开启摄影指导后处理（默认已启用，可忽略） | `false` |
 | `CINEMATOGRAPHY_MODEL` | 摄影智能体专用模型（留空则复用 MODEL） | — |
 | `MODEL_FUNCTION_CALLING` | 是否启用工具调用版 ValidationAgent | `false` |
 
@@ -143,4 +145,4 @@ ScriptsGenerateAgent/
 | API Key 错误 | 检查 `backend/.env` 中 `API_KEY` 是否正确 |
 | 端口被占用 | 修改 `backend/app.py` 末尾 `port=5001` |
 | Word 导出失败 | 确认 `python-docx` 已安装到 `.venv` |
-| 摄影指导未生效 | `.env` 中设置 `ENABLE_CINEMATOGRAPHY=true` |
+| 摄影指导未生效 | 联系开发者（已默认启用） |

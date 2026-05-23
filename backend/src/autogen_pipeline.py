@@ -850,8 +850,8 @@ async def run_autogen_pipeline(
     with open(output_dir / position_detail_filename, 'w', encoding='utf-8') as _pdf:
         json.dump(_base_detail, _pdf, ensure_ascii=False, indent=2)
 
-    # ── 阶段五（可选）：摄影指导后处理 ──
-    if os.getenv("ENABLE_CINEMATOGRAPHY", "false").lower() == "true":
+    # ── 阶段五：摄影指导后处理（默认启用） ──
+    if True:
         _emit_stage_log(bridge, 'info', 'cinematography', 'start', '🎥 [摄影指导期] 摄影指导智能体开始规划画面和镜头...')
         try:
             cine_result = await _running_loop.run_in_executor(
