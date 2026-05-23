@@ -69,3 +69,4 @@ backend/outputs/
 *.temp
 *.bak
 *.orig
+output/

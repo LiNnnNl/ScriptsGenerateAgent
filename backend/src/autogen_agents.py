@@ -6,6 +6,7 @@ DirectorAgent 的提示词逻辑从 director_ai.py 的 _build_context_prompt 迁
 """
 
 import os
+import re
 from typing import List, Optional
 from autogen_agentchat.agents import AssistantAgent
 from autogen_ext.models.openai import OpenAIChatCompletionClient
@@ -82,6 +83,7 @@ def build_director_system_message(
     resource_loader: ResourceLoader,
     required_character_count: int = 0,
     act_count: int = 3,
+    user_constraints: Optional[List[str]] = None,
 ) -> str:
     """
     构建 DirectorAgent 的 system_message。
@@ -170,7 +172,8 @@ def build_director_system_message(
     task_info = (
         "\n## 你的任务\n\n"
         "你是一位专业的剧本导演AI。请根据上述信息生成完整的场景剧本JSON。\n\n"
-        "**核心要求:**\n\n"
+        + (_append_user_constraints(user_constraints) if user_constraints else "")
+        + "**核心要求:**\n\n"
         + act_count_rule
         + "\n\n"
         + char_count_rule
@@ -184,10 +187,41 @@ def build_director_system_message(
         + "3. **动作决策**:\n"
         + "   - 只能使用\"可用动作库\"中的动作名称\n"
         + "   - 注意动作的 compatible_states，确保角色状态匹配\n\n"
-        + "4. **对白生成**:\n"
+        + "4. **对白生成（现实主义口语风格）**:\n"
         + "   - 严格遵循角色的性格描述\n"
-        + "   - 对白要符合人物性格和场景氛围\n\n"
-        + "5. **镜头设计**:\n"
+        + "   - 对白要符合人物性格和场景氛围\n"
+        + "   - **每句台词必须有鲜明的个人语言特征**，避免所有角色听起来像同一个AI在说话\n"
+        + "   - 真实对话充满犹豫、重复、打断、省略——这是现实主义的魅力\n"
+        + "   - 允许自然停顿（\"那个...就是...\"）、口语省略、语气词（\"嗯\"、\"啊\"、\"靠\"）\n\n"
+        + "5. **禁止AI腔红线（Zero Tolerance，一经发现必须修正）**:\n"
+        + "   以下表达一律禁止，视为不合格对白：\n"
+        + "   - \"从某种意义上说\"、\"从另一个角度来看\"（学术腔）\n"
+        + "   - \"我认为\"、\"我觉得\"开头（过于自我声明）\n"
+        + "   - \"让我们\"、\"我们应该\"（命令式空洞）\n"
+        + "   - \"值得注意的是\"、\"需要指出的是\"（播音腔）\n"
+        + "   - \"是否可以考虑\"、\"可以尝试\"（绕弯子）\n"
+        + "   - \"非常好\"、\"很棒\"（空洞评价）\n"
+        + "   - 超过15字的完整解释性从句（口语不应绕弯子）\n"
+        + "   - 任何直接描述情感的词汇如\"他很悲伤\"、\"她非常高兴\"——应通过动作/对白展现而非声明\n\n"
+        + "6. **感官细节要求**:\n"
+        + "   每个场景片段必须包含**至少一种感官细节**：\n"
+        + "   - 视觉：光影、色彩、表情变化\n"
+        + "   - 听觉：环境音、语调、沉默\n"
+        + "   - 触觉：温度、质感、风\n"
+        + "   - 嗅觉：场景特定气味\n"
+        + "   - 身体感：饥饿、疲惫、紧张导致的生理反应\n\n"
+        + "7. **角色声音区分**:\n"
+        + "   生成对白前，先确认每个角色的语言特征：\n"
+        + "   - 词汇偏好：使用哪些俚语/口头禅，回避哪些词\n"
+        + "   - 句式倾向：长句/短句/碎片化\n"
+        + "   - 情绪表达：外露/压抑/反讽\n"
+        + "   - **检查点：通读对白，遮住角色名，能否仅从台词判断是谁说的？**\n\n"
+        + "8. **逐行质检（生成后必做）**:\n"
+        + "   - [ ] 这句台词是否有鲜明的个人语言特征（不是通用AI腔）？\n"
+        + "   - [ ] 是否避免了所有禁止AI腔红线中的词汇？\n"
+        + "   - [ ] 是否有具体的戏剧意图（推动情节/揭示关系/展现冲突）？\n"
+        + "   - [ ] 是否包含至少一种感官细节或身体存在感？\n\n"
+        + "9. **镜头设计**:\n"
         + "   - 对白/旁白/描述片段：`shot` 填 `\"character\"`\n"
         + "   - 移动片段：`shot` 填 `\"scene\"`\n\n"
         + "   **shot = \"character\" 时必须包含以下字段：**\n"
@@ -378,7 +412,25 @@ def build_treatment_system_message(act_count: int = 3) -> str:
     )
 
 
-def build_critic_system_message() -> str:
+def _append_user_constraints(user_constraints: Optional[List[str]] = None, fixed_dialogues: Optional[List[dict]] = None) -> str:
+    """生成用户约束段落，注入各 Agent prompt。"""
+    parts = []
+    if user_constraints:
+        lines = ["\n## ⚠️ 用户明确约束（最高优先级，不得违背）\n"]
+        for c in user_constraints:
+            lines.append(f"- {c}")
+        lines.append("\n**以上约束为用户直接输入，必须严格遵守，不得以任何理由违背。**\n")
+        parts.append("\n".join(lines))
+    if fixed_dialogues:
+        lines = ["\n## 📌 用户提供的固定对白（不得修改，不得提出修改意见）\n"]
+        for d in fixed_dialogues:
+            lines.append(f"- **{d['speaker']}**：{d['content']}")
+        parts.append("\n".join(lines))
+    return "\n".join(parts) if parts else ""
+
+
+def build_critic_system_message(user_constraints: Optional[List[str]] = None, fixed_dialogues: Optional[List[dict]] = None) -> str:
+    constraints = _append_user_constraints(user_constraints, fixed_dialogues) if (user_constraints or fixed_dialogues) else ""
     return (
         "你是一位专业的剧本顾问，专注于叙事质量分析。\n\n"
         "你会收到一份剧本 JSON。你只需关注以下字段：\n"
@@ -386,7 +438,8 @@ def build_critic_system_message() -> str:
         "- `speaker` 和 `content`：对白内容\n"
         "- 角色的整体行为是否与其性格相符\n\n"
         "**请忽略** JSON 中的技术字段（position、action_id、camera_group 等），这不是你的职责。\n\n"
-        "你的输出格式必须是以下 JSON（直接输出，无其他文字）：\n"
+        + (constraints + "\n" if constraints else "")
+        + "你的输出格式必须是以下 JSON（直接输出，无其他文字）：\n"
         "```json\n"
         "{\n"
         "  \"has_issues\": true,\n"
@@ -401,13 +454,15 @@ def build_critic_system_message() -> str:
     )
 
 
-def build_dialogue_system_message() -> str:
+def build_dialogue_system_message(user_constraints: Optional[List[str]] = None, fixed_dialogues: Optional[List[dict]] = None) -> str:
+    constraints = _append_user_constraints(user_constraints, fixed_dialogues) if (user_constraints or fixed_dialogues) else ""
     return (
         "你是一位对白打磨专家，专注于台词的语言风格和人物一致性。\n\n"
         "你会收到一份剧本 JSON。你只需关注 `speaker` 和 `content` 字段。\n"
         "评估标准：台词是否符合角色性格、是否生动有力、是否有情感层次、是否避免了套话和过于书面化的表达。\n\n"
         "**请忽略** JSON 中的所有技术字段，这不是你的职责。\n\n"
-        "你的输出格式必须是以下 JSON（直接输出，无其他文字）：\n"
+        + (constraints + "\n" if constraints else "")
+        + "你的输出格式必须是以下 JSON（直接输出，无其他文字）：\n"
         "```json\n"
         "{\n"
         "  \"has_issues\": true,\n"
@@ -493,9 +548,10 @@ def create_director_agent(
     required_character_count: int = 0,
     act_count: int = 3,
     model: Optional[str] = None,
+    user_constraints: Optional[List[str]] = None,
 ) -> AssistantAgent:
     system_message = build_director_system_message(
-        characters, scene, resource_loader, required_character_count, act_count
+        characters, scene, resource_loader, required_character_count, act_count, user_constraints
     )
     return AssistantAgent(
         name="DirectorAgent",
@@ -504,11 +560,11 @@ def create_director_agent(
     )
 
 
-def create_critic_agent(model: Optional[str] = None) -> AssistantAgent:
+def create_critic_agent(model: Optional[str] = None, user_constraints: Optional[List[str]] = None, fixed_dialogues: Optional[List[dict]] = None) -> AssistantAgent:
     return AssistantAgent(
         name="CriticAgent",
         model_client=make_model_client(model),
-        system_message=build_critic_system_message(),
+        system_message=build_critic_system_message(user_constraints=user_constraints, fixed_dialogues=fixed_dialogues),
     )
 
 
@@ -549,11 +605,11 @@ def create_treatment_agent(act_count: int = 3, model: Optional[str] = None) -> A
     )
 
 
-def create_dialogue_agent(model: Optional[str] = None) -> AssistantAgent:
+def create_dialogue_agent(model: Optional[str] = None, user_constraints: Optional[List[str]] = None, fixed_dialogues: Optional[List[dict]] = None) -> AssistantAgent:
     return AssistantAgent(
         name="DialogueAgent",
         model_client=make_model_client(model),
-        system_message=build_dialogue_system_message(),
+        system_message=build_dialogue_system_message(user_constraints=user_constraints, fixed_dialogues=fixed_dialogues),
     )
 
 

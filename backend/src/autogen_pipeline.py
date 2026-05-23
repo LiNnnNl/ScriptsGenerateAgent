@@ -308,7 +308,97 @@ async def run_autogen_pipeline(
 
     plot_outline = creative_idea
 
-    logger.info("Pipeline 启动 | scene_id=%s characters=%d", scene_id, len(custom_characters_input))
+    # ── 从 creative_idea 中自动提取用户约束 ──
+    # 匹配 "不要..."、"必须..."、"不要修改..."、"不能..." 等显式约束语句
+    _constraint_pattern = re.compile(
+        r'不要[^\n。，、anger。]{2,50}?(?:[，。]|公司|\n|$)|'
+        r'必须[^\n。，、anger。]{2,50}?(?:[，。]|公司|\n|$)|'
+        r'不能[^\n。，、anger。]{2,50}?(?:[，。]|公司|\n|$)|'
+        r'应当[^\n。，、anger。]{2,50}?(?:[，。]|公司|\n|$)|'
+        r'必须[^\n]{2,30}?(?:。|\n)|'
+        r'不要[^\n]{2,30}?(?:。|\n)',
+        re.IGNORECASE
+    )
+    user_constraints = []
+    if creative_idea:
+        for match in _constraint_pattern.finditer(creative_idea):
+            phrase = match.group().strip()
+            # 过滤掉太短的误匹配
+            if len(phrase) >= 4:
+                user_constraints.append(phrase)
+    # 去重，保持顺序
+    seen = set()
+    user_constraints = [c for c in user_constraints if not (tuple(c) in seen or seen.add(tuple(c)))]
+
+    # ── 从 creative_idea 中提取用户提供的固定对白（格式：角色名: 对白内容）──
+    _fixed_dlg_pattern = re.compile(r'^([A-Za-z\u4e00-\u9fff]{1,8})\s*[:：]\s*([^\n]{1,200})', re.MULTILINE)
+    fixed_dialogues = []
+    fixed_dialogue_texts = set()
+    if creative_idea:
+        for m in _fixed_dlg_pattern.finditer(creative_idea):
+            speaker = m.group(1).strip()
+            content = m.group(2).strip()
+            if speaker and content and len(content) >= 2:
+                key = f"{speaker}: {content}"
+                if key not in fixed_dialogue_texts:
+                    fixed_dialogue_texts.add(key)
+                    fixed_dialogues.append({'speaker': speaker, 'content': content})
+    if fixed_dialogues:
+        logger.info("检测到 %d 句用户固定对白", len(fixed_dialogues))
+        _emit_stage_log(bridge, 'info', 'setup', 'fixed_dialogue',
+                        f'📌 检测到 {len(fixed_dialogues)} 句用户固定对白，将原样保留')
+
+    # ── 从 creative_idea 中解析目标时长，反推 act_count ──
+    # 匹配：5分钟、5min、时长5秒、5秒钟等
+    _duration_pattern = re.compile(
+        r'(\d+(?:\.\d+)?)\s*(分钟|min|mins?|分|秒(?:钟)?|seconds?|sec|s)',
+        re.IGNORECASE
+    )
+    target_duration_secs = None
+    if creative_idea:
+        m = _duration_pattern.search(creative_idea)
+        if m:
+            value = float(m.group(1))
+            unit = m.group(2).lower()
+            # 统一转为秒
+            if unit in ('分钟', 'min', 'mins', 'm', '分'):
+                target_duration_secs = value * 60
+            else:
+                target_duration_secs = value
+            target_duration_secs = max(10, min(target_duration_secs, 3600))  # 10秒~1小时
+
+    # 若用户未显式指定 act_count（API param 中没有传），则由时长反推
+    # 经验值：1幕 ≈ 1~1.5 分钟剧情量，取 1幕/分钟，上限10
+    user_passed_act_count = 'act_count' in request_params
+    if target_duration_secs and not user_passed_act_count:
+        derived_act_count = max(1, min(10, round(target_duration_secs / 60)))
+        logger.info("时长反推 act_count: %.0f秒 → %d幕（原请求无 act_count 参数）",
+                    target_duration_secs, derived_act_count)
+        _emit_stage_log(bridge, 'info', 'setup', 'duration',
+                        f'⏱️ 从时长反推：{target_duration_secs:.0f}秒 → 建议 {derived_act_count} 幕')
+        act_count = derived_act_count
+
+    duration_hint = (f'目标时长：约 {target_duration_secs:.0f}秒（{target_duration_secs/60:.1f}分钟）。'
+                      if target_duration_secs else '')
+
+    # ── 从时长换算目标对白行数 ──
+    # 经验值：现实类对白约 10行/分钟能撑满1分钟影片（留白+沉默+动作间隙）
+    # 目标行数 = 分钟数 × 10，上限300行
+    target_dialogue_lines = None
+    if target_duration_secs:
+        target_dialogue_lines = max(6, min(300, round(target_duration_secs / 60 * 10)))
+        logger.info("目标对白行数: %d行（%.1f分钟）", target_dialogue_lines, target_duration_secs / 60)
+
+    dialogue_target_hint = (
+        f'目标对白行数：至少 {target_dialogue_lines} 行台词。'
+        f'确保每个角色有足够的说话机会，不要让对话戛然而止。'
+        if target_dialogue_lines else ''
+    )
+
+    logger.info("Pipeline 启动 | scene_id=%s characters=%d 约束数=%d 固定对白=%d 时长=%.0f秒 act_count=%d 目标行数=%s",
+                scene_id, len(custom_characters_input), len(user_constraints),
+                len(fixed_dialogues), target_duration_secs or 0, act_count,
+                target_dialogue_lines)
 
     # ── 验证场景 ──
     scene = resource_loader.get_scene_by_id(scene_id)
@@ -330,9 +420,9 @@ async def run_autogen_pipeline(
     _emit_stage_log(bridge, 'info', 'setup', 'init', '🤖 初始化多 Agent 系统...')
 
     treatment = create_treatment_agent(act_count=act_count)
-    director = create_director_agent(characters, scene, resource_loader, required_character_count, act_count=act_count)
-    critic = create_critic_agent()
-    dialogue = create_dialogue_agent()
+    director = create_director_agent(characters, scene, resource_loader, required_character_count, act_count, user_constraints=user_constraints)
+    critic = create_critic_agent(user_constraints=user_constraints, fixed_dialogues=fixed_dialogues)
+    dialogue = create_dialogue_agent(user_constraints=user_constraints, fixed_dialogues=fixed_dialogues)
     validator = create_validation_agent(resource_loader, scene) if model_supports_tools else None
 
     _emit_stage_log(bridge, 'success', 'setup', 'ready', '✅ Agents 初始化完成（创意会议、大纲、导演、审查、验证）')
@@ -401,8 +491,9 @@ async def run_autogen_pipeline(
     treatment_prompt = (
         f"以下是创意会议的讨论记录，请据此生成分场大纲：\n\n{meeting_transcript}\n\n"
         f"指定角色约束：{json.dumps(custom_characters_input, ensure_ascii=False)}\n"
-        f"幕数要求：恰好生成 {act_count} 个节拍（beat），JSON 数组长度严格为 {act_count}。\n"
-        "请生成分场大纲。"
+        f"幕数要求：恰好生成 {act_count} 个节拍（beat），JSON 数组长度严格为 {act_count}。\n" \
+        + (f"{duration_hint}\n" if duration_hint else "")
+        + "请生成分场大纲。"
     )
     treatment_result = await _run_stage_agent_json_object(treatment, treatment_prompt)
     if treatment_result:
@@ -420,11 +511,20 @@ async def run_autogen_pipeline(
     _emit_stage_log(bridge, 'info', 'draft', 'start', '🎬 [剧本起草期] DirectorAgent 开始生成剧本初稿...')
 
     treatment_summary = json.dumps(stage_context.get("treatment", {}), ensure_ascii=False, indent=2)
+    fixed_dlg_section = ""
+    if fixed_dialogues:
+        lines = "\n".join(f"- **{d['speaker']}**：{d['content']}" for d in fixed_dialogues)
+        fixed_dlg_section = (
+            f"\n## 📌 用户提供的固定对白（必须原样保留，不得修改）\n{lines}\n\n"
+            "以上对白必须出现在剧本中，内容一字不改。\n\n"
+        )
     base_user_prompt = (
-        f"创作想法：{plot_outline or '（AI 自由创作）'}\n\n"
+        f"创作想法：{plot_outline or '（AI 自由创作）'}{fixed_dlg_section}\n\n"
         f"## 创意会议纪要\n{stage_context.get('meeting_minutes', '（无）')}\n\n"
-        f"## 分场大纲\n{treatment_summary}\n\n"
-        "请根据以上创意会议纪要和分场大纲生成剧本，直接输出 JSON 格式，不要有其他说明文字。"
+        f"## 分场大纲\n{treatment_summary}\n\n" \
+        + (f"{duration_hint}\n" if duration_hint else "")
+        + (f"{dialogue_target_hint}\n" if dialogue_target_hint else "")
+        + "请根据以上创意会议纪要和分场大纲生成剧本，直接输出 JSON 格式，不要有其他说明文字。"
     )
 
     draft_script = None
@@ -529,7 +629,12 @@ async def run_autogen_pipeline(
         revision_prompt = (
             f"请根据以下审查意见修改剧本，输出完整的修改后 JSON，不要有其他说明文字：\n\n"
             + "\n".join(revision_parts)
-            + "\n\n重要：每个角色动作的 `motion_detail` 字段必须保留原有内容，不得将其置为空字符串。\n\n当前剧本：\n```json\n{json.dumps(draft_script, ensure_ascii=False, indent=2)}\n```"
+            + "\n\n重要：\n"
+            "- 每个角色动作的 `motion_detail` 字段必须保留原有内容，不得将其置为空字符串。\n"
+            + ("".join(f"- 用户约束：{c}（不得违背）\n" for c in user_constraints) if user_constraints else "")
+            + ("".join(f"- 固定对白（不得修改）：{d['speaker']}：{d['content']}\n" for d in fixed_dialogues) if fixed_dialogues else "")
+            + (f"- 目标对白行数：至少 {target_dialogue_lines} 行，当前不足请扩充。\n" if target_dialogue_lines else "")
+            + "\n当前剧本：\n```json\n{json.dumps(draft_script, ensure_ascii=False, indent=2)}\n```"
         )
 
         _emit_stage_log(
@@ -661,6 +766,52 @@ async def run_autogen_pipeline(
 
     final_json = generator.generate_final_json(draft_script, plot_summary)
 
+    # ── 阶段三后：对白行数校验 + 不足时触发补写 ──
+    if target_dialogue_lines:
+        actual_lines = sum(
+            1 for act in final_json
+            for line in act.get('scene', [])
+            if line.get('speaker') and line.get('content')
+        )
+        deficit = target_dialogue_lines - actual_lines
+        if deficit > 0:
+            _emit_stage_log(bridge, 'info', 'dialogue_fill', 'start',
+                            f'📝 [对白补写] 当前 {actual_lines} 行，目标 {target_dialogue_lines} 行，'
+                            f'不足 {deficit} 行，正在触发补写...')
+            fill_prompt = (
+                f"当前剧本对白行数不足。当前共 {actual_lines} 行，目标至少 {target_dialogue_lines} 行。\n"
+                f"请在不修改已有对白的前提下，"
+                f"在每个幕中**增加自然的对白**，让对话更丰富、更符合现实主义风格。\n"
+                f"新增的对白必须：\n"
+                f"1. 口语化、有停顿感、有角色个人特征\n"
+                f"2. 推动情节或揭示人物关系\n"
+                f"3. 不添加任何禁止AI腔红线中的词汇\n\n"
+                f"当前剧本：\n```json\n{json.dumps(final_json, ensure_ascii=False, indent=2)}\n```\n\n"
+                f"输出完整修改后的 JSON，不要有其他说明文字。"
+            )
+            filled_script = None
+            try:
+                async for event in director.on_messages_stream(
+                    [TextMessage(content=fill_prompt, source="user")],
+                    cancellation_token=CancellationToken()
+                ):
+                    if hasattr(event, 'chat_message') and event.chat_message:
+                        filled_script = _extract_json_from_text(event.chat_message.content)
+            except Exception as _e:
+                logger.warning("[对白补写] 请求失败: %s", _e)
+                _emit_stage_log(bridge, 'warning', 'dialogue_fill', 'error',
+                                f'⚠️ [对白补写] 补写请求失败，保留原始剧本: {_e}')
+            if filled_script:
+                final_json = filled_script
+                new_lines = sum(
+                    1 for act in final_json
+                    for line in act.get('scene', [])
+                    if line.get('speaker') and line.get('content')
+                )
+                _emit_stage_log(bridge, 'success', 'dialogue_fill', 'done',
+                                f'✅ [对白补写] 补写完成：{actual_lines} → {new_lines} 行')
+                _emit_output(bridge, 'DirectorAgent（对白补写）', final_json)
+
     filename = f"script_{timestamp}.json"
     filepath = output_dir / filename
     generator.export_to_file(final_json, str(filepath))
@@ -699,8 +850,8 @@ async def run_autogen_pipeline(
     with open(output_dir / position_detail_filename, 'w', encoding='utf-8') as _pdf:
         json.dump(_base_detail, _pdf, ensure_ascii=False, indent=2)
 
-    # ── 阶段五（可选）：摄影指导后处理 ──
-    if os.getenv("ENABLE_CINEMATOGRAPHY", "false").lower() == "true":
+    # ── 阶段五：摄影指导后处理（默认启用） ──
+    if True:
         _emit_stage_log(bridge, 'info', 'cinematography', 'start', '🎥 [摄影指导期] 摄影指导智能体开始规划画面和镜头...')
         try:
             cine_result = await _running_loop.run_in_executor(
