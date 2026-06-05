@@ -802,7 +802,8 @@ async def run_autogen_pipeline(
                 _emit_stage_log(bridge, 'warning', 'dialogue_fill', 'error',
                                 f'⚠️ [对白补写] 补写请求失败，保留原始剧本: {_e}')
             if filled_script:
-                final_json = filled_script
+                # 补写结果仍需经过 generator 规范化（补充 emotion 字段等）
+                final_json = generator.generate_final_json(filled_script, plot_summary)
                 new_lines = sum(
                     1 for act in final_json
                     for line in act.get('scene', [])

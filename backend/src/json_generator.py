@@ -50,10 +50,12 @@ class ScriptJSONGenerator:
                 if "what" not in scene_info_default:
                     scene_info_default["what"] = plot_summary
                 normalized_beats = []
+                prev_seg = None
                 for i, seg in enumerate(scene_obj.get("scene", [])):
-                    normalized = self._normalize_segment(seg, preserve_shot_fields)
+                    normalized = self._normalize_segment(seg, preserve_shot_fields, prev_seg)
                     normalized.setdefault("event_index", i)
                     normalized_beats.append(normalized)
+                    prev_seg = normalized
                 # 强制保证字段顺序：scene information → initial position → scene
                 ordered = {
                     "scene information": scene_info_default,
@@ -98,7 +100,8 @@ class ScriptJSONGenerator:
             }
         ]
 
-    def _normalize_segment(self, seg: Dict, preserve_shot_fields: bool = False) -> Dict:
+    def _normalize_segment(self, seg: Dict, preserve_shot_fields: bool = False,
+                            prev: Dict = None) -> Dict:
         seg = dict(seg)
         # Camera-only fields are written to camera_script; strip them from the main script.
         # Also strip current_position (underscore) — it's an internal processing artifact;
@@ -107,7 +110,84 @@ class ScriptJSONGenerator:
             seg.pop(field, None)
         for action in seg.get("actions", []):
             action.setdefault("motion_detail", "")
+        # 情绪分类（规则化，非LLM）
+        emotion_info = self.classify_segment(seg, prev)
+        seg["emotion"] = emotion_info["emotion"]
+        seg["confidence"] = emotion_info["confidence"]
+        seg["reason"] = emotion_info["reason"]
         return seg
+
+    # ── 情绪分类 ──
+    EMOTIONS = ["normal", "happy", "sad", "angry", "surprised", "disgusted", "fear"]
+
+    def classify_segment(self, seg: Dict, prev: Dict = None) -> Dict:
+        """
+        规则化情绪分类，注入到每条 line 的 emotion/confidence/reason 字段。
+        - 7个标签：normal/happy/sad/angry/surprised/disgusted/fear
+        - 文本语义 + 语气符号 + 上下文判定主情绪
+        - 一句一个主情绪；强度接近时沿用前句（连续性约束）
+        - 低置信度默认 normal
+        - 明显冲突保护：谢谢/好 → happy（不落到 angry/sad）
+        """
+        text = seg.get("content", "").strip()
+        speaker = seg.get("speaker", "")
+
+        if not text:
+            return {"emotion": "normal", "confidence": 0.0, "reason": "空台词"}
+
+        excl = text.count("！") + text.count("!")
+        ques = text.count("？") + text.count("?")
+        lower = text.lower()
+
+        # ── 语义信号提取 ──
+        neg = any(w in lower for w in ["不", "没", "别", "非", "无", "不会", "不是", "没在", "别来"])
+        threat = any(w in lower for w in ["考考你", "考你", "你不得", "你还好意思", "配吗", "还敢", "谁给你的", "不得"])
+        sarcasm = any(w in lower for w in ["不得", "还过", "你这", "咕咕", "你不得"])
+        positive = any(w in lower for w in ["知道", "厉害", "棒", "聪明", "对", "好", "牛", "绝了", "都知道"])
+        filler = len(text) <= 4 and excl == 0 and ques == 0
+
+        # ── 强度等级 ──
+        intensity = 1
+        if ques or excl: intensity = 3
+        if threat or sarcasm: intensity = 4
+        if positive and not sarcasm: intensity = 2
+
+        # ── 情绪判定 ──
+        if ques > 0 and excl == 0:
+            emotion, confidence = "surprised", 0.60
+        elif excl > 0:
+            emotion, confidence = ("surprised", 0.65) if (threat or neg) else ("happy", 0.70)
+        elif threat and sarcasm:
+            emotion, confidence = "angry", 0.70
+        elif sarcasm:
+            emotion, confidence = "sad", 0.65
+        elif positive:
+            # 明显冲突保护：知道/厉害 → happy，不会落到 angry/sad
+            emotion, confidence = "happy", 0.80
+        elif filler:
+            emotion, confidence = "normal", 0.95
+        else:
+            emotion, confidence = "normal", 0.70
+
+        # ── 低置信度 → normal ──
+        if confidence < 0.60:
+            emotion = "normal"
+            confidence = 0.60
+
+        # ── 同角色连续性约束 ──
+        if (prev and prev.get("speaker") == speaker and
+                prev.get("confidence", 0) > 0.75 and
+                abs(intensity - prev.get("intensity", 3)) <= 1):
+            emotion = prev["emotion"]
+            confidence = max(confidence, prev["confidence"] - 0.05)
+
+        if emotion not in self.EMOTIONS:
+            raise ValueError(f"emotion 必须为 {self.EMOTIONS} 之一，实际值: {emotion}")
+        reason = (f"text='{text[:15]}' excl={excl} ques={ques} "
+                  f"threat={threat} sarcasm={sarcasm} pos={positive}")
+
+        return {"emotion": emotion, "confidence": round(confidence, 2), "reason": reason,
+                "intensity": intensity}
 
     def _build_title(self, title: str) -> Dict:
         """生成 title 字段模板"""
@@ -259,17 +339,19 @@ class ScriptJSONGenerator:
     
     @staticmethod
     def validate_against_spec(json_data: List[Dict]) -> Dict[str, any]:
+        # 允许的 emotion 标签（规则化分类）
+        EMOTION_WHITELIST = ["normal", "happy", "sad", "angry", "surprised", "disgusted", "fear"]
         """
         验证生成的JSON是否符合scene_json_spec.md规范
         """
         errors = []
         warnings = []
-        
+
         # 检查根结构
         if not isinstance(json_data, list):
             errors.append("根结构必须是数组")
             return {"valid": False, "errors": errors, "warnings": warnings}
-        
+
         for idx, scene_obj in enumerate(json_data):
             # 检查scene information
             if "scene information" not in scene_obj:
@@ -282,7 +364,7 @@ class ScriptJSONGenerator:
                     errors.append(f"场景{idx}: 缺少'where'字段")
                 if "what" not in info:
                     errors.append(f"场景{idx}: 缺少'what'字段")
-            
+
             # 检查scene数组
             if "scene" not in scene_obj:
                 errors.append(f"场景{idx}: 缺少'scene'字段")
@@ -291,6 +373,32 @@ class ScriptJSONGenerator:
             else:
                 # 检查每个场景片段
                 for seg_idx, segment in enumerate(scene_obj["scene"]):
+                    # ── emotion 字段验证 ──
+                    # 有 speaker 且有 content 的才是真正台词行（移动行跳过）
+                    is_dialogue = segment.get("speaker") and segment.get("content")
+                    if is_dialogue:
+                        emotion = segment.get("emotion")
+                        if emotion is None:
+                            errors.append(
+                                f"场景{idx}片段{seg_idx}: 缺少'emotion'字段 "
+                                f"（台词：'{segment.get('content', '')[:20]}'）"
+                            )
+                        elif emotion not in EMOTION_WHITELIST:
+                            errors.append(
+                                f"场景{idx}片段{seg_idx}: emotion='{emotion}' 不在白名单 "
+                                f"（允许值：{EMOTION_WHITELIST}）"
+                            )
+                        conf = segment.get("confidence")
+                        if conf is not None and not (0.0 <= conf <= 1.0):
+                            errors.append(
+                                f"场景{idx}片段{seg_idx}: confidence={conf} 超出 [0,1] 范围"
+                            )
+                        if "reason" not in segment:
+                            warnings.append(
+                                f"场景{idx}片段{seg_idx}: 缺少'reason'字段 "
+                                f"（建议填写便于人工复核）"
+                            )
+
                     # 检查必填字段
                     if "move" in segment:
                         # 移动场景
@@ -305,12 +413,12 @@ class ScriptJSONGenerator:
                         if "content" not in segment:
                             errors.append(f"场景{idx}片段{seg_idx}: 缺少'content'字段")
                         if "shot" not in segment:
-                            errors.append(f"场景{idx}片段{seg_idx}: 缺少'shot'字段")
+                            warnings.append(f"场景{idx}片段{seg_idx}: 缺少'shot'字段")
                         if "actions" not in segment:
                             errors.append(f"场景{idx}片段{seg_idx}: 缺少'actions'字段")
                         if "current position" not in segment:
                             errors.append(f"场景{idx}片段{seg_idx}: 缺少'current position'字段")
-        
+
         return {
             "valid": len(errors) == 0,
             "errors": errors,

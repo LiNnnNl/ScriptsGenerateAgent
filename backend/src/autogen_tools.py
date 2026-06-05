@@ -17,6 +17,47 @@ def _is_abstract_position(pos_id: str) -> bool:
     return bool(re.match(r'^Position\s+\d+$', pos_id or '', re.IGNORECASE))
 
 
+def _classify_emotion_fallback(seg: dict) -> dict:
+    """
+    规则化情绪分类（无 prev 上下文的单句版本）。
+    与 json_generator.classify_segment 逻辑一致，但无连续性约束。
+    用于 auto_fix_script 兜底补全缺失的 emotion 字段。
+    """
+    _EMOTIONS = ["normal", "happy", "sad", "angry", "surprised", "disgusted", "fear"]
+    text = seg.get("content", "").strip()
+    if not text:
+        return {"emotion": "normal", "confidence": 0.0, "reason": "空台词"}
+    excl = text.count("！") + text.count("!")
+    ques = text.count("？") + text.count("?")
+    lower = text.lower()
+    neg = any(w in lower for w in ["不","没","别","非","无","不会","不是","没在","别来"])
+    threat = any(w in lower for w in ["考考你","考你","你不得","你还好意思","配吗","还敢","谁给的","不得"])
+    sarcasm = any(w in lower for w in ["不得","还过","你这","咕咕","你不得"])
+    positive = any(w in lower for w in ["知道","厉害","棒","聪明","对","好","牛","绝了","都知道"])
+    filler = len(text) <= 4 and excl == 0 and ques == 0
+    if ques > 0 and excl == 0:
+        emotion, confidence = "surprised", 0.60
+    elif excl > 0:
+        emotion, confidence = ("surprised", 0.65) if (threat or neg) else ("happy", 0.70)
+    elif threat and sarcasm:
+        emotion, confidence = "angry", 0.70
+    elif sarcasm:
+        emotion, confidence = "sad", 0.65
+    elif positive:
+        emotion, confidence = "happy", 0.80
+    elif filler:
+        emotion, confidence = "normal", 0.95
+    else:
+        emotion, confidence = "normal", 0.70
+    if confidence < 0.60:
+        emotion = "normal"
+        confidence = 0.60
+    if emotion not in _EMOTIONS:
+        emotion = "normal"
+    reason = f"excl={excl} ques={ques} thr={threat} sar={sarcasm} pos={positive}"
+    return {"emotion": emotion, "confidence": round(confidence, 2), "reason": reason}
+
+
 # ────────────────────────────────────────────────────────────────────────────
 # 核心验证函数（独立，不依赖 DirectorAI 类）
 # ────────────────────────────────────────────────────────────────────────────
@@ -227,6 +268,14 @@ def auto_fix_script(script: list, scene: Scene, resource_loader: ResourceLoader)
                         candidates = resource_loader.get_actions_by_state(state)
                         if candidates:
                             action["action"] = candidates[0].action_id
+
+                # ── emotion 字段缺失 → 规则化分类兜底 ──
+                # 注意：此处分类不使用连续性约束（无 prev 上下文），直接按单句判定
+                if seg.get("speaker") and seg.get("content") and "emotion" not in seg:
+                    _em = _classify_emotion_fallback(seg)
+                    seg["emotion"] = _em["emotion"]
+                    seg["confidence"] = _em["confidence"]
+                    seg["reason"] = _em["reason"]
 
             # ── 更新位置追踪表 ──
             # 移动片段：记录目的地
