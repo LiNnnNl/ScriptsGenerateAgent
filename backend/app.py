@@ -3,6 +3,13 @@ ScriptAgent Web UI
 使用 Flask 提供简单的 Web 界面
 """
 
+import os
+
+# ── SSL 修复：使用 certifi 的 CA 证书，修复 "unable to get local issuer certificate" ──
+import certifi
+os.environ["SSL_CERT_FILE"] = certifi.where()
+os.environ["SSL_CERT_DIR"] = ""
+
 from flask import Flask, request, jsonify, send_file, Response, stream_with_context, send_from_directory
 from flask_cors import CORS
 import json
@@ -527,6 +534,48 @@ def update_history_label(session_id):
             return jsonify({'success': False, 'error': '会话不存在'}), 404
         return jsonify({'success': True})
     except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/download_session/<session_id>', methods=['GET'])
+def download_session_zip(session_id):
+    """打包下载某次生成会话的所有输出文件（剧本/角色档案/位置规划/摄影脚本等）"""
+    import io, zipfile
+    try:
+        data = _registry.load_registry()
+        session = data.get("sessions", {}).get(session_id)
+        if not session:
+            return jsonify({'success': False, 'error': '会话不存在'}), 404
+
+        files_info = session.get("files", {})
+        word_export = session.get("word_export")
+
+        output_dir = Path("outputs")
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
+            # 收集所有文件
+            keys = ['script', 'actors_profile', 'position_plan', 'position_detail', 'camera_script']
+            for key in keys:
+                fname = files_info.get(key)
+                if fname:
+                    fpath = output_dir / fname
+                    if fpath.exists():
+                        zf.write(fpath, fname)
+            # word 导出（如果存在）
+            if word_export:
+                fpath = output_dir / word_export
+                if fpath.exists():
+                    zf.write(fpath, word_export)
+
+        buf.seek(0)
+        return send_file(
+            buf,
+            as_attachment=True,
+            download_name=f"session_{session_id}.zip",
+            mimetype='application/zip',
+        )
+    except Exception as e:
+        logger.error("download_session_zip 失败: %s", e)
         return jsonify({'success': False, 'error': str(e)}), 500
 
 

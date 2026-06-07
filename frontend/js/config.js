@@ -12,7 +12,8 @@ const API_CONFIG = {
         SCRIPT_CONTENT: '/api/script_content',
         HISTORY: '/api/history',
         ACTIONS: '/api/actions',
-        SHOT_TYPES: '/api/shot_types'
+        SHOT_TYPES: '/api/shot_types',
+        DOWNLOAD_SESSION: '/api/download_session'
     }
 };
 

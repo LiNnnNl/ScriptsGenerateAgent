@@ -123,6 +123,11 @@ const UI = {
         if (cameraBtn) {
             cameraBtn.style.display = cameraScriptFilename ? '' : 'none';
         }
+
+        const zipBtn = document.getElementById('downloadSessionZipBtn');
+        if (zipBtn) {
+            zipBtn.style.display = APP_STATE.currentSessionId ? '' : 'none';
+        }
     },
 
     // 显示错误

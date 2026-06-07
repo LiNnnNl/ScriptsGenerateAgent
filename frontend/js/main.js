@@ -347,6 +347,11 @@ function setupEventListeners() {
         if (APP_STATE.currentFilename) API.downloadWord(APP_STATE.currentFilename);
     });
 
+    // 打包下载当前会话所有文件
+    document.getElementById('downloadSessionZipBtn').addEventListener('click', () => {
+        if (APP_STATE.currentSessionId) API.downloadSessionZip(APP_STATE.currentSessionId);
+    });
+
     // 历史面板
     document.getElementById('historyBtn').addEventListener('click', toggleHistoryPanel);
     document.getElementById('historyCloseBtn').addEventListener('click', toggleHistoryPanel);
