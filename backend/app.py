@@ -513,6 +513,31 @@ def download_file(filename):
         }), 500
 
 
+@app.route('/api/position_plan/<session_id>', methods=['GET'])
+def get_position_plan(session_id):
+    """返回某次会话的 position_plan JSON（含 anchor 名称映射，供前端做 Position N → 锚点名 显示）"""
+    try:
+        data = _registry.load_registry()
+        session = data.get("sessions", {}).get(session_id)
+        if not session:
+            return jsonify({'success': False, 'error': '会话不存在'}), 404
+
+        fname = session.get("files", {}).get("position_plan")
+        if not fname:
+            return jsonify({'success': False, 'error': '无 position_plan 文件'}), 404
+
+        fpath = Path("outputs") / fname
+        if not fpath.exists():
+            return jsonify({'success': False, 'error': '文件不存在'}), 404
+
+        with open(fpath, 'r', encoding='utf-8') as f:
+            plan = json.load(f)
+        return jsonify({'success': True, 'data': plan})
+    except Exception as e:
+        logger.error("get_position_plan 失败: %s", e)
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @app.route('/api/history', methods=['GET'])
 def get_history():
     """返回历史生成会话列表（按时间倒序）"""

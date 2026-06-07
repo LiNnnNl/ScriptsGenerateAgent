@@ -452,6 +452,23 @@ async function loadScriptEditor(filename) {
         const result = await API.getScriptContent(filename);
         if (result.success) {
             APP_STATE.currentScriptFilename = filename;
+
+            // 同时加载 position_plan，构建 Position N → 锚点名 映射
+            if (APP_STATE.currentSessionId) {
+                try {
+                    const pp = await API.getPositionPlan(APP_STATE.currentSessionId);
+                    if (pp.success) {
+                        APP_STATE.positionPlanMap = buildPositionMap(pp.data);
+                    } else {
+                        APP_STATE.positionPlanMap = {};
+                    }
+                } catch (e) {
+                    APP_STATE.positionPlanMap = {};
+                }
+            } else {
+                APP_STATE.positionPlanMap = {};
+            }
+
             UI.renderScriptViewer(result.data);
         } else {
             viewer.innerHTML = `<p style="padding:20px;color:#f44336">加载失败：${result.error}</p>`;
@@ -459,6 +476,24 @@ async function loadScriptEditor(filename) {
     } catch (e) {
         viewer.innerHTML = `<p style="padding:20px;color:#f44336">网络错误：${e.message}</p>`;
     }
+}
+
+// 从 position_plan 构建 { "Position 1": "中央锚点" } 这样的映射
+function buildPositionMap(plan) {
+    const map = {};
+    // singles: [{position_id, character, region, ...}]
+    (plan.singles || []).forEach(s => {
+        if (s.position_id && s.region) {
+            map[s.position_id] = s.region; // region 即锚点/区域名
+        }
+    });
+    // groups 同理
+    (plan.groups || []).forEach(g => {
+        if (g.position_id && g.region) {
+            map[g.position_id] = g.region;
+        }
+    });
+    return map;
 }
 
 // 从历史记录加载剧本

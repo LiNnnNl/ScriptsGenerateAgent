@@ -673,18 +673,20 @@ const UI = {
             const info      = scene['scene information'] || {};
             const who       = (info.who || []).join('、');
             const initPos   = (scene['initial position'] || [])
-                .map(p => `${p.character} → ${p.position}`).join('　');
+                .map(p => {
+                    const anchor = (APP_STATE.positionPlanMap || {})[p.position] || p.position;
+                    return `${p.character} → ${anchor}`;
+                }).join('　');
             const sceneChars = (info.who && info.who.length) ? info.who : allChars;
-
-            // 场景名下拉
-            const whereOpts = sceneOpts.map(s =>
-                `<option value="${this._esc(s.id)}"${s.id === info.where ? ' selected' : ''}>${this._esc(s.label)}</option>`
-            ).join('');
 
             const beats = (scene['scene'] || []).map((beat, bi) => {
                 if (beat.speaker !== undefined) {
                     const positions = (beat['current position'] || [])
-                        .map(p => `${p.character}→${p.position}`).join('　');
+                        .map(p => {
+                            const pos = p.position;
+                            const anchor = (APP_STATE.positionPlanMap || {})[pos] || pos;
+                            return `${p.character}→${anchor}`;
+                        }).join('　');
                     // 说话人下拉
                     const speakerOpts = sceneChars.map(c =>
                         `<option value="${this._esc(c)}"${c === beat.speaker ? ' selected' : ''}>${this._esc(c)}</option>`
@@ -723,9 +725,6 @@ const UI = {
             <div class="sv-scene" data-scene="${si}">
                 <div class="sv-scene-header">
                     <span class="sv-scene-num">第 ${si + 1} 幕</span>
-                    <select class="sv-where-select" data-scene="${si}">
-                        ${whereOpts}
-                    </select>
                     <span class="sv-scene-who">${this._esc(who)}</span>
                     <button class="sv-del-scene" data-scene="${si}" title="删除此幕">✕</button>
                 </div>
@@ -761,11 +760,8 @@ const UI = {
         return this._collectChars(data);
     },
 
-    // 获取场景选项：优先 APP_STATE.scenes，否则从剧本提取
+    // 获取场景选项（仅从剧本提取，不允许切换场景类型）
     _getSceneOpts() {
-        if (APP_STATE.scenes?.length) {
-            return APP_STATE.scenes.map(s => ({ id: s.id, label: s.name || s.id }));
-        }
         const set = new Set();
         (APP_STATE.currentScriptData || []).forEach(scene => {
             const w = scene['scene information']?.where;
@@ -794,22 +790,16 @@ const UI = {
 
     _renderShotSelects(si, bi, beat) {
         const shotTypes  = APP_STATE.shotTypes  || [];
-        const shotBlends = APP_STATE.shotBlends || [];
         const curType  = beat.shot_type  || '';
-        const curBlend = beat.shot_blend || '';
 
         const typeOpts  = shotTypes.map(t =>
             `<option value="${this._esc(t)}"${t === curType  ? ' selected' : ''}>${this._esc(t)}</option>`
-        ).join('');
-        const blendOpts = shotBlends.map(b =>
-            `<option value="${this._esc(b)}"${b === curBlend ? ' selected' : ''}>${this._esc(b)}</option>`
         ).join('');
 
         return `
         <div class="sv-shot-editor">
             <span class="sv-label">镜头</span>
             <select class="sv-shot-type" data-scene="${si}" data-beat="${bi}">${typeOpts}</select>
-            <select class="sv-shot-blend" data-scene="${si}" data-beat="${bi}">${blendOpts}</select>
             <textarea class="sv-shot-desc sv-editable"
                 data-scene="${si}" data-beat="${bi}" data-field="shot_description"
                 rows="2" placeholder="镜头描述..."></textarea>
@@ -823,7 +813,7 @@ const UI = {
                     ${sceneChars.map(c => `<option value="${this._esc(c)}"${c === act.character ? ' selected' : ''}>${this._esc(c)}</option>`).join('')}
                 </select>
                 <select class="sv-action-name" data-scene="${si}" data-beat="${bi}" data-ai="${ai}">
-                    ${actionsFlat.map(a => `<option value="${this._esc(a.trigger)}"${a.trigger === act.action ? ' selected' : ''} title="${this._esc(a.description||'')}">${this._esc(a.trigger)}</option>`).join('')}
+                    ${actionsFlat.map(a => `<option value="${this._esc(a.trigger)}"${a.trigger === act.action ? ' selected' : ''}>${this._esc(a.trigger)} — ${this._esc(a.description || '')}</option>`).join('')}
                 </select>
                 <button class="sv-del-action" data-scene="${si}" data-beat="${bi}" data-ai="${ai}">✕</button>
             </div>`).join('');
@@ -860,16 +850,6 @@ const UI = {
             });
         });
 
-        // 场景名下拉
-        viewer.querySelectorAll('.sv-where-select').forEach(sel => {
-            sel.addEventListener('change', () => {
-                const si = parseInt(sel.dataset.scene);
-                if (data[si]?.['scene information']) {
-                    data[si]['scene information'].where = sel.value;
-                }
-            });
-        });
-
         // 说话人下拉
         viewer.querySelectorAll('.sv-speaker-select').forEach(sel => {
             sel.addEventListener('change', () => {
@@ -886,14 +866,6 @@ const UI = {
             sel.addEventListener('change', () => {
                 const si = parseInt(sel.dataset.scene), bi = parseInt(sel.dataset.beat);
                 if (data[si]?.['scene']?.[bi]) data[si]['scene'][bi].shot_type = sel.value;
-            });
-        });
-
-        // 镜头衔接方式下拉
-        viewer.querySelectorAll('.sv-shot-blend').forEach(sel => {
-            sel.addEventListener('change', () => {
-                const si = parseInt(sel.dataset.scene), bi = parseInt(sel.dataset.beat);
-                if (data[si]?.['scene']?.[bi]) data[si]['scene'][bi].shot_blend = sel.value;
             });
         });
 
