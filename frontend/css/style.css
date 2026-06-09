@@ -1753,7 +1753,10 @@ body {
     opacity: 0.65;
 }
 .cast-dd-item {
-    padding: 8px 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 14px;
     font-size: 0.9em;
     color: var(--text-light);
     cursor: pointer;
@@ -1766,11 +1769,26 @@ body {
     background: rgba(212, 175, 55, 0.1);
     color: var(--gold-light);
 }
-.cast-dd-item.has-img::after {
-    content: '🖼';
-    margin-left: 6px;
-    font-size: 0.85em;
-    opacity: 0.6;
+/* 下拉项左侧角色形象缩略图（让名字与形象一一对应） */
+.cast-dd-thumb {
+    flex: 0 0 auto;
+    width: 34px;
+    height: 34px;
+    border-radius: 6px;
+    object-fit: cover;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(212, 175, 55, 0.25);
+}
+.cast-dd-thumb-empty {
+    border-style: dashed;
+    border-color: rgba(255, 255, 255, 0.12);
+}
+.cast-dd-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 /* 悬停时浮动显示的角色预览卡（含图片） */

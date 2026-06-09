@@ -469,7 +469,7 @@ const UI = {
             grouped[group].push(char);
         }
         const groupLabels = { female: '女性', male: '男性', none: '机械/无性别', other: '其他' };
-        let html = `<div class="cast-dd-item${selectedName ? '' : ' selected'}" data-name="">请选择角色…</div>`;
+        let html = `<div class="cast-dd-item${selectedName ? '' : ' selected'}" data-name=""><span class="cast-dd-thumb cast-dd-thumb-empty"></span><span class="cast-dd-name">请选择角色…</span></div>`;
         for (const [group, chars] of Object.entries(grouped)) {
             html += `<div class="cast-dd-group-label">${groupLabels[group] || group}</div>`;
             for (const char of chars) {
@@ -477,7 +477,11 @@ const UI = {
                     ? ` · ${char.traits.slice(0, 2).join('/')}` : '';
                 const sel = char.name === selectedName ? ' selected' : '';
                 const hasImg = char.gameobject_name ? ' has-img' : '';
-                html += `<div class="cast-dd-item${sel}${hasImg}" data-name="${this._esc(char.name)}">${this._esc(char.name + traits)}</div>`;
+                const imgURL = char.gameobject_name ? this._charImageURL(char.gameobject_name) : '';
+                const thumb = imgURL
+                    ? `<img class="cast-dd-thumb" src="${imgURL}" alt="" loading="lazy" onerror="this.classList.add('cast-dd-thumb-empty');this.removeAttribute('src')">`
+                    : `<span class="cast-dd-thumb cast-dd-thumb-empty"></span>`;
+                html += `<div class="cast-dd-item${sel}${hasImg}" data-name="${this._esc(char.name)}">${thumb}<span class="cast-dd-name">${this._esc(char.name + traits)}</span></div>`;
             }
         }
         return html;
