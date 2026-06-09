@@ -33,5 +33,64 @@
       "Bash(Get-ChildItem -Path \"D:\\\\Code\\\\ScriptsGenerateAgent\" -Directory)",
       "Bash(Select-Object -ExpandProperty Name)"
     ]
+  },
+  "autoMode": {
+    "allow": [
+      "Read",
+      "Grep",
+      "Glob",
+      "Bash(ls:*)",
+      "Bash(cat:*)",
+      "Bash(head:*)",
+      "Bash(tail:*)",
+      "Bash(wc:*)",
+      "Bash(find:*)",
+      "Bash(grep:*)",
+      "Bash(rg:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git show:*)",
+      "Bash(git branch:*)",
+      "Bash(node --check:*)",
+      "Bash(python3 -m py_compile:*)",
+      "Bash(python -m py_compile:*)",
+      "Edit(frontend/**)",
+      "Write(frontend/**)"
+    ],
+    "soft_deny": [
+      "Edit(backend/**)",
+      "Write(backend/**)",
+      "Edit(backend/app.py)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(uv add:*)",
+      "Bash(uv pip:*)",
+      "Bash(pip install:*)",
+      "Bash(pip3 install:*)",
+      "Bash(mv:*)",
+      "Bash(rm:*)"
+    ],
+    "hard_deny": [
+      "Edit(backend/resources/cinematography/**)",
+      "Write(backend/resources/cinematography/**)",
+      "Edit(backend/resources/**/scene_info/**)",
+      "Write(backend/resources/**/scene_info/**)",
+      "Bash(rm -rf:*)",
+      "Bash(rm -r:*)",
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Bash(git push * main*)",
+      "Bash(git push * master*)",
+      "Bash(git reset --hard:*)",
+      "Bash(git clean:*)",
+      "Bash(git checkout -- .)",
+      "Bash(chmod:*)",
+      "Bash(sudo:*)",
+      "Edit(.git/**)",
+      "Edit(.env*)",
+      "Write(.env*)"
+    ]
   }
 }
