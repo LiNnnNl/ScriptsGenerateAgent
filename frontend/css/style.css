@@ -312,6 +312,7 @@ body {
     border-color: var(--gold);
     box-shadow: 0 0 20px rgba(212, 175, 55, 0.3);
 }
+.select-box option { background: #1a1a1a; color: var(--text-light); }
 
 /* 场景信息 */
 .scene-info {
@@ -1456,6 +1457,8 @@ body {
 .sv-shot-blend { width: 110px; }
 .sv-shot-type:focus,
 .sv-shot-blend:focus { border-color: rgba(100,160,255,0.5); }
+.sv-shot-type option,
+.sv-shot-blend option { background: #1a1a1a; color: var(--text-light); }
 .sv-shot-desc {
     flex: 1 1 100%;
     background: rgba(0,0,0,0.2);
@@ -1503,6 +1506,8 @@ body {
 .sv-action-name { flex: 1; }
 .sv-action-char:focus,
 .sv-action-name:focus { border-color: rgba(212,175,55,0.4); }
+.sv-action-char option,
+.sv-action-name option { background: #1a1a1a; color: var(--text-light); }
 .sv-del-action,
 .sv-add-action {
     background: none;
@@ -1695,6 +1700,93 @@ body {
 .cast-select optgroup {
     background: var(--dark-gray);
     color: var(--text-light);
+}
+
+/* ── 自定义角色下拉（支持悬停预览图片/信息） ── */
+.cast-dd {
+    position: relative;
+    width: 100%;
+}
+.cast-dd-trigger {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: var(--film-gray);
+    border: 1px solid rgba(212, 175, 55, 0.3);
+    color: var(--text-light);
+    font-family: 'Cinzel', serif;
+    font-size: 0.95em;
+    cursor: pointer;
+    transition: border-color 0.2s;
+}
+.cast-dd-trigger:hover,
+.cast-dd-trigger:focus {
+    outline: none;
+    border-color: var(--gold);
+}
+.cast-dd-trigger.placeholder .cast-dd-trigger-text {
+    opacity: 0.55;
+}
+.cast-dd-arrow {
+    margin-left: 10px;
+    font-size: 0.8em;
+    color: var(--gold);
+    opacity: 0.8;
+}
+.cast-dd-menu {
+    position: fixed;        /* 用 fixed 定位避免被带 overflow 的父容器截断，位置由 JS 计算 */
+    z-index: 9990;
+    max-height: 360px;
+    overflow-y: auto;
+    background: var(--dark-gray);
+    border: 1px solid rgba(212, 175, 55, 0.35);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+.cast-dd-group-label {
+    padding: 6px 14px 3px;
+    font-family: 'Roboto Mono', monospace;
+    font-size: 0.72em;
+    letter-spacing: 1px;
+    color: var(--gold);
+    opacity: 0.65;
+}
+.cast-dd-item {
+    padding: 8px 14px;
+    font-size: 0.9em;
+    color: var(--text-light);
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.cast-dd-item:hover {
+    background: rgba(212, 175, 55, 0.15);
+}
+.cast-dd-item.selected {
+    background: rgba(212, 175, 55, 0.1);
+    color: var(--gold-light);
+}
+.cast-dd-item.has-img::after {
+    content: '🖼';
+    margin-left: 6px;
+    font-size: 0.85em;
+    opacity: 0.6;
+}
+
+/* 悬停时浮动显示的角色预览卡（含图片） */
+.cast-dd-hovercard {
+    position: fixed;
+    z-index: 9999;
+    width: 240px;
+    padding: 12px 14px;
+    background: var(--dark-gray);
+    border: 1px solid rgba(212, 175, 55, 0.45);
+    border-left: 3px solid var(--gold);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55);
+    pointer-events: none;
+}
+.cast-dd-hovercard .char-preview-img {
+    max-height: 220px;
 }
 
 /* 角色预览卡 */
@@ -1922,6 +2014,50 @@ select.cast-input optgroup {
     font-size: 0.78em;
     color: #e0a030;
     letter-spacing: 0.5px;
+}
+.act-count-def {
+    width: 100%;
+    margin: 6px 0 0;
+    font-size: 0.78em;
+    line-height: 1.5;
+    color: rgba(224, 224, 224, 0.55);
+    letter-spacing: 0.3px;
+}
+
+/* ── 直接生成模式开关 ── */
+.direct-mode-section {
+    margin-top: 12px;
+}
+.direct-mode-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    user-select: none;
+}
+.direct-mode-toggle input {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--gold);
+    cursor: pointer;
+    flex-shrink: 0;
+}
+.direct-mode-label {
+    font-size: 0.85em;
+    color: var(--text-light);
+    opacity: 0.85;
+}
+.direct-mode-hint {
+    margin: 8px 0 0;
+    padding: 10px 14px;
+    background: rgba(212, 175, 55, 0.08);
+    border-left: 3px solid var(--gold);
+    font-size: 0.8em;
+    line-height: 1.6;
+    color: rgba(224, 224, 224, 0.75);
+}
+.direct-mode-hint strong {
+    color: var(--gold-light);
 }
 
 /* ── 版本命名行 ── */

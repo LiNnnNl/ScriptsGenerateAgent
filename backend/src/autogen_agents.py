@@ -84,10 +84,14 @@ def build_director_system_message(
     required_character_count: int = 0,
     act_count: int = 3,
     user_constraints: Optional[List[str]] = None,
+    direct_mode: bool = False,
 ) -> str:
     """
     构建 DirectorAgent 的 system_message。
     迁移自 director_ai.py 的 _build_context_prompt。
+
+    direct_mode=True 时切换为「结构化（不创作）」任务：把用户提供的剧本/分镜表
+    原样整理成规范 JSON，保留对白与镜头，并按用户「位置」分配站位。
     """
 
     total_count = required_character_count if required_character_count > 0 else len(characters)
@@ -288,6 +292,31 @@ def build_director_system_message(
         + "- `position_descriptions` 必须包含剧本中所有使用到的 Position N 编号\n"
         + "- 只使用可用动作库中的动作名称\n"
     )
+
+    if direct_mode:
+        # 直接模式：覆盖为「结构化（不创作）」任务，复用同一套输出 schema（task_info 的格式部分）
+        output_format_block = task_info[task_info.index("**输出格式:**"):]
+        direct_rules = (
+            "\n## 你的任务\n\n"
+            "用户已经提供了一份**完整的剧本/分镜表**。你的任务**不是创作，而是结构化**——"
+            "把用户给的内容**原样**整理成下方规范 JSON：不要改写、不要新增、不要发挥。\n\n"
+            + (_append_user_constraints(user_constraints) if user_constraints else "")
+            + "**硬性要求（必须严格遵守）:**\n\n"
+            + "1. **对白一字不改**：用户写的每一句台词（含语气词、省略号「……」、标点）逐字保留，"
+              "不得改写/缩写/润色/翻译，也不得新增或删除台词。\n"
+            + "2. **保留每一个镜头**：用户分镜表里每一个镜头/条目，对应输出里**恰好一个**片段，不漏、不合并、不拆分。\n"
+            + "3. **不创作剧情**：不添加用户没写的情节、画面或角色。\n"
+            + "4. **对白 vs 音效**：「角色：台词」是对白（填 speaker+content）；无角色前缀的纯声音"
+              "（如「警报声响起」「系统警报音」）不是对白（speaker/content 留空）。\n"
+            + "5. **在场角色 = 画面里出现的所有角色**（不只是说话人）。例如画面写「陈屿、林静、老赵同时被惊动」，三人都要分配站位。\n"
+            + "6. **走位按用户「位置」列**：用户每个镜头标了角色所在位置（如「高层主仓/控制台」）。"
+              "据此为在场角色分配 Position N，并在 `position_descriptions` 里结合上方「可用区域」与物体名称描述"
+              "（例：\"Position 1\": \"高层主仓 - 靠近控制台\"）。坐标由摄影流程计算，你只选区域、标注靠近哪个物体。\n"
+            + "7. **动作**：只用「可用动作库」里的动作；画面有明确动作就选最贴近的动作 ID，否则 actions 留空。\n"
+            + "8. **镜头字段**：对白/旁白片段 `shot`=\"character\"，移动片段 `shot`=\"scene\"；`shot_description` 留空（摄影阶段填）。\n"
+            + "9. **幕数**：用户内容若分章/幕，按其结构输出对应数量的场景对象；否则输出 1 个场景对象。\n\n"
+        )
+        task_info = direct_rules + output_format_block
 
     return char_info + scene_info + action_info + task_info
 
@@ -827,6 +856,7 @@ def build_validation_system_message() -> str:
     return dramatic_opening + "\n\n\n" + core_task + red_lines + qa + output
 
 
+
 # ────────────────────────────────────────────────────────────────────────────
 # Agent 工厂函数
 # ────────────────────────────────────────────────────────────────────────────
@@ -839,15 +869,19 @@ def create_director_agent(
     act_count: int = 3,
     model: Optional[str] = None,
     user_constraints: Optional[List[str]] = None,
+    direct_mode: bool = False,
 ) -> AssistantAgent:
     system_message = build_director_system_message(
-        characters, scene, resource_loader, required_character_count, act_count, user_constraints
+        characters, scene, resource_loader, required_character_count, act_count,
+        user_constraints, direct_mode=direct_mode,
     )
     return AssistantAgent(
-        name="DirectorAgent",
+        name="DirectorAgent" if not direct_mode else "DirectorAgent_Direct",
         model_client=make_model_client(model),
         system_message=system_message,
     )
+
+
 
 
 def create_critic_agent(model: Optional[str] = None, user_constraints: Optional[List[str]] = None, fixed_dialogues: Optional[List[dict]] = None) -> AssistantAgent:

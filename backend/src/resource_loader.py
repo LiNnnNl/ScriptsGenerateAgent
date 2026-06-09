@@ -4,6 +4,7 @@
 """
 
 import json
+import re
 from typing import List, Dict, Optional
 from pathlib import Path
 
@@ -245,10 +246,23 @@ class ResourceLoader:
         return result
 
     def load_scene_info(self, scene_id: str) -> Optional[dict]:
-        """加载指定场景的 scene_info JSON（含 region / anchor / scene_marker 数据）"""
-        path = self.resource_dir / "cinematography" / "scene_info" / f"{scene_id}.json"
+        """加载指定场景的 scene_info JSON（含 region / anchor / scene_marker 数据）
+
+        先精确匹配 <scene_id>.json；找不到时按归一化键模糊匹配，
+        兼容空格/下划线/大小写差异（如 "Space Station" == "SpaceStation"）。
+        """
+        folder = self.resource_dir / "cinematography" / "scene_info"
+        path = folder / f"{scene_id}.json"
         if not path.exists():
-            return None
+            wanted = re.sub(r"[^a-z0-9]", "", (scene_id or "").lower())
+            path = None
+            if wanted and folder.exists():
+                for candidate in folder.glob("*.json"):
+                    if re.sub(r"[^a-z0-9]", "", candidate.stem.lower()) == wanted:
+                        path = candidate
+                        break
+            if path is None:
+                return None
         with open(path, 'r', encoding='utf-8-sig') as f:
             return json.load(f)
 

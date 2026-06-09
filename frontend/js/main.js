@@ -117,6 +117,14 @@ async function generateCast() {
 // 生成剧本
 async function generateScript() {
     const generateBtn = document.getElementById('generateBtn');
+
+    // 直接模式：必须在输入框提供剧本内容
+    const directMode = !!(document.getElementById('directModeToggle') || {}).checked;
+    if (directMode && !document.getElementById('creativeIdea').value.trim()) {
+        alert('已开启「直接生成」：请先在创作灵感输入框中粘贴你的剧本（JSON 或纯文本）。');
+        return;
+    }
+
     generateBtn.disabled = true;
 
     UI.hideResults();
@@ -124,7 +132,7 @@ async function generateScript() {
     document.getElementById('logPanel').style.display = 'block';
 
     // 开始日志
-    UI.addLog('info', '🚀 开始生成剧本...');
+    UI.addLog('info', directMode ? '⚡ 直接模式：按你提供的剧本生成（跳过头脑风暴与创作）...' : '🚀 开始生成剧本...');
     if (APP_STATE.generatedCharacters && APP_STATE.generatedCharacters.length > 0) {
         UI.addLog('info', `角色: ${APP_STATE.generatedCharacters.map(c => c.name).join(', ')}`);
     }
@@ -139,7 +147,8 @@ async function generateScript() {
             scene_id: APP_STATE.selectedScene,
             creative_idea: document.getElementById('creativeIdea').value.trim(),
             required_character_count: APP_STATE.requiredCharacterCount,
-            act_count: APP_STATE.actCount
+            act_count: APP_STATE.actCount,
+            direct_mode: !!(document.getElementById('directModeToggle') || {}).checked
         }, (data) => {
             if (data.type === 'success') succeeded = true;
             handleStreamData(data);
@@ -341,6 +350,17 @@ function setupEventListeners() {
         const v = parseInt(e.target.value) || 3;
         updateActCount(Math.max(1, Math.min(10, v)));
     });
+
+    // 直接模式开关：联动提示文案 + 输入框占位提示
+    const directToggle = document.getElementById('directModeToggle');
+    if (directToggle) {
+        directToggle.addEventListener('change', (e) => {
+            const on = e.target.checked;
+            APP_STATE.directMode = on;
+            const hint = document.getElementById('directModeHint');
+            if (hint) hint.style.display = on ? '' : 'none';
+        });
+    }
 
     // 下载 Word 版剧本
     document.getElementById('downloadWordBtn').addEventListener('click', () => {

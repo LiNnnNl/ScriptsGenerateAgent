@@ -343,10 +343,23 @@ def get_scene_info_json(scene, resource_dir):
     """
     Priority: hand-crafted JSON > auto-generated from Scene object.
     Hand-crafted files: resources/cinematography/scene_info/{scene.id}.json
+
+    精确匹配失败时按归一化键模糊匹配文件名，兼容空格/下划线/大小写差异
+    （如 scene.id "Space Station" ↔ 文件 "SpaceStation.json"）。
     """
+    import re as _re
     resource_dir = Path(resource_dir)
-    custom_path = resource_dir / "cinematography" / "scene_info" / f"{scene.id}.json"
-    if custom_path.exists():
+    folder = resource_dir / "cinematography" / "scene_info"
+    custom_path = folder / f"{scene.id}.json"
+    if not custom_path.exists():
+        wanted = _re.sub(r"[^a-z0-9]", "", (scene.id or "").lower())
+        custom_path = None
+        if wanted and folder.exists():
+            for cand in folder.glob("*.json"):
+                if _re.sub(r"[^a-z0-9]", "", cand.stem.lower()) == wanted:
+                    custom_path = cand
+                    break
+    if custom_path and custom_path.exists():
         with open(custom_path, "r", encoding="utf-8-sig") as f:
             return json.load(f)
     return _build_scene_info_from_scene(scene)
