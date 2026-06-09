@@ -393,11 +393,6 @@ class ScriptJSONGenerator:
                             errors.append(
                                 f"场景{idx}片段{seg_idx}: confidence={conf} 超出 [0,1] 范围"
                             )
-                        if "reason" not in segment:
-                            warnings.append(
-                                f"场景{idx}片段{seg_idx}: 缺少'reason'字段 "
-                                f"（建议填写便于人工复核）"
-                            )
 
                     # 检查必填字段
                     if "move" in segment:
