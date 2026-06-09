@@ -507,11 +507,14 @@ function buildPositionMap(plan) {
             map[s.position_id] = s.region; // region 即锚点/区域名
         }
     });
-    // groups 同理
+    // groups: position_id 嵌在 positions[] 里，region 在 group 顶层；多个角色共享同一 region
     (plan.groups || []).forEach(g => {
-        if (g.position_id && g.region) {
-            map[g.position_id] = g.region;
-        }
+        if (!g.region) return;
+        (g.positions || []).forEach(p => {
+            if (p.position_id) {
+                map[p.position_id] = g.region;
+            }
+        });
     });
     return map;
 }

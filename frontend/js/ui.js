@@ -1232,7 +1232,10 @@ const UI = {
                 const info = scene['scene information'] || {};
                 const who = (info.who || []).join('、');
                 const initPos = (scene['initial position'] || [])
-                    .map(p => `${p.character || ''} → ${p.position || ''}`)
+                    .map(p => {
+                        const anchor = (APP_STATE.positionPlanMap || {})[p.position] || p.position || '';
+                        return `${p.character || ''} → ${anchor}`;
+                    })
                     .join('　');
                 const beats = (scene['scene'] || []).map(beat => {
                     if (beat.speaker !== undefined) {
@@ -1244,7 +1247,10 @@ const UI = {
                             .map(a => `[${a.character || ''}] ${a.action || ''}${a.state ? ` (${a.state})` : ''}`)
                             .join(' · ');
                         const positions = (beat['current position'] || [])
-                            .map(p => `${p.character || ''}→${p.position || ''}`)
+                            .map(p => {
+                                const anchor = (APP_STATE.positionPlanMap || {})[p.position] || p.position || '';
+                                return `${p.character || ''}→${anchor}`;
+                            })
                             .join('　');
                         const motion = beat.motion_description || '';
                         const shotMeta = [shot, anchors ? `锚点 ${anchors}` : '', camera].filter(Boolean).join(' · ');
@@ -1260,7 +1266,10 @@ const UI = {
                     } else if (beat.move) {
                         const moves = (beat.move || []).map(m => `${m.character} → ${m.destination}`).join('　');
                         const positions = (beat['current position'] || [])
-                            .map(p => `${p.character || ''}→${p.position || ''}`)
+                            .map(p => {
+                                const anchor = (APP_STATE.positionPlanMap || {})[p.position] || p.position || '';
+                                return `${p.character || ''}→${anchor}`;
+                            })
                             .join('　');
                         return `
                         <div class="ob-beat ob-move">
