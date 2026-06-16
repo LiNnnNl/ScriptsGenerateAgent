@@ -161,7 +161,7 @@ ScriptsGenerateAgent/
 
 - **character beat**：`shot="character"` + `shot_blend` + `shot_type` + `Follow(0/1)` + `motion_detail`（必填，英文动作细节）。
 - **scene beat**：`shot` + `shot_blend` + `camera`。
-- **move**：角色移动（`character` → `destination`）。
+- **move**：角色移动。对齐下游 `ExecuteMoveEvent` 两种形态：①**基础移动**（只走不说）`{move:[{character, destination}]}`，move 可单对象或数组（多人同移），移动者**不写 action**（走路由系统驱动）；②**边走边说**——在 move 事件**顶层**加 `speaker`/`content`（+可选 emotion），说话人须为真实角色、非 default。落盘 `script` 的 move 事件镜头字段已剥离至 `camera_script`（沿用场景固定机位）。
 - 合法值：`VALID_SHOT_TYPE`（全景/中景/中近景/近景/仰拍/俯拍…）、`VALID_SHOT_BLEND`（运行时归一为 `cut/blend/easein`）、`VALID_LAYOUTS`（two_person/L_shape/triangle/line/square/arc/cluster/layered）。
 
 ### 6.3 位置系统（最容易踩坑，务必理解）
@@ -217,9 +217,11 @@ ScriptsGenerateAgent/
 
 ---
 
-## 10. 多场景改造（规划中，未落地）
+## 10. 多场景改造（一期已落地 2026-06-16｜二期规划中）
 
-> 目标：支持**不同幕使用不同场景**。本章节是设计与实现计划，落地后并入正文。
+> 目标：支持**不同幕使用不同场景**。**一期（正常生成模式）已实现并提交**，下方设计即现状；二期（直接模式接入、按幕换角色）仍为规划。
+>
+> 一期落地要点：请求新增可选 `scene_pool`/`act_scenes`；导演按幕注场景并分场景列区域；摄影按幕序号取对应场景锚点；角色生成喂整个场景池概述；每幕 `scene information.where` 由 generator 按 `act_scene_ids` 逐幕写对应**场景 id**（**不再有 `scene_id` 字段**，场景标识统一由 `where` 表达）；无锚点场景前端禁用、后端校验挡掉。不传 `scene_pool` 完全回退单场景旧行为。
 
 ### 10.1 现状限制
 
@@ -253,7 +255,7 @@ ScriptsGenerateAgent/
 
 ### 10.5 分期
 
-- **一期**：正常生成模式多场景（数据模型 + 前端 UI + 导演按幕注场景 + 摄影按幕取锚点 + 角色生成喂场景池概述）。
+- **一期 ✅ 已落地（2026-06-16）**：正常生成模式多场景（数据模型 + 前端 UI + 导演按幕注场景 + 摄影按幕取锚点 + 角色生成喂场景池概述）。
 - **二期**：直接生成模式接入多场景 + 按幕换角色（如需）。
 
 ### 10.6 风险
