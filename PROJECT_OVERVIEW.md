@@ -262,3 +262,16 @@ ScriptsGenerateAgent/
 
 - 场景库只有 `SpaceStation`/`LotusTown` 有锚点 → 池内只能选这两个；选了无锚点的场景须在校验阶段挡掉并提示。
 - position_plan/detail 落盘目前只保留最后一幕（既有行为）；多场景下不同幕在不同场景，若下游需要按幕区分的位置文件，需要单独评估聚合方式。
+
+---
+
+## 11. 待办（Roadmap）
+
+### 11.1 move 支持多种移动方式（跑步 / 慢走 / 正常走）
+
+> **依赖下游先支持**：当前下游 `XMU_FILM_code` 的移动速度硬编码（`CharacterBehaviorModule.MoveExecute` 里 `agent.speed = 1.5f`），`isWalking` 只是「是否在移动」的动画开关，**没有步态/速度区分**。需下游先按移动方式查表设 `agent.speed` + 走/跑动画（BlendTree 或动画倍速近似），详见下游仓库 `TODO_移动方式_跑步慢走.md`。
+
+生成端（本仓库）待办，**待下游与字段约定确定后再做**：
+- move 项新增可选字段 `moveType`（约定取值 `slowWalk`/`walk`/`run`，不传 = `walk`）。
+- 导演 prompt（`autogen_agents.py`）：在 move 事件说明里加 `moveType` 字段 + 可选值 + 示例（移动方式仍走 move 事件，移动者不写 action 的约定不变）。
+- schema/generator 预计不用改（move 多出字段默认被忽略/保留），落地时确认。
