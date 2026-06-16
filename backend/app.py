@@ -258,12 +258,26 @@ def generate_characters():
     creative_idea = (data.get('creative_idea') or '').strip()
     partial_characters = data.get('partial_characters', [])
 
-    # 获取场景名称描述
-    scene_desc = scene_id
-    for scene in resource_loader.get_all_scenes():
-        if scene.id == scene_id:
-            scene_desc = f"{scene.name}：{scene.description}"
-            break
+    # 场景池（多场景）：角色跨幕复用，参考整池概述作为环境参考；缺省回退单 scene_id
+    scene_pool_ids = data.get('scene_pool') or []
+    if not isinstance(scene_pool_ids, list):
+        scene_pool_ids = []
+    scene_pool_ids = [str(s).strip() for s in scene_pool_ids if str(s).strip()]
+    if not scene_pool_ids and scene_id:
+        scene_pool_ids = [scene_id]
+
+    # 获取场景名称描述（单场景=单条；多场景=整池概述）
+    _scenes_by_id = {sc.id: sc for sc in resource_loader.get_all_scenes()}
+    _pool_descs = [
+        f"{_scenes_by_id[sid].name}：{_scenes_by_id[sid].description}"
+        for sid in scene_pool_ids if sid in _scenes_by_id
+    ]
+    if len(_pool_descs) > 1:
+        scene_desc = "（多场景，角色需跨场景通用）\n" + "\n".join(f"- {d}" for d in _pool_descs)
+    elif _pool_descs:
+        scene_desc = _pool_descs[0]
+    else:
+        scene_desc = scene_id
 
     # 构建已指定角色说明
     specified = [c for c in partial_characters if (c.get('name') or '').strip()]

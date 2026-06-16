@@ -545,12 +545,56 @@ async def run_autogen_pipeline(
                 len(fixed_dialogues), target_duration_secs or 0, act_count,
                 target_dialogue_lines)
 
-    # ── 验证场景 ──
-    scene = resource_loader.get_scene_by_id(scene_id)
-    if not scene:
-        logger.error("场景不存在: %s", scene_id)
-        bridge.put_event({'type': 'error', 'message': f'场景不存在: {scene_id}'})
+    # ── 解析场景池（多场景一期；缺省回退单 scene_id 旧行为） ──
+    scene_pool_ids = request_params.get('scene_pool') or []
+    if not isinstance(scene_pool_ids, list):
+        scene_pool_ids = []
+    scene_pool_ids = [str(s).strip() for s in scene_pool_ids if str(s).strip()]
+    if not scene_pool_ids and scene_id:
+        scene_pool_ids = [scene_id]
+    if not scene_pool_ids:
+        bridge.put_event({'type': 'error', 'message': '未提供场景：请至少选择一个场景'})
         return
+
+    # 预加载池内所有场景对象
+    scene_pool_objs: List[Scene] = []
+    for sid in scene_pool_ids:
+        sc = resource_loader.get_scene_by_id(sid)
+        if not sc:
+            logger.error("场景不存在: %s", sid)
+            bridge.put_event({'type': 'error', 'message': f'场景不存在: {sid}'})
+            return
+        scene_pool_objs.append(sc)
+
+    multi_scene = len(scene_pool_objs) > 1
+
+    # 多场景：每个场景都必须有坐标锚点（scene_info），否则摄影无法算坐标
+    if multi_scene:
+        for sc in scene_pool_objs:
+            if resource_loader.load_scene_info(sc.id) is None:
+                bridge.put_event({'type': 'error',
+                                  'message': f'场景「{sc.name}」暂无坐标锚点，无法用于多场景生成，请改选其他场景'})
+                return
+
+    scene = scene_pool_objs[0]  # 默认场景，保留所有现有单 scene 引用
+
+    # 构建 幕→场景 映射：act_scenes[i] 解析为池内 Scene；缺失/越界/无效 → 回退默认场景
+    act_scenes_ids = request_params.get('act_scenes') or []
+    if not isinstance(act_scenes_ids, list):
+        act_scenes_ids = []
+    _pool_by_id = {sc.id: sc for sc in scene_pool_objs}
+    act_scene_map: Dict[int, Scene] = {}
+    for i in range(act_count):
+        sid = str(act_scenes_ids[i]).strip() if i < len(act_scenes_ids) and act_scenes_ids[i] else ''
+        act_scene_map[i] = _pool_by_id.get(sid, scene)
+
+    # 每幕场景 id 列表（下标=幕序号）；交给 generator 逐幕写 where，摄影按幕取锚点。单场景为 None
+    act_scene_ids = [act_scene_map[i].id for i in range(act_count)] if multi_scene else None
+
+    if multi_scene:
+        _map_desc = "、".join(f"第{i + 1}幕={act_scene_map[i].name}" for i in range(act_count))
+        _emit_stage_log(bridge, 'info', 'setup', 'multi_scene',
+                        f'🎬 多场景模式：场景池 {len(scene_pool_objs)} 个，幕-场景分配：{_map_desc}')
 
     # ── 构建角色列表 ──
     if custom_characters_input:
@@ -565,7 +609,7 @@ async def run_autogen_pipeline(
     _emit_stage_log(bridge, 'info', 'setup', 'init', '🤖 初始化多 Agent 系统...')
 
     treatment = create_treatment_agent(act_count=act_count)
-    director = create_director_agent(characters, scene, resource_loader, required_character_count, act_count, user_constraints=user_constraints)
+    director = create_director_agent(characters, scene, resource_loader, required_character_count, act_count, user_constraints=user_constraints, act_scene_map=act_scene_map if multi_scene else None)
     critic = create_critic_agent(user_constraints=user_constraints, fixed_dialogues=fixed_dialogues)
     dialogue = create_dialogue_agent(user_constraints=user_constraints, fixed_dialogues=fixed_dialogues)
     validator = create_validation_agent(resource_loader, scene) if model_supports_tools else None
@@ -608,10 +652,18 @@ async def run_autogen_pipeline(
             termination_condition=_meeting_termination,
         )
 
+        if multi_scene:
+            _pool_lines = "\n".join(f"  - {sc.name}：{sc.description}" for sc in scene_pool_objs)
+            scene_brief_line = (
+                f"场景池（剧情需分布到这些场景，每幕发生在其中一个）：\n{_pool_lines}\n"
+            )
+        else:
+            scene_brief_line = f"场景：{scene.name} — {scene.description}\n"
+
         meeting_brief = (
             "创意会议开始，请各位从自己的专业角度展开讨论。\n\n"
             f"创作想法：{plot_outline or '（AI 自由创作）'}\n"
-            f"场景：{scene.name} — {scene.description}\n"
+            f"{scene_brief_line}"
             f"角色数量：{required_character_count or len(characters) or 2} 位"
             + (f"\n已指定角色：{', '.join(c.name for c in characters)}" if characters else "")
             + "\n\n请 ConceptPitchAgent 先行发言，提出你的创意概念。"
@@ -922,7 +974,7 @@ async def run_autogen_pipeline(
     else:
         plot_summary = f"AI自由创作：{scene.name}"
 
-    final_json = generator.generate_final_json(draft_script, plot_summary)
+    final_json = generator.generate_final_json(draft_script, plot_summary, act_scene_ids=act_scene_ids)
 
     # ── 阶段三后：对白行数校验 + 不足时触发补写 ──
     if target_dialogue_lines and not direct_mode:
@@ -961,7 +1013,7 @@ async def run_autogen_pipeline(
                                 f'⚠️ [对白补写] 补写请求失败，保留原始剧本: {_e}')
             if filled_script:
                 # 补写结果仍需经过 generator 规范化（补充 emotion 字段等）
-                final_json = generator.generate_final_json(filled_script, plot_summary)
+                final_json = generator.generate_final_json(filled_script, plot_summary, act_scene_ids=act_scene_ids)
                 new_lines = sum(
                     1 for act in final_json
                     for line in act.get('scene', [])
@@ -1012,6 +1064,7 @@ async def run_autogen_pipeline(
     # ── 阶段五：摄影指导后处理（默认启用） ──
     if True:
         _emit_stage_log(bridge, 'info', 'cinematography', 'start', '🎥 [摄影指导期] 摄影指导智能体开始规划画面和镜头...')
+
         try:
             cine_result = await _running_loop.run_in_executor(
                 None,
@@ -1021,6 +1074,7 @@ async def run_autogen_pipeline(
                 resource_loader.resource_dir,
                 str(output_dir),
                 timestamp,
+                act_scene_map if multi_scene else None,
             )
             if cine_result.get("ok"):
                 draft_script = cine_result["enriched_script"]
@@ -1043,7 +1097,7 @@ async def run_autogen_pipeline(
                     with open(output_dir / position_detail_filename, "w", encoding="utf-8") as _f:
                         json.dump(_stage2_detail, _f, ensure_ascii=False, indent=2)
                 # 用摄影指导结果重新生成并覆写 script_*.json（保留已填写的摄影字段）
-                final_json = generator.generate_final_json(draft_script, plot_summary, preserve_shot_fields=True)
+                final_json = generator.generate_final_json(draft_script, plot_summary, preserve_shot_fields=True, act_scene_ids=act_scene_ids)
                 generator.export_to_file(final_json, str(filepath))
                 _emit_stage_log(bridge, 'success', 'cinematography', 'result',
                                 f'✅ [摄影指导期] 摄影规划完成，镜头参数已写入 camera_script')
@@ -1154,6 +1208,8 @@ async def run_autogen_pipeline(
     _emit_stage_log(bridge, 'success', 'output', 'actors_profile', f'✅ 已生成角色档案：{len(actors_profile)} 位演员')
 
     session_id = str(timestamp)
+    # 多场景：history 记录逗号拼接整池场景 id；单场景仍是单个 id
+    session_scene_id = ",".join(sc.id for sc in scene_pool_objs)
     _registry.register_session(
         ts=session_id,
         files={
@@ -1163,7 +1219,7 @@ async def run_autogen_pipeline(
             "position_plan": position_plan_filename,
             "position_detail": position_detail_filename,
         },
-        scene_id=scene_id or "",
+        scene_id=session_scene_id,
         act_count=act_count,
     )
 

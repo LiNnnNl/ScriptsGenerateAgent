@@ -58,7 +58,7 @@ async function loadCharacters() {
 // 检查表单完整性
 function checkFormComplete() {
     const castGenBtn = document.getElementById('castGenerateBtn');
-    if (APP_STATE.selectedScene) {
+    if (APP_STATE.scenePool.length > 0) {
         UI.enableStep('step3');
         castGenBtn.disabled = false;
     } else {
@@ -91,6 +91,7 @@ async function generateCast() {
     try {
         const result = await API.generateCharacters({
             scene_id: APP_STATE.selectedScene,
+            scene_pool: APP_STATE.scenePool,
             character_count: APP_STATE.requiredCharacterCount || 2,
             creative_idea: document.getElementById('creativeIdea').value.trim(),
             partial_characters: partialChars
@@ -136,7 +137,10 @@ async function generateScript() {
     if (APP_STATE.generatedCharacters && APP_STATE.generatedCharacters.length > 0) {
         UI.addLog('info', `角色: ${APP_STATE.generatedCharacters.map(c => c.name).join(', ')}`);
     }
-    UI.addLog('info', `场景: ${APP_STATE.scenes.find(s => s.id === APP_STATE.selectedScene)?.name || APP_STATE.selectedScene}`);
+    const poolNames = (APP_STATE.scenePool || [])
+        .map(id => APP_STATE.scenes.find(s => s.id === id)?.name || id)
+        .join(' / ');
+    UI.addLog('info', `场景: ${poolNames || APP_STATE.selectedScene}`);
 
     let succeeded = false;
     try {
@@ -145,6 +149,8 @@ async function generateScript() {
         await API.generateScript({
             custom_characters: APP_STATE.generatedCharacters || [],
             scene_id: APP_STATE.selectedScene,
+            scene_pool: APP_STATE.scenePool,
+            act_scenes: APP_STATE.actScenes,
             creative_idea: document.getElementById('creativeIdea').value.trim(),
             required_character_count: APP_STATE.requiredCharacterCount,
             act_count: APP_STATE.actCount,
@@ -209,24 +215,41 @@ function handleStreamData(data) {
 
 // 设置事件监听
 function setupEventListeners() {
-    // 场景选择
-    document.getElementById('sceneSelect').addEventListener('change', (e) => {
-        APP_STATE.selectedScene = e.target.value;
-        
-        if (e.target.value) {
-            const scene = APP_STATE.scenes.find(s => s.id === e.target.value);
-            if (scene) {
-                UI.showSceneInfo(scene);
-            }
+    // 场景池多选（复选框）
+    document.getElementById('scenePoolList').addEventListener('change', (e) => {
+        const cb = e.target.closest('.scene-pool-checkbox');
+        if (!cb) return;
+
+        const checked = Array.from(document.querySelectorAll('.scene-pool-checkbox:checked'))
+            .map(el => el.value);
+        APP_STATE.scenePool = checked;
+        APP_STATE.selectedScene = checked[0] || null;
+
+        if (checked.length > 0) {
+            // 展示所有已勾选场景的信息（多场景逐个分块）
+            const selectedScenes = checked
+                .map(id => APP_STATE.scenes.find(s => s.id === id))
+                .filter(Boolean);
+            UI.showSceneInfo(selectedScenes);
 
             UI.enableStep('step2');
-
             const count = parseInt(document.getElementById('characterCount').value) || 2;
             APP_STATE.requiredCharacterCount = count;
             UI.updateCharacterCount(count);
+        } else {
+            document.getElementById('sceneInfo').style.display = 'none';
         }
 
+        UI.renderActSceneMap(APP_STATE.scenePool, APP_STATE.actCount);
         checkFormComplete();
+    });
+
+    // 每幕 → 场景 分配下拉
+    document.getElementById('actSceneList').addEventListener('change', (e) => {
+        const sel = e.target.closest('.act-scene-select');
+        if (!sel) return;
+        const idx = parseInt(sel.dataset.actIndex);
+        if (!isNaN(idx)) APP_STATE.actScenes[idx] = sel.value;
     });
 
     // 角色数量 - 减少
@@ -425,6 +448,8 @@ function updateActCount(count) {
     document.getElementById('actCountInput').value = count;
     const warning = document.getElementById('actCountWarning');
     if (warning) warning.style.display = count > 5 ? 'inline' : 'none';
+    // 幕数变化时重渲「每幕 → 场景」分配
+    UI.renderActSceneMap(APP_STATE.scenePool, count);
 }
 
 // 加载历史记录

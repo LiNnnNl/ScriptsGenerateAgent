@@ -52,9 +52,8 @@
                     <h2 class="step-title">选择场景</h2>
                     <div class="step-line"></div>
                 </div>
-                <select class="select-box" id="sceneSelect">
-                    <option value="">请选择场景...</option>
-                </select>
+                <p class="scene-pool-hint">可多选场景组成「场景池」，每一幕可使用不同场景；暂无坐标锚点的场景不可选。</p>
+                <div class="scene-pool-list" id="scenePoolList"></div>
                 <div class="scene-info" id="sceneInfo" style="display: none;">
                     <div class="scene-info-scroll">
                         <div class="info-label">场景描述</div>
@@ -127,6 +126,11 @@
                     <span class="act-count-warning" id="actCountWarning" style="display:none">⚠ 幕数较多，生成时间会更长</span>
                 </div>
                 <p class="act-count-def">💡 幕是剧本的基本叙事单元，通常对应一个完整的场景或时间段，一个剧本通常有 3-5 幕。</p>
+                <div class="act-scene-map" id="actSceneMap" style="display:none">
+                    <label class="count-label">每幕场景分配：</label>
+                    <div class="act-scene-list" id="actSceneList"></div>
+                    <p class="act-scene-hint">选了多个场景时，可为每一幕指定使用场景池中的哪个场景。</p>
+                </div>
             </section>
 
             <!-- 生成角色按钮 -->

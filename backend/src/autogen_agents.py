@@ -7,7 +7,7 @@ DirectorAgent 的提示词逻辑从 director_ai.py 的 _build_context_prompt 迁
 
 import os
 import re
-from typing import List, Optional
+from typing import Dict, List, Optional
 from autogen_agentchat.agents import AssistantAgent
 from autogen_ext.models.openai import OpenAIChatCompletionClient
 from .resource_loader import ResourceLoader, Character, Scene
@@ -85,6 +85,7 @@ def build_director_system_message(
     act_count: int = 3,
     user_constraints: Optional[List[str]] = None,
     direct_mode: bool = False,
+    act_scene_map: Optional[Dict[int, Scene]] = None,
 ) -> str:
     """
     构建 DirectorAgent 的 system_message。
@@ -92,6 +93,9 @@ def build_director_system_message(
 
     direct_mode=True 时切换为「结构化（不创作）」任务：把用户提供的剧本/分镜表
     原样整理成规范 JSON，保留对白与镜头，并按用户「位置」分配站位。
+
+    act_scene_map（多场景模式）：{幕序号(0-based): Scene}。非空时逐幕注明所属场景，
+    并分场景列出可用区域；缺省（None）时等价单场景旧逻辑。
     """
 
     total_count = required_character_count if required_character_count > 0 else len(characters)
@@ -121,24 +125,49 @@ def build_director_system_message(
         char_info += f"本场景共需要 **{total_count}** 位角色，全部由 AI 自由创作。\n\n"
 
     # 2. 场景信息（不暴露具体点位，由 PositionAgent 处理映射）
-    scene_info = f"## 场景信息\n\n### {scene.name} (ID: {scene.id})\n"
-    scene_info += f"- 描述: {scene.description}\n\n"
+    _REGION_NOTE = (
+        "> **重要说明**：区域内的锚点（anchors）和场景标记（scene_markers）是场景中"
+        "**标志性物体（雕像、树木、石柱等）的坐标**，**不是角色可以站立的位置**。"
+        "编剧只需根据戏剧意图为每个站位选择合适的区域名称；"
+        "角色的具体坐标由摄影指导智能体自动计算。\n\n"
+    )
 
-    raw_scene_info = resource_loader.load_scene_info(scene.id)
-    if raw_scene_info and raw_scene_info.get("regions"):
-        scene_info += "### 可用区域（Regions）\n\n"
-        scene_info += (
-            "> **重要说明**：区域内的锚点（anchors）和场景标记（scene_markers）是场景中"
-            "**标志性物体（雕像、树木、石柱等）的坐标**，**不是角色可以站立的位置**。"
-            "编剧只需根据戏剧意图为每个站位选择合适的区域名称；"
-            "角色的具体坐标由摄影指导智能体自动计算。\n\n"
-        )
-        for region in raw_scene_info["regions"]:
+    def _render_regions(sc: Scene) -> str:
+        """渲染单个场景的「可用区域」列表（不含统一说明），无区域时返回空串。"""
+        raw = resource_loader.load_scene_info(sc.id)
+        if not (raw and raw.get("regions")):
+            return ""
+        text = ""
+        for region in raw["regions"]:
             markers = [m["name"] for m in region.get("scene_markers", [])]
             markers_str = "、".join(markers) if markers else "无"
-            scene_info += f"**{region['name']}**\n"
-            scene_info += f"- {region['description']}\n"
-            scene_info += f"- 区域内标志性物体：{markers_str}\n\n"
+            text += f"**{region['name']}**\n"
+            text += f"- {region['description']}\n"
+            text += f"- 区域内标志性物体：{markers_str}\n\n"
+        return text
+
+    if act_scene_map:
+        # 多场景：逐幕注明所属场景 + 分场景列出可用区域（同一场景的区域只列一次）
+        scene_info = "## 场景信息（多场景）\n\n本剧本各幕发生在不同场景，请严格按下表安排：\n\n"
+        for i in range(act_count):
+            sc = act_scene_map.get(i) or scene
+            scene_info += f"- **第 {i + 1} 幕** → {sc.name} (ID: {sc.id})：{sc.description}\n"
+        scene_info += "\n### 各场景可用区域（Regions）\n\n" + _REGION_NOTE
+        rendered_ids: set = set()
+        for i in range(act_count):
+            sc = act_scene_map.get(i) or scene
+            if sc.id in rendered_ids:
+                continue
+            rendered_ids.add(sc.id)
+            region_text = _render_regions(sc)
+            if region_text:
+                scene_info += f"#### {sc.name} (ID: {sc.id})\n\n{region_text}"
+    else:
+        scene_info = f"## 场景信息\n\n### {scene.name} (ID: {scene.id})\n"
+        scene_info += f"- 描述: {scene.description}\n\n"
+        region_text = _render_regions(scene)
+        if region_text:
+            scene_info += "### 可用区域（Regions）\n\n" + _REGION_NOTE + region_text
 
     # 3. 动作库
     action_info = "## 可用动作库\n\n以下是所有可用的动作，请根据描述选择最合适的动作ID:\n\n"
@@ -172,6 +201,16 @@ def build_director_system_message(
     act_count_rule = (
         f"0. **幕数（最高优先级）**: 输出 JSON 数组必须恰好包含 **{act_count}** 个场景对象（即 {act_count} 幕），不多不少。"
     )
+    if act_scene_map:
+        _act_scene_lines = "；".join(
+            f"第 {i + 1} 幕 = {(act_scene_map.get(i) or scene).name}"
+            for i in range(act_count)
+        )
+        act_count_rule += (
+            f"\n   **每幕场景（多场景，最高优先级）**：各幕剧情必须发生在指定场景，"
+            f"该幕站位只能选所属场景「可用区域」里的区域（场景标识由系统按幕自动写入 `where`，你无需也不要自行填写）。"
+            f"幕-场景对应：{_act_scene_lines}。"
+        )
 
     task_info = (
         "\n## 你的任务\n\n"
@@ -227,7 +266,9 @@ def build_director_system_message(
         + "   - [ ] 是否包含至少一种感官细节或身体存在感？\n\n"
         + "9. **镜头设计**:\n"
         + "   - 对白/旁白/描述片段：`shot` 填 `\"character\"`\n"
-        + "   - 移动片段：`shot` 填 `\"scene\"`\n\n"
+        + "   - 移动片段（角色走位）：`shot` 填 `\"scene\"`。移动片段有两种形态：\n"
+        + "     · **基础移动**（只走不说话）：含 `move`，不要给正在移动的角色写 `actions`（走路动作由系统自动驱动）。\n"
+        + "     · **边走边说**（一边移动一边说台词）：在移动片段顶层额外加 `speaker` + `content`（说话人必须是真实角色名、不能是占位名），同样不要给移动者写 `actions`。\n\n"
         + "   **shot = \"character\" 时必须包含以下字段：**\n"
         + "   - `shot_blend`：镜头过渡方式，必须从以下选项中选一个：\n"
         + "     `\"Cut\"` / `\"Ease In Out\"` / `\"Ease In\"` / `\"Ease Out\"` / `\"Hard In\"` / `\"Hard Out\"` / `\"Linear\"` / `\"Custom\"`\n"
@@ -278,6 +319,17 @@ def build_director_system_message(
         + "        \"current position\": [\n"
         + "          {\"character\": \"角色名1\", \"position\": \"Position X\"}\n"
         + "        ]\n"
+        + "      },\n"
+        + "      {\n"
+        + "        \"speaker\": \"角色名\",\n"
+        + "        \"content\": \"一边走一边说的台词（边走边说形态）\",\n"
+        + "        \"move\": [{\"character\": \"角色名\", \"destination\": \"Position Z\"}],\n"
+        + "        \"shot_blend\": \"Cut\",\n"
+        + "        \"shot\": \"scene\",\n"
+        + "        \"camera\": 1,\n"
+        + "        \"current position\": [\n"
+        + "          {\"character\": \"角色名1\", \"position\": \"Position X\"}\n"
+        + "        ]\n"
         + "      }\n"
         + "    ]\n"
         + "  }\n"
@@ -291,6 +343,8 @@ def build_director_system_message(
         + "  移动片段的 `current position` 记录的是移动*前*的位置。\n"
         + "- `position_descriptions` 必须包含剧本中所有使用到的 Position N 编号\n"
         + "- 只使用可用动作库中的动作名称\n"
+        + "- **移动片段不要给正在移动的角色写 `actions`**（走路动作由系统自动驱动）；如需边走边说，在移动片段顶层加 `speaker` + `content` 即可（不是放进 `actions`）。\n"
+        + "- `move` 可以是单个对象或数组（多人同时移动）；每个移动项的 `destination` 必须是真实存在的 `Position N`。\n"
     )
 
     if direct_mode:
@@ -870,10 +924,11 @@ def create_director_agent(
     model: Optional[str] = None,
     user_constraints: Optional[List[str]] = None,
     direct_mode: bool = False,
+    act_scene_map: Optional[Dict[int, Scene]] = None,
 ) -> AssistantAgent:
     system_message = build_director_system_message(
         characters, scene, resource_loader, required_character_count, act_count,
-        user_constraints, direct_mode=direct_mode,
+        user_constraints, direct_mode=direct_mode, act_scene_map=act_scene_map,
     )
     return AssistantAgent(
         name="DirectorAgent" if not direct_mode else "DirectorAgent_Direct",

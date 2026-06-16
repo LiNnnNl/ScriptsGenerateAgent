@@ -150,39 +150,91 @@ const UI = {
         document.getElementById('errorPanel').style.display = 'none';
     },
 
-    // 渲染场景列表
+    // 渲染场景池（多选复选框）：有锚点（regions 非空）才可勾选，无锚点禁用并标注
     renderScenes(scenes) {
-        const select = document.getElementById('sceneSelect');
-        select.innerHTML = '<option value="">请选择场景...</option>' +
-            scenes.map(scene => `<option value="${scene.id}">${scene.name}</option>`).join('');
+        const list = document.getElementById('scenePoolList');
+        list.innerHTML = scenes.map(scene => {
+            const hasAnchor = scene.regions && scene.regions.length > 0;
+            const disabledAttr = hasAnchor ? '' : 'disabled';
+            const note = hasAnchor ? '' : '<span class="scene-pool-note">暂无坐标锚点，不可选</span>';
+            return `
+            <label class="scene-pool-item ${hasAnchor ? '' : 'is-disabled'}">
+                <input type="checkbox" class="scene-pool-checkbox" value="${scene.id}" ${disabledAttr}>
+                <span class="scene-pool-name">${scene.name}</span>
+                ${note}
+            </label>`;
+        }).join('');
     },
 
-    // 显示场景信息
-    showSceneInfo(scene) {
-        const info = document.getElementById('sceneInfo');
-        const description = document.getElementById('sceneDescription');
-        const positions = document.getElementById('scenePositions');
-
-        description.textContent = scene.description;
-
+    // 渲染「每幕 → 场景」分配下拉（仅多场景时显示）；选项=场景池内场景
+    renderActSceneMap(poolIds, actCount) {
+        const wrap = document.getElementById('actSceneMap');
+        const listEl = document.getElementById('actSceneList');
+        if (!poolIds || poolIds.length <= 1) {
+            wrap.style.display = 'none';
+            listEl.innerHTML = '';
+            return;
+        }
+        const sceneById = {};
+        (APP_STATE.scenes || []).forEach(s => { sceneById[s.id] = s; });
+        const options = poolIds
+            .map(id => `<option value="${id}">${(sceneById[id] || {}).name || id}</option>`)
+            .join('');
         let html = '';
+        for (let i = 0; i < actCount; i++) {
+            // 默认按顺序轮转分配
+            const current = APP_STATE.actScenes[i] || poolIds[i % poolIds.length];
+            APP_STATE.actScenes[i] = current;
+            html += `
+            <div class="act-scene-row">
+                <span class="act-scene-label">第 ${i + 1} 幕</span>
+                <select class="act-scene-select" data-act-index="${i}">
+                    ${options.replace(`value="${current}"`, `value="${current}" selected`)}
+                </select>
+            </div>`;
+        }
+        APP_STATE.actScenes = APP_STATE.actScenes.slice(0, actCount);
+        listEl.innerHTML = html;
+        wrap.style.display = 'block';
+    },
 
-        if (scene.regions && scene.regions.length > 0) {
-            for (const region of scene.regions) {
-                html += `<div class="position-group">`;
-                html += `<div class="position-group-title">${region.name}</div>`;
-                html += `<p class="region-description">${region.description}</p>`;
-                if (region.markers && region.markers.length > 0) {
-                    html += `<p class="region-markers"><span class="markers-label">标志性物体：</span>${region.markers.join('、')}</p>`;
-                }
-                html += `</div>`;
-            }
-        } else {
-            html = '<p>暂无区域信息</p>';
+    // 显示场景信息（支持单个或多个已选场景；多场景时逐个分块展示）
+    showSceneInfo(scenes) {
+        const info = document.getElementById('sceneInfo');
+        const scroll = info.querySelector('.scene-info-scroll');
+        const list = Array.isArray(scenes) ? scenes.filter(Boolean) : (scenes ? [scenes] : []);
+
+        if (list.length === 0) {
+            info.style.display = 'none';
+            return;
         }
 
-        positions.innerHTML = html;
+        const multi = list.length > 1;
+        let html = '';
+        list.forEach(scene => {
+            html += `<div class="scene-info-block">`;
+            if (multi) html += `<div class="scene-info-title">${scene.name}</div>`;
+            html += `<div class="info-label">场景描述</div>`;
+            html += `<p class="scene-description">${scene.description || ''}</p>`;
+            html += `<div class="info-label">场景区域与锚点</div>`;
+            html += `<div class="positions-list">`;
+            if (scene.regions && scene.regions.length > 0) {
+                for (const region of scene.regions) {
+                    html += `<div class="position-group">`;
+                    html += `<div class="position-group-title">${region.name}</div>`;
+                    html += `<p class="region-description">${region.description}</p>`;
+                    if (region.markers && region.markers.length > 0) {
+                        html += `<p class="region-markers"><span class="markers-label">标志性物体：</span>${region.markers.join('、')}</p>`;
+                    }
+                    html += `</div>`;
+                }
+            } else {
+                html += '<p>暂无区域信息</p>';
+            }
+            html += `</div></div>`;
+        });
 
+        scroll.innerHTML = html;
         info.style.display = 'block';
     },
 

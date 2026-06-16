@@ -42,17 +42,20 @@ _SHOT_BLEND_MAP = {
 # Public API
 # ─────────────────────────────────────────────��
 
-def run_cinematography_pipeline(script, scene, resource_dir, output_dir, timestamp):
+def run_cinematography_pipeline(script, scene, resource_dir, output_dir, timestamp, act_scene_map=None):
     """
     Synchronous three-stage cinematography post-processing pipeline.
     Designed to run inside asyncio.get_event_loop().run_in_executor().
 
     Args:
         script: list of scene-objects (draft_script from autogen pipeline)
-        scene: Scene object from resource_loader
+        scene: Scene object from resource_loader（默认/单场景的锚点来源）
         resource_dir: Path to backend/resources/
         output_dir: str path for output files
         timestamp: int timestamp used for naming
+        act_scene_map: 可选，{幕序号(0-based): Scene}。多场景模式下据此按幕取对应
+            场景的锚点 scene_info（不依赖剧本字段，按 index 直接定位）；
+            未提供或某幕缺失时回退到默认 `scene` 的 base_scene_info（单场景行为不变）。
 
     Returns:
         {"ok": True, "enriched_script": [...], "filename": "cinematography_*.json"}
@@ -78,6 +81,8 @@ def run_cinematography_pipeline(script, scene, resource_dir, output_dir, timesta
 
         # Base scene_info built from resource (where = scene.name placeholder)
         base_scene_info = get_scene_info_json(scene, resource_dir)
+        # 多场景：按 scene.id 缓存各场景的 scene_info，避免逐幕重复读盘
+        _scene_info_cache = {}
 
         stage_output_dir = output_dir / "CinematographyStages"
         stage_output_dir.mkdir(parents=True, exist_ok=True)
@@ -93,7 +98,7 @@ def run_cinematography_pipeline(script, scene, resource_dir, output_dir, timesta
         # Per-scene data kept for the Stage-3 retry loop
         _scene_retry_data = []
 
-        for scene_obj in (script if isinstance(script, list) else [script]):
+        for _act_idx, scene_obj in enumerate(script if isinstance(script, list) else [script]):
             if not isinstance(scene_obj, dict):
                 enriched_script.append(scene_obj)
                 continue
@@ -125,7 +130,16 @@ def run_cinematography_pipeline(script, scene, resource_dir, output_dir, timesta
             # The script's where comes from DirectorAgent (AI-generated text), which may differ
             # from scene.name in the resource. Override scene_info.where with the script's value.
             script_where = enriched_scene.get("scene information", {}).get("where", "")
-            scene_info = copy.deepcopy(base_scene_info)
+
+            # 多场景：按本幕序号取对应场景的锚点 scene_info（带缓存），缺省回退 base_scene_info
+            per_act_base = base_scene_info
+            per_act_scene = act_scene_map.get(_act_idx) if act_scene_map else None
+            if per_act_scene is not None:
+                if per_act_scene.id not in _scene_info_cache:
+                    _scene_info_cache[per_act_scene.id] = get_scene_info_json(per_act_scene, resource_dir)
+                per_act_base = _scene_info_cache[per_act_scene.id]
+
+            scene_info = copy.deepcopy(per_act_base)
             if script_where:
                 scene_info["where"] = script_where
 

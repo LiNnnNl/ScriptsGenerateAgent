@@ -314,6 +314,78 @@ body {
 }
 .select-box option { background: #1a1a1a; color: var(--text-light); }
 
+/* 场景池（多选复选框） */
+.scene-pool-hint, .act-scene-hint {
+    font-size: 0.85em;
+    color: rgba(255, 255, 255, 0.55);
+    margin: 0 0 10px;
+}
+.scene-pool-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.scene-pool-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    background: var(--film-gray);
+    border: 2px solid rgba(212, 175, 55, 0.3);
+    cursor: pointer;
+    transition: all 0.3s;
+}
+.scene-pool-item:hover { border-color: var(--gold); }
+.scene-pool-item.is-disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+.scene-pool-checkbox { accent-color: var(--gold); width: 16px; height: 16px; }
+.scene-pool-name { font-family: 'Cinzel', serif; color: var(--text-light); }
+.scene-pool-note { font-size: 0.8em; color: var(--accent); margin-left: auto; }
+
+/* 每幕 → 场景 分配 */
+.act-scene-map { margin-top: 16px; }
+.act-scene-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 8px 0;
+}
+.act-scene-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.act-scene-label {
+    min-width: 64px;
+    font-family: 'Cinzel', serif;
+    color: var(--text-light);
+}
+.act-scene-select {
+    flex: 1;
+    padding: 8px 12px;
+    background: var(--film-gray);
+    border: 2px solid rgba(212, 175, 55, 0.3);
+    color: var(--text-light);
+    cursor: pointer;
+}
+.act-scene-select:focus { outline: none; border-color: var(--gold); }
+.act-scene-select option { background: #1a1a1a; color: var(--text-light); }
+
+/* 多场景信息分块 */
+.scene-info-block + .scene-info-block {
+    margin-top: 18px;
+    padding-top: 18px;
+    border-top: 1px solid rgba(212, 175, 55, 0.25);
+}
+.scene-info-title {
+    font-family: 'Cinzel', serif;
+    font-size: 1.05em;
+    color: var(--gold);
+    margin-bottom: 8px;
+}
+
 /* 场景信息 */
 .scene-info {
     margin-top: 25px;
