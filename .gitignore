@@ -70,3 +70,4 @@ backend/outputs/
 *.bak
 *.orig
 output/
+CLAUDE.md

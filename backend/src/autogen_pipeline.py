@@ -7,6 +7,7 @@ DirectorAgent → 审查层（CriticAgent + DialogueAgent）→ ValidationAgent 
 通过 AutoGenStreamBridge 将 Agent 对话事件实时推送给 Flask NDJSON 流。
 """
 
+import asyncio
 import json
 import logging
 import os
@@ -289,6 +290,148 @@ def _extract_position_files(final_json: list, scene_id: str):
     return plan, detail
 
 
+# ── 直接模式：解析用户提供的剧本 ──────────────────────────────────
+# 幕/场分隔标记（纯文本剧本）：第N幕 / 幕N / 场N / Act N / Scene N
+_ACT_MARKER_RE = re.compile(
+    r'^\s*(?:第\s*[0-9一二三四五六七八九十百]+\s*幕'
+    r'|幕\s*[0-9一二三四五六七八九十百]+'
+    r'|场景?\s*[0-9一二三四五六七八九十百]+'
+    r'|Act\s*\d+|Scene\s*\d+)\b',
+    re.IGNORECASE,
+)
+# 对白行：角色名: 内容（中英文冒号，角色名可被括号包裹）
+_DLG_LINE_RE = re.compile(r'^\s*[（(]?([A-Za-z一-鿿·]{1,12})[)）]?\s*[:：]\s*(.+)$')
+# 旁白/画外音类标签：识别为旁白（不计入角色），避免生成幽灵演员
+_NARRATION_LABELS = {'旁白', '独白', '画外音', '画外', '内心', '内心独白', '字幕', 'os', 'v.o.', 'vo', 'narration', 'narrator'}
+
+
+def _parse_plaintext_script(text: str) -> List[Dict]:
+    """将纯文本剧本解析为场景数组（每个场景含 beats 列表）。
+
+    规则：
+    - 幕/场标记行 → 切分场景（标记行本身不作为 beat）
+    - "角色名: 对白" → 对白 beat
+    - 其它非空行 → 旁白/动作描述 beat（speaker 为空）
+    """
+    acts: List[List[Dict]] = []
+    cur: List[Dict] = []
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+        if _ACT_MARKER_RE.match(line):
+            if cur:
+                acts.append(cur)
+                cur = []
+            continue
+        m = _DLG_LINE_RE.match(line)
+        if m and m.group(1).strip().lower() not in _NARRATION_LABELS:
+            cur.append({"speaker": m.group(1).strip(), "content": m.group(2).strip(), "actions": []})
+        elif m:
+            # 旁白类标签 → 旁白 beat（去掉标签前缀，speaker 留空）
+            cur.append({"speaker": "", "content": m.group(2).strip(), "actions": []})
+        else:
+            cur.append({"speaker": "", "content": line, "actions": []})
+    if cur:
+        acts.append(cur)
+    if not acts:
+        acts = [[]]
+    return [{"scene": beats} for beats in acts]
+
+
+def _try_parse_json_scenes(text: str) -> Optional[List[Dict]]:
+    """若用户输入本身就是规范 JSON（场景数组 / 单场景 / beats 数组），直接返回场景数组；否则 None。"""
+    text = (text or "").strip()
+    if not text:
+        return None
+    try:
+        parsed = json.loads(text)
+    except Exception:
+        return None
+
+    if isinstance(parsed, list):
+        if parsed and all(isinstance(x, dict) and ("scene" in x or "scene information" in x) for x in parsed):
+            return parsed
+        if parsed and all(isinstance(x, dict) and ("speaker" in x or "content" in x or "move" in x) for x in parsed):
+            return [{"scene": parsed}]
+        return None
+    if isinstance(parsed, dict):
+        if "scene" in parsed or "scene information" in parsed:
+            return [parsed]
+    return None
+
+
+async def _build_direct_draft(creative_idea: str, characters, scene, bridge, director_agent) -> List[Dict]:
+    """直接模式：把用户剧本转成 draft_script（场景数组），并补齐 scene information / initial position。
+
+    解析优先级：规范 JSON（不调 LLM）→ DirectorAgent 结构化（含站位/Position N）→ 本地规则解析（兜底）。
+    返回结构与 DirectorAgent 产出一致，可直接喂给后续的验证 / 输出 / 摄影阶段。
+    """
+    text = (creative_idea or "").strip()
+
+    scenes = _try_parse_json_scenes(text)
+    if scenes is not None:
+        _emit_stage_log(bridge, 'info', 'direct', 'json',
+                        '🧩 [直接模式] 检测到规范 JSON，直接采用，跳过导演结构化')
+    elif text:
+        _emit_stage_log(bridge, 'info', 'direct', 'parsing',
+                        '🎬 [直接模式] DirectorAgent 将用户剧本结构化（保留对白与镜头、分配站位，不创作）...')
+        import_prompt = (
+            "以下是用户提供的完整剧本/分镜表，请严格按系统指令把它**结构化**为规范 JSON："
+            "保留所有对白原文与每一个镜头，按用户「位置」为在场角色分配站位，不要创作或改写。\n\n"
+            + text
+        )
+        scenes = await _run_director_agent(director_agent, import_prompt, bridge, 'DirectorAgent（直接结构化）')
+        if scenes:
+            _emit_stage_log(bridge, 'success', 'direct', 'parsed_llm',
+                            f'✅ [直接模式] 导演结构化完成，共 {len(scenes)} 个场景')
+        else:
+            # LLM 失败 → 本地规则解析兜底
+            scenes = _parse_plaintext_script(text)
+            _emit_stage_log(bridge, 'warning', 'direct', 'fallback',
+                            '⚠️ [直接模式] 导演结构化失败，改用本地规则解析（对白可能不如 LLM 准确）')
+
+    if not scenes:
+        _emit_stage_log(bridge, 'warning', 'direct', 'empty',
+                        '⚠️ [直接模式] 未解析到有效剧本内容，将输出空场景')
+        scenes = [{"scene": []}]
+
+    default_names = [c.name for c in characters]
+    what_snippet = (creative_idea[:60] + ("…" if len(creative_idea) > 60 else "")) if creative_idea else scene.name
+
+    normalized: List[Dict] = []
+    for sc in scenes:
+        sc = dict(sc) if isinstance(sc, dict) else {"scene": []}
+        beats = sc.get("scene") or []
+
+        # 收集本场景出现的角色（按出场顺序去重）
+        speakers: List[str] = []
+        seen = set()
+        for b in beats:
+            sp = (b.get("speaker") or "").strip() if isinstance(b, dict) else ""
+            if sp and sp not in seen:
+                seen.add(sp)
+                speakers.append(sp)
+        who = speakers or default_names
+
+        info = dict(sc.get("scene information") or {})
+        info.setdefault("who", who)
+        info.setdefault("where", scene.name)
+        info.setdefault("what", what_snippet)
+        sc["scene information"] = info
+
+        if "initial position" not in sc:
+            sc["initial position"] = [{"character": n, "position": ""} for n in who]
+        sc["scene"] = beats
+        normalized.append(sc)
+
+    total_beats = sum(len(s.get("scene", [])) for s in normalized)
+    _emit_stage_log(bridge, 'success', 'direct', 'parsed',
+                    f'✅ [直接模式] 已解析用户剧本：{len(normalized)} 个场景 / {total_beats} 个片段，'
+                    f'跳过头脑风暴与剧本起草')
+    return normalized
+
+
 async def run_autogen_pipeline(
     bridge: AutoGenStreamBridge,
     resource_loader: ResourceLoader,
@@ -305,6 +448,8 @@ async def run_autogen_pipeline(
     creative_idea = (request_params.get('creative_idea') or '').strip()
     required_character_count = int(request_params.get('required_character_count', 0) or 0)
     act_count = max(1, min(10, int(request_params.get('act_count', 3) or 3)))
+    # 直接模式：跳过创意会议/起草/审查，直接用用户提供的剧本（creative_idea），只补必要字段
+    direct_mode = bool(request_params.get('direct_mode', False))
 
     plot_outline = creative_idea
 
@@ -320,7 +465,7 @@ async def run_autogen_pipeline(
         re.IGNORECASE
     )
     user_constraints = []
-    if creative_idea:
+    if creative_idea and not direct_mode:
         for match in _constraint_pattern.finditer(creative_idea):
             phrase = match.group().strip()
             # 过滤掉太短的误匹配
@@ -334,7 +479,7 @@ async def run_autogen_pipeline(
     _fixed_dlg_pattern = re.compile(r'^([A-Za-z\u4e00-\u9fff]{1,8})\s*[:：]\s*([^\n]{1,200})', re.MULTILINE)
     fixed_dialogues = []
     fixed_dialogue_texts = set()
-    if creative_idea:
+    if creative_idea and not direct_mode:
         for m in _fixed_dlg_pattern.finditer(creative_idea):
             speaker = m.group(1).strip()
             content = m.group(2).strip()
@@ -355,7 +500,7 @@ async def run_autogen_pipeline(
         re.IGNORECASE
     )
     target_duration_secs = None
-    if creative_idea:
+    if creative_idea and not direct_mode:
         m = _duration_pattern.search(creative_idea)
         if m:
             value = float(m.group(1))
@@ -400,12 +545,56 @@ async def run_autogen_pipeline(
                 len(fixed_dialogues), target_duration_secs or 0, act_count,
                 target_dialogue_lines)
 
-    # ── 验证场景 ──
-    scene = resource_loader.get_scene_by_id(scene_id)
-    if not scene:
-        logger.error("场景不存在: %s", scene_id)
-        bridge.put_event({'type': 'error', 'message': f'场景不存在: {scene_id}'})
+    # ── 解析场景池（多场景一期；缺省回退单 scene_id 旧行为） ──
+    scene_pool_ids = request_params.get('scene_pool') or []
+    if not isinstance(scene_pool_ids, list):
+        scene_pool_ids = []
+    scene_pool_ids = [str(s).strip() for s in scene_pool_ids if str(s).strip()]
+    if not scene_pool_ids and scene_id:
+        scene_pool_ids = [scene_id]
+    if not scene_pool_ids:
+        bridge.put_event({'type': 'error', 'message': '未提供场景：请至少选择一个场景'})
         return
+
+    # 预加载池内所有场景对象
+    scene_pool_objs: List[Scene] = []
+    for sid in scene_pool_ids:
+        sc = resource_loader.get_scene_by_id(sid)
+        if not sc:
+            logger.error("场景不存在: %s", sid)
+            bridge.put_event({'type': 'error', 'message': f'场景不存在: {sid}'})
+            return
+        scene_pool_objs.append(sc)
+
+    multi_scene = len(scene_pool_objs) > 1
+
+    # 多场景：每个场景都必须有坐标锚点（scene_info），否则摄影无法算坐标
+    if multi_scene:
+        for sc in scene_pool_objs:
+            if resource_loader.load_scene_info(sc.id) is None:
+                bridge.put_event({'type': 'error',
+                                  'message': f'场景「{sc.name}」暂无坐标锚点，无法用于多场景生成，请改选其他场景'})
+                return
+
+    scene = scene_pool_objs[0]  # 默认场景，保留所有现有单 scene 引用
+
+    # 构建 幕→场景 映射：act_scenes[i] 解析为池内 Scene；缺失/越界/无效 → 回退默认场景
+    act_scenes_ids = request_params.get('act_scenes') or []
+    if not isinstance(act_scenes_ids, list):
+        act_scenes_ids = []
+    _pool_by_id = {sc.id: sc for sc in scene_pool_objs}
+    act_scene_map: Dict[int, Scene] = {}
+    for i in range(act_count):
+        sid = str(act_scenes_ids[i]).strip() if i < len(act_scenes_ids) and act_scenes_ids[i] else ''
+        act_scene_map[i] = _pool_by_id.get(sid, scene)
+
+    # 每幕场景 id 列表（下标=幕序号）；交给 generator 逐幕写 where，摄影按幕取锚点。单场景为 None
+    act_scene_ids = [act_scene_map[i].id for i in range(act_count)] if multi_scene else None
+
+    if multi_scene:
+        _map_desc = "、".join(f"第{i + 1}幕={act_scene_map[i].name}" for i in range(act_count))
+        _emit_stage_log(bridge, 'info', 'setup', 'multi_scene',
+                        f'🎬 多场景模式：场景池 {len(scene_pool_objs)} 个，幕-场景分配：{_map_desc}')
 
     # ── 构建角色列表 ──
     if custom_characters_input:
@@ -420,7 +609,7 @@ async def run_autogen_pipeline(
     _emit_stage_log(bridge, 'info', 'setup', 'init', '🤖 初始化多 Agent 系统...')
 
     treatment = create_treatment_agent(act_count=act_count)
-    director = create_director_agent(characters, scene, resource_loader, required_character_count, act_count, user_constraints=user_constraints)
+    director = create_director_agent(characters, scene, resource_loader, required_character_count, act_count, user_constraints=user_constraints, act_scene_map=act_scene_map if multi_scene else None)
     critic = create_critic_agent(user_constraints=user_constraints, fixed_dialogues=fixed_dialogues)
     dialogue = create_dialogue_agent(user_constraints=user_constraints, fixed_dialogues=fixed_dialogues)
     validator = create_validation_agent(resource_loader, scene) if model_supports_tools else None
@@ -434,253 +623,274 @@ async def run_autogen_pipeline(
     }
 
     # ════════════════════════════════════════════════
-    # 阶段一：创意会议（ConceptPitch / CharacterVoice / NarrativeArch 轮流发言）
+    # 创意阶段：创意会议 → 分场规划 → 起草 → 文学审查
+    # 直接模式下整体跳过，改用用户提供的剧本
     # ════════════════════════════════════════════════
-    _emit_stage_log(bridge, 'info', 'meeting', 'start',
-                    '🎭 [创意会议] 三位创作顾问开始头脑风暴（每人最多发言 2 轮）...')
-
-    concept_pitch = create_concept_pitch_agent(characters, scene, required_character_count)
-    character_voice = create_character_voice_agent()
-    narrative_arch = create_narrative_arch_agent()
-
-    # 每位最多 2 轮 = 最多 6 条消息；任意一位写出 [AGREE] 则提前终止
-    _meeting_termination = MaxMessageTermination(6) | TextMentionTermination("[AGREE]")
-    meeting_room = RoundRobinGroupChat(
-        [concept_pitch, character_voice, narrative_arch],
-        termination_condition=_meeting_termination,
-    )
-
-    meeting_brief = (
-        "创意会议开始，请各位从自己的专业角度展开讨论。\n\n"
-        f"创作想法：{plot_outline or '（AI 自由创作）'}\n"
-        f"场景：{scene.name} — {scene.description}\n"
-        f"角色数量：{required_character_count or len(characters) or 2} 位"
-        + (f"\n已指定角色：{', '.join(c.name for c in characters)}" if characters else "")
-        + "\n\n请 ConceptPitchAgent 先行发言，提出你的创意概念。"
-    )
-
-    meeting_messages: list = []
-    try:
-        meeting_result = await meeting_room.run(task=meeting_brief)
-        for msg in meeting_result.messages:
-            src = getattr(msg, 'source', '')
-            content = getattr(msg, 'content', '')
-            if not src or src == 'user' or not content:
-                continue
-            meeting_messages.append({"agent": src, "content": content})
-            _emit_stage_log(bridge, 'info', 'meeting', src,
-                            f'💬 [{src}]\n{content}')
-            _emit_output(bridge, src, content, fmt='meeting')
-        _emit_stage_log(bridge, 'success', 'meeting', 'done',
-                        f'✅ [创意会议] 完成，共 {len(meeting_messages)} 条发言')
-    except Exception as _meet_exc:
-        logger.warning("[Meeting] 会议异常：%s", _meet_exc)
-        _emit_stage_log(bridge, 'warning', 'meeting', 'error',
-                        f'⚠️ [创意会议] 出现异常，跳过会议阶段：{_meet_exc}')
-
-    meeting_transcript = "\n\n".join(
-        f"【{m['agent']}】{m['content']}" for m in meeting_messages
-    ) if meeting_messages else f"创作方向：{plot_outline or '自由创作'}"
-    stage_context["meeting_minutes"] = meeting_transcript
-
-    # ════════════════════════════════════════════════
-    # 阶段一后半：TreatmentAgent 将会议记录转化为分场大纲
-    # ════════════════════════════════════════════════
-    _emit_stage_log(bridge, 'info', 'treatment', 'start',
-                    '🗂️ [分场规划期] TreatmentAgent 根据会议记录生成分场大纲...')
-    treatment_prompt = (
-        f"以下是创意会议的讨论记录，请据此生成分场大纲：\n\n{meeting_transcript}\n\n"
-        f"指定角色约束：{json.dumps(custom_characters_input, ensure_ascii=False)}\n"
-        f"幕数要求：恰好生成 {act_count} 个节拍（beat），JSON 数组长度严格为 {act_count}。\n" \
-        + (f"{duration_hint}\n" if duration_hint else "")
-        + "请生成分场大纲。"
-    )
-    treatment_result = await _run_stage_agent_json_object(treatment, treatment_prompt)
-    if treatment_result:
-        stage_context["treatment"] = treatment_result
-        _emit_output(bridge, 'TreatmentAgent', treatment_result, fmt='stage')
-        _emit_stage_log(bridge, 'success', 'treatment', 'summary', '✅ [分场规划期] Treatment 已生成')
+    if direct_mode:
+        _emit_stage_log(bridge, 'info', 'direct', 'start',
+                        '⚡ [直接模式] 已开启：跳过头脑风暴/分场规划，由导演把你的剧本结构化（保留剧情台词）')
+        direct_director = create_director_agent(
+            characters, scene, resource_loader, required_character_count, act_count,
+            user_constraints=user_constraints, direct_mode=True,
+        )
+        draft_script = await _build_direct_draft(creative_idea, characters, scene, bridge, direct_director)
     else:
-        _emit_stage_log(bridge, 'warning', 'treatment', 'fallback',
-                        '⚠️ [分场规划期] 输出解析失败，使用最小上下文继续')
-        stage_context["treatment"] = {"draft_guidance": "保持冲突递进，保证角色动机一致。"}
+        # ════════════════════════════════════════════════
+        # 阶段一：创意会议（ConceptPitch / CharacterVoice / NarrativeArch 轮流发言）
+        # ════════════════════════════════════════════════
+        _emit_stage_log(bridge, 'info', 'meeting', 'start',
+                        '🎭 [创意会议] 三位创作顾问开始头脑风暴（每人最多发言 2 轮）...')
 
-    # ════════════════════════════════════════════════
-    # 阶段二：剧本起草与文学审查
-    # ════════════════════════════════════════════════
-    _emit_stage_log(bridge, 'info', 'draft', 'start', '🎬 [剧本起草期] DirectorAgent 开始生成剧本初稿...')
+        concept_pitch = create_concept_pitch_agent(characters, scene, required_character_count)
+        character_voice = create_character_voice_agent()
+        narrative_arch = create_narrative_arch_agent()
 
-    treatment_summary = json.dumps(stage_context.get("treatment", {}), ensure_ascii=False, indent=2)
-    fixed_dlg_section = ""
-    if fixed_dialogues:
-        lines = "\n".join(f"- **{d['speaker']}**：{d['content']}" for d in fixed_dialogues)
-        fixed_dlg_section = (
-            f"\n## 📌 用户提供的固定对白（必须原样保留，不得修改）\n{lines}\n\n"
-            "以上对白必须出现在剧本中，内容一字不改。\n\n"
-        )
-    base_user_prompt = (
-        f"创作想法：{plot_outline or '（AI 自由创作）'}{fixed_dlg_section}\n\n"
-        f"## 创意会议纪要\n{stage_context.get('meeting_minutes', '（无）')}\n\n"
-        f"## 分场大纲\n{treatment_summary}\n\n" \
-        + (f"{duration_hint}\n" if duration_hint else "")
-        + (f"{dialogue_target_hint}\n" if dialogue_target_hint else "")
-        + "请根据以上创意会议纪要和分场大纲生成剧本，直接输出 JSON 格式，不要有其他说明文字。"
-    )
-
-    draft_script = None
-    MAX_SHOT_STRUCT_RETRIES = 2
-    current_prompt = base_user_prompt
-
-    for shot_attempt in range(MAX_SHOT_STRUCT_RETRIES + 1):
-        label = 'DirectorAgent' if shot_attempt == 0 else f'DirectorAgent（shot修正第{shot_attempt}次）'
-        draft_script = await _run_director_agent(director, current_prompt, bridge, label)
-
-        if draft_script is None:
-            bridge.put_event({'type': 'error', 'message': '[DirectorAgent] 未能生成有效的 JSON 剧本'})
-            return
-
-        logger.info("[DirectorAgent] 生成完成，场景数=%d（尝试%d）", len(draft_script), shot_attempt + 1)
-        _emit_output(bridge, label, draft_script)
-
-        shot_struct = validate_script_shot_structure(draft_script)
-        if shot_struct["valid"]:
-            _emit_stage_log(bridge, 'success', 'draft', 'shot_check', '✅ [shot结构] 所有片段 shot 字段结构正确')
-            break
-
-        error_desc = format_shot_structure_errors(shot_struct["errors"])
-        _emit_stage_log(bridge, 'warning', 'draft', 'shot_check',
-                        f'⚠️ [shot结构] 字段有问题，正在修正...\n{error_desc}')
-
-        if shot_attempt >= MAX_SHOT_STRUCT_RETRIES:
-            _emit_stage_log(bridge, 'warning', 'draft', 'shot_check', '⚠️ 已达最大重试次数，继续使用当前版本')
-            break
-
-        current_prompt = (
-            f"上一版本剧本 shot 字段有以下问题，请修正后重新输出完整剧本 JSON：\n\n"
-            f"{error_desc}\n\n"
-            f"原剧本：\n```json\n{json.dumps(draft_script, ensure_ascii=False, indent=2)}\n```"
+        # 每位最多 2 轮 = 最多 6 条消息；任意一位写出 [AGREE] 则提前终止
+        _meeting_termination = MaxMessageTermination(6) | TextMentionTermination("[AGREE]")
+        meeting_room = RoundRobinGroupChat(
+            [concept_pitch, character_voice, narrative_arch],
+            termination_condition=_meeting_termination,
         )
 
-    _emit_stage_log(bridge, 'success', 'draft', 'summary', '✅ [剧本起草期] 剧本初稿生成完成')
-
-    # ── 阶段二 后半：文学审查（CriticAgent + DialogueAgent，循环修改）──
-    for review_round in range(MAX_REVIEW_ROUNDS):
-        _emit_stage_log(
-            bridge, 'info', 'review', 'start',
-            f'🔍 [审核与迭代期] 审查轮次 {review_round + 1}/{MAX_REVIEW_ROUNDS}：启动批评家与对白专家...'
-        )
-
-        filtered_script_str = _filter_script_for_review(draft_script)
-
-        # CriticAgent 审查
-        critic_feedback = None
-        try:
-            async for event in critic.on_messages_stream(
-                [TextMessage(content=f"以下是需要审查的剧本：\n\n{filtered_script_str}", source="user")],
-                cancellation_token=CancellationToken()
-            ):
-                if hasattr(event, 'chat_message') and event.chat_message:
-                    critic_feedback = _extract_feedback_json(event.chat_message.content)
-        except Exception as _e:
-            logger.warning("[CriticAgent] 请求失败，跳过本轮审查: %s", _e)
-            _emit_stage_log(bridge, 'warning', 'review', 'critic_error',
-                            f'⚠️ [审核与迭代期] CriticAgent 请求失败，跳过本轮: {_e}')
-
-        if critic_feedback:
-            _emit_output(bridge, 'CriticAgent', critic_feedback, fmt='feedback')
-
-        # DialogueAgent 审查
-        dialogue_feedback = None
-        try:
-            async for event in dialogue.on_messages_stream(
-                [TextMessage(content=f"以下是需要审查对白的剧本：\n\n{filtered_script_str}", source="user")],
-                cancellation_token=CancellationToken()
-            ):
-                if hasattr(event, 'chat_message') and event.chat_message:
-                    dialogue_feedback = _extract_feedback_json(event.chat_message.content)
-        except Exception as _e:
-            logger.warning("[DialogueAgent] 请求失败，跳过本轮审查: %s", _e)
-            _emit_stage_log(bridge, 'warning', 'review', 'dialogue_error',
-                            f'⚠️ [审核与迭代期] DialogueAgent 请求失败，跳过本轮: {_e}')
-
-        if dialogue_feedback:
-            _emit_output(bridge, 'DialogueAgent', dialogue_feedback, fmt='feedback')
-
-        # 判断是否需要修改
-        critic_has_issues = critic_feedback and critic_feedback.get('has_issues', False)
-        dialogue_has_issues = dialogue_feedback and dialogue_feedback.get('has_issues', False)
-
-        if not critic_has_issues and not dialogue_has_issues:
-            _emit_stage_log(
-                bridge, 'success', 'review', 'result',
-                f'✅ [审核与迭代期] 审查通过（轮次{review_round + 1}），无需修改'
+        if multi_scene:
+            _pool_lines = "\n".join(f"  - {sc.name}：{sc.description}" for sc in scene_pool_objs)
+            scene_brief_line = (
+                f"场景池（剧情需分布到这些场景，每幕发生在其中一个）：\n{_pool_lines}\n"
             )
-            break
-
-        # 汇总反馈，请 DirectorAgent 修改
-        revision_parts = []
-        if critic_has_issues:
-            issues_str = '; '.join(i.get('description', '') for i in critic_feedback.get('issues', []))
-            revision_parts.append(f"【剧情问题】{critic_feedback.get('revision_instruction', issues_str)}")
-        if dialogue_has_issues:
-            issues_str = '; '.join(i.get('description', '') for i in dialogue_feedback.get('issues', []))
-            revision_parts.append(f"【对白问题】{dialogue_feedback.get('revision_instruction', issues_str)}")
-
-        revision_prompt = (
-            f"请根据以下审查意见修改剧本，输出完整的修改后 JSON，不要有其他说明文字：\n\n"
-            + "\n".join(revision_parts)
-            + "\n\n重要：\n"
-            "- 每个角色动作的 `motion_detail` 字段必须保留原有内容，不得将其置为空字符串。\n"
-            + ("".join(f"- 用户约束：{c}（不得违背）\n" for c in user_constraints) if user_constraints else "")
-            + ("".join(f"- 固定对白（不得修改）：{d['speaker']}：{d['content']}\n" for d in fixed_dialogues) if fixed_dialogues else "")
-            + (f"- 目标对白行数：至少 {target_dialogue_lines} 行，当前不足请扩充。\n" if target_dialogue_lines else "")
-            + "\n当前剧本：\n```json\n{json.dumps(draft_script, ensure_ascii=False, indent=2)}\n```"
-        )
-
-        _emit_stage_log(
-            bridge, 'info', 'review', 'revise',
-            f'✏️  [审核与迭代期] DirectorAgent 根据审查意见修改剧本（轮次{review_round + 1}）...'
-        )
-
-        revised_script = None
-        thinking_started = False
-        try:
-            async for event in director.on_messages_stream(
-                [TextMessage(content=revision_prompt, source="user")],
-                cancellation_token=CancellationToken()
-            ):
-                if hasattr(event, 'inner_messages'):
-                    for msg in (event.inner_messages or []):
-                        if isinstance(msg, ModelClientStreamingChunkEvent):
-                            if not thinking_started:
-                                thinking_started = True
-                            bridge.put_event({'type': 'thinking_chunk', 'agent': 'DirectorAgent', 'text': msg.content})
-                if hasattr(event, 'chat_message') and event.chat_message:
-                    if thinking_started:
-                        bridge.put_event({'type': 'thinking_done'})
-                        thinking_started = False
-                    revised_script = _extract_json_from_text(event.chat_message.content)
-        except Exception as _e:
-            logger.warning("[DirectorAgent-revision] 请求失败，保留上一版本: %s", _e)
-            _emit_stage_log(bridge, 'warning', 'review', 'revise_error',
-                            f'⚠️ [审核与迭代期] 修改请求失败，保留上一版本: {_e}')
-
-        if thinking_started:
-            bridge.put_event({'type': 'thinking_done'})
-
-        if revised_script:
-            draft_script = revised_script
-            _emit_stage_log(
-                bridge, 'success', 'review', 'revise_result',
-                f'✅ [审核与迭代期] 修改完成（轮次{review_round + 1}）'
-            )
-            _emit_output(bridge, 'DirectorAgent（修改稿）', revised_script)
         else:
-            _emit_stage_log(
-                bridge, 'warning', 'review', 'revise_result',
-                '⚠️ [审核与迭代期] 修改结果解析失败，保留上一版本'
+            scene_brief_line = f"场景：{scene.name} — {scene.description}\n"
+
+        meeting_brief = (
+            "创意会议开始，请各位从自己的专业角度展开讨论。\n\n"
+            f"创作想法：{plot_outline or '（AI 自由创作）'}\n"
+            f"{scene_brief_line}"
+            f"角色数量：{required_character_count or len(characters) or 2} 位"
+            + (f"\n已指定角色：{', '.join(c.name for c in characters)}" if characters else "")
+            + "\n\n请 ConceptPitchAgent 先行发言，提出你的创意概念。"
+        )
+
+        meeting_messages: list = []
+        try:
+            meeting_result = await meeting_room.run(task=meeting_brief)
+            for msg in meeting_result.messages:
+                src = getattr(msg, 'source', '')
+                content = getattr(msg, 'content', '')
+                if not src or src == 'user' or not content:
+                    continue
+                meeting_messages.append({"agent": src, "content": content})
+                _emit_stage_log(bridge, 'info', 'meeting', src,
+                                f'💬 [{src}]\n{content}')
+                _emit_output(bridge, src, content, fmt='meeting')
+            _emit_stage_log(bridge, 'success', 'meeting', 'done',
+                            f'✅ [创意会议] 完成，共 {len(meeting_messages)} 条发言')
+        except Exception as _meet_exc:
+            logger.warning("[Meeting] 会议异常：%s", _meet_exc)
+            _emit_stage_log(bridge, 'warning', 'meeting', 'error',
+                            f'⚠️ [创意会议] 出现异常，跳过会议阶段：{_meet_exc}')
+
+        meeting_transcript = "\n\n".join(
+            f"【{m['agent']}】{m['content']}" for m in meeting_messages
+        ) if meeting_messages else f"创作方向：{plot_outline or '自由创作'}"
+        stage_context["meeting_minutes"] = meeting_transcript
+
+        # ════════════════════════════════════════════════
+        # 阶段一后半：TreatmentAgent 将会议记录转化为分场大纲
+        # ════════════════════════════════════════════════
+        _emit_stage_log(bridge, 'info', 'treatment', 'start',
+                        '🗂️ [分场规划期] TreatmentAgent 根据会议记录生成分场大纲...')
+        treatment_prompt = (
+            f"以下是创意会议的讨论记录，请据此生成分场大纲：\n\n{meeting_transcript}\n\n"
+            f"指定角色约束：{json.dumps(custom_characters_input, ensure_ascii=False)}\n"
+            f"幕数要求：恰好生成 {act_count} 个节拍（beat），JSON 数组长度严格为 {act_count}。\n" \
+            + (f"{duration_hint}\n" if duration_hint else "")
+            + "请生成分场大纲。"
+        )
+        treatment_result = await _run_stage_agent_json_object(treatment, treatment_prompt)
+        if treatment_result:
+            stage_context["treatment"] = treatment_result
+            _emit_output(bridge, 'TreatmentAgent', treatment_result, fmt='stage')
+            _emit_stage_log(bridge, 'success', 'treatment', 'summary', '✅ [分场规划期] Treatment 已生成')
+        else:
+            _emit_stage_log(bridge, 'warning', 'treatment', 'fallback',
+                            '⚠️ [分场规划期] 输出解析失败，使用最小上下文继续')
+            stage_context["treatment"] = {"draft_guidance": "保持冲突递进，保证角色动机一致。"}
+
+        # ════════════════════════════════════════════════
+        # 阶段二：剧本起草与文学审查
+        # ════════════════════════════════════════════════
+        _emit_stage_log(bridge, 'info', 'draft', 'start', '🎬 [剧本起草期] DirectorAgent 开始生成剧本初稿...')
+
+        treatment_summary = json.dumps(stage_context.get("treatment", {}), ensure_ascii=False, indent=2)
+        fixed_dlg_section = ""
+        if fixed_dialogues:
+            lines = "\n".join(f"- **{d['speaker']}**：{d['content']}" for d in fixed_dialogues)
+            fixed_dlg_section = (
+                f"\n## 📌 用户提供的固定对白（必须原样保留，不得修改）\n{lines}\n\n"
+                "以上对白必须出现在剧本中，内容一字不改。\n\n"
             )
-            break
+        base_user_prompt = (
+            f"创作想法：{plot_outline or '（AI 自由创作）'}{fixed_dlg_section}\n\n"
+            f"## 创意会议纪要\n{stage_context.get('meeting_minutes', '（无）')}\n\n"
+            f"## 分场大纲\n{treatment_summary}\n\n" \
+            + (f"{duration_hint}\n" if duration_hint else "")
+            + (f"{dialogue_target_hint}\n" if dialogue_target_hint else "")
+            + "请根据以上创意会议纪要和分场大纲生成剧本，直接输出 JSON 格式，不要有其他说明文字。"
+        )
+
+        draft_script = None
+        MAX_SHOT_STRUCT_RETRIES = 2
+        current_prompt = base_user_prompt
+
+        for shot_attempt in range(MAX_SHOT_STRUCT_RETRIES + 1):
+            label = 'DirectorAgent' if shot_attempt == 0 else f'DirectorAgent（shot修正第{shot_attempt}次）'
+            draft_script = await _run_director_agent(director, current_prompt, bridge, label)
+
+            if draft_script is None:
+                bridge.put_event({'type': 'error', 'message': '[DirectorAgent] 未能生成有效的 JSON 剧本'})
+                return
+
+            logger.info("[DirectorAgent] 生成完成，场景数=%d（尝试%d）", len(draft_script), shot_attempt + 1)
+            _emit_output(bridge, label, draft_script)
+
+            shot_struct = validate_script_shot_structure(draft_script)
+            if shot_struct["valid"]:
+                _emit_stage_log(bridge, 'success', 'draft', 'shot_check', '✅ [shot结构] 所有片段 shot 字段结构正确')
+                break
+
+            error_desc = format_shot_structure_errors(shot_struct["errors"])
+            _emit_stage_log(bridge, 'warning', 'draft', 'shot_check',
+                            f'⚠️ [shot结构] 字段有问题，正在修正...\n{error_desc}')
+
+            if shot_attempt >= MAX_SHOT_STRUCT_RETRIES:
+                _emit_stage_log(bridge, 'warning', 'draft', 'shot_check', '⚠️ 已达最大重试次数，继续使用当前版本')
+                break
+
+            current_prompt = (
+                f"上一版本剧本 shot 字段有以下问题，请修正后重新输出完整剧本 JSON：\n\n"
+                f"{error_desc}\n\n"
+                f"原剧本：\n```json\n{json.dumps(draft_script, ensure_ascii=False, indent=2)}\n```"
+            )
+
+        _emit_stage_log(bridge, 'success', 'draft', 'summary', '✅ [剧本起草期] 剧本初稿生成完成')
+
+        # ── 阶段二 后半：文学审查（CriticAgent + DialogueAgent，循环修改）──
+        for review_round in range(MAX_REVIEW_ROUNDS):
+            _emit_stage_log(
+                bridge, 'info', 'review', 'start',
+                f'🔍 [审核与迭代期] 审查轮次 {review_round + 1}/{MAX_REVIEW_ROUNDS}：启动批评家与对白专家...'
+            )
+
+            filtered_script_str = _filter_script_for_review(draft_script)
+
+            # CriticAgent 审查
+            critic_feedback = None
+            try:
+                async for event in critic.on_messages_stream(
+                    [TextMessage(content=f"以下是需要审查的剧本：\n\n{filtered_script_str}", source="user")],
+                    cancellation_token=CancellationToken()
+                ):
+                    if hasattr(event, 'chat_message') and event.chat_message:
+                        critic_feedback = _extract_feedback_json(event.chat_message.content)
+            except Exception as _e:
+                logger.warning("[CriticAgent] 请求失败，跳过本轮审查: %s", _e)
+                _emit_stage_log(bridge, 'warning', 'review', 'critic_error',
+                                f'⚠️ [审核与迭代期] CriticAgent 请求失败，跳过本轮: {_e}')
+
+            if critic_feedback:
+                _emit_output(bridge, 'CriticAgent', critic_feedback, fmt='feedback')
+
+            # DialogueAgent 审查
+            dialogue_feedback = None
+            try:
+                async for event in dialogue.on_messages_stream(
+                    [TextMessage(content=f"以下是需要审查对白的剧本：\n\n{filtered_script_str}", source="user")],
+                    cancellation_token=CancellationToken()
+                ):
+                    if hasattr(event, 'chat_message') and event.chat_message:
+                        dialogue_feedback = _extract_feedback_json(event.chat_message.content)
+            except Exception as _e:
+                logger.warning("[DialogueAgent] 请求失败，跳过本轮审查: %s", _e)
+                _emit_stage_log(bridge, 'warning', 'review', 'dialogue_error',
+                                f'⚠️ [审核与迭代期] DialogueAgent 请求失败，跳过本轮: {_e}')
+
+            if dialogue_feedback:
+                _emit_output(bridge, 'DialogueAgent', dialogue_feedback, fmt='feedback')
+
+            # 判断是否需要修改
+            critic_has_issues = critic_feedback and critic_feedback.get('has_issues', False)
+            dialogue_has_issues = dialogue_feedback and dialogue_feedback.get('has_issues', False)
+
+            if not critic_has_issues and not dialogue_has_issues:
+                _emit_stage_log(
+                    bridge, 'success', 'review', 'result',
+                    f'✅ [审核与迭代期] 审查通过（轮次{review_round + 1}），无需修改'
+                )
+                break
+
+            # 汇总反馈，请 DirectorAgent 修改
+            revision_parts = []
+            if critic_has_issues:
+                issues_str = '; '.join(i.get('description', '') for i in critic_feedback.get('issues', []))
+                revision_parts.append(f"【剧情问题】{critic_feedback.get('revision_instruction', issues_str)}")
+            if dialogue_has_issues:
+                issues_str = '; '.join(i.get('description', '') for i in dialogue_feedback.get('issues', []))
+                revision_parts.append(f"【对白问题】{dialogue_feedback.get('revision_instruction', issues_str)}")
+
+            revision_prompt = (
+                f"请根据以下审查意见修改剧本，输出完整的修改后 JSON，不要有其他说明文字：\n\n"
+                + "\n".join(revision_parts)
+                + "\n\n重要：\n"
+                "- 每个角色动作的 `motion_detail` 字段必须保留原有内容，不得将其置为空字符串。\n"
+                + ("".join(f"- 用户约束：{c}（不得违背）\n" for c in user_constraints) if user_constraints else "")
+                + ("".join(f"- 固定对白（不得修改）：{d['speaker']}：{d['content']}\n" for d in fixed_dialogues) if fixed_dialogues else "")
+                + (f"- 目标对白行数：至少 {target_dialogue_lines} 行，当前不足请扩充。\n" if target_dialogue_lines else "")
+                + "\n当前剧本：\n```json\n{json.dumps(draft_script, ensure_ascii=False, indent=2)}\n```"
+            )
+
+            _emit_stage_log(
+                bridge, 'info', 'review', 'revise',
+                f'✏️  [审核与迭代期] DirectorAgent 根据审查意见修改剧本（轮次{review_round + 1}）...'
+            )
+
+            revised_script = None
+            thinking_started = False
+            try:
+                async for event in director.on_messages_stream(
+                    [TextMessage(content=revision_prompt, source="user")],
+                    cancellation_token=CancellationToken()
+                ):
+                    if hasattr(event, 'inner_messages'):
+                        for msg in (event.inner_messages or []):
+                            if isinstance(msg, ModelClientStreamingChunkEvent):
+                                if not thinking_started:
+                                    thinking_started = True
+                                bridge.put_event({'type': 'thinking_chunk', 'agent': 'DirectorAgent', 'text': msg.content})
+                    if hasattr(event, 'chat_message') and event.chat_message:
+                        if thinking_started:
+                            bridge.put_event({'type': 'thinking_done'})
+                            thinking_started = False
+                        revised_script = _extract_json_from_text(event.chat_message.content)
+            except Exception as _e:
+                logger.warning("[DirectorAgent-revision] 请求失败，保留上一版本: %s", _e)
+                _emit_stage_log(bridge, 'warning', 'review', 'revise_error',
+                                f'⚠️ [审核与迭代期] 修改请求失败，保留上一版本: {_e}')
+
+            if thinking_started:
+                bridge.put_event({'type': 'thinking_done'})
+
+            if revised_script:
+                draft_script = revised_script
+                _emit_stage_log(
+                    bridge, 'success', 'review', 'revise_result',
+                    f'✅ [审核与迭代期] 修改完成（轮次{review_round + 1}）'
+                )
+                _emit_output(bridge, 'DirectorAgent（修改稿）', revised_script)
+            else:
+                _emit_stage_log(
+                    bridge, 'warning', 'review', 'revise_result',
+                    '⚠️ [审核与迭代期] 修改结果解析失败，保留上一版本'
+                )
+                break
 
     # ════════════════════════════════════════════════
     # 阶段四：总装与引擎合规验证
@@ -764,10 +974,10 @@ async def run_autogen_pipeline(
     else:
         plot_summary = f"AI自由创作：{scene.name}"
 
-    final_json = generator.generate_final_json(draft_script, plot_summary)
+    final_json = generator.generate_final_json(draft_script, plot_summary, act_scene_ids=act_scene_ids)
 
     # ── 阶段三后：对白行数校验 + 不足时触发补写 ──
-    if target_dialogue_lines:
+    if target_dialogue_lines and not direct_mode:
         actual_lines = sum(
             1 for act in final_json
             for line in act.get('scene', [])
@@ -803,7 +1013,7 @@ async def run_autogen_pipeline(
                                 f'⚠️ [对白补写] 补写请求失败，保留原始剧本: {_e}')
             if filled_script:
                 # 补写结果仍需经过 generator 规范化（补充 emotion 字段等）
-                final_json = generator.generate_final_json(filled_script, plot_summary)
+                final_json = generator.generate_final_json(filled_script, plot_summary, act_scene_ids=act_scene_ids)
                 new_lines = sum(
                     1 for act in final_json
                     for line in act.get('scene', [])
@@ -854,6 +1064,7 @@ async def run_autogen_pipeline(
     # ── 阶段五：摄影指导后处理（默认启用） ──
     if True:
         _emit_stage_log(bridge, 'info', 'cinematography', 'start', '🎥 [摄影指导期] 摄影指导智能体开始规划画面和镜头...')
+
         try:
             cine_result = await _running_loop.run_in_executor(
                 None,
@@ -863,6 +1074,7 @@ async def run_autogen_pipeline(
                 resource_loader.resource_dir,
                 str(output_dir),
                 timestamp,
+                act_scene_map if multi_scene else None,
             )
             if cine_result.get("ok"):
                 draft_script = cine_result["enriched_script"]
@@ -885,7 +1097,7 @@ async def run_autogen_pipeline(
                     with open(output_dir / position_detail_filename, "w", encoding="utf-8") as _f:
                         json.dump(_stage2_detail, _f, ensure_ascii=False, indent=2)
                 # 用摄影指导结果重新生成并覆写 script_*.json（保留已填写的摄影字段）
-                final_json = generator.generate_final_json(draft_script, plot_summary, preserve_shot_fields=True)
+                final_json = generator.generate_final_json(draft_script, plot_summary, preserve_shot_fields=True, act_scene_ids=act_scene_ids)
                 generator.export_to_file(final_json, str(filepath))
                 _emit_stage_log(bridge, 'success', 'cinematography', 'result',
                                 f'✅ [摄影指导期] 摄影规划完成，镜头参数已写入 camera_script')
@@ -996,6 +1208,8 @@ async def run_autogen_pipeline(
     _emit_stage_log(bridge, 'success', 'output', 'actors_profile', f'✅ 已生成角色档案：{len(actors_profile)} 位演员')
 
     session_id = str(timestamp)
+    # 多场景：history 记录逗号拼接整池场景 id；单场景仍是单个 id
+    session_scene_id = ",".join(sc.id for sc in scene_pool_objs)
     _registry.register_session(
         ts=session_id,
         files={
@@ -1005,7 +1219,7 @@ async def run_autogen_pipeline(
             "position_plan": position_plan_filename,
             "position_detail": position_detail_filename,
         },
-        scene_id=scene_id or "",
+        scene_id=session_scene_id,
         act_count=act_count,
     )
 

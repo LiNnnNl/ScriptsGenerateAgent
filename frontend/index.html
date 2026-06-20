@@ -27,7 +27,7 @@
         <!-- 历史记录侧边栏 -->
         <div class="history-panel" id="historyPanel">
             <div class="history-header">
-                <span class="history-title">📋 HISTORY</span>
+                <span class="history-title">📋 历史记录</span>
                 <button class="history-close-btn" id="historyCloseBtn">×</button>
             </div>
             <div class="history-list" id="historyList">
@@ -49,12 +49,11 @@
                     <div class="step-number">
                         <span class="number-inner">01</span>
                     </div>
-                    <h2 class="step-title">SELECT SCENE</h2>
+                    <h2 class="step-title">选择场景</h2>
                     <div class="step-line"></div>
                 </div>
-                <select class="select-box" id="sceneSelect">
-                    <option value="">请选择场景...</option>
-                </select>
+                <p class="scene-pool-hint">可多选场景组成「场景池」，每一幕可使用不同场景；暂无坐标锚点的场景不可选。</p>
+                <div class="scene-pool-list" id="scenePoolList"></div>
                 <div class="scene-info" id="sceneInfo" style="display: none;">
                     <div class="scene-info-scroll">
                         <div class="info-label">场景描述</div>
@@ -72,7 +71,7 @@
                     <div class="step-number">
                         <span class="number-inner">02</span>
                     </div>
-                    <h2 class="step-title">CHARACTER COUNT</h2>
+                    <h2 class="step-title">角色数量</h2>
                     <div class="step-line"></div>
                 </div>
                 <div class="count-selector">
@@ -94,15 +93,27 @@
                     <div class="step-number">
                         <span class="number-inner">03</span>
                     </div>
-                    <h2 class="step-title">CREATIVE CONCEPT</h2>
+                    <h2 class="step-title">创作灵感</h2>
                     <div class="step-line"></div>
-                    <div class="optional-badge">OPTIONAL</div>
+                    <div class="optional-badge">可选</div>
                 </div>
                 <textarea class="textarea-box" id="creativeIdea" 
                           placeholder="输入创作灵感...&#10;&#10;• 主题：信任与背叛&#10;• 情节：冲突与和解&#10;• 氛围：紧张压抑&#10;&#10;留空则由 AI 自由创作"></textarea>
                 <div class="hint">
                     <span class="hint-icon">💡</span>
                     <span>输入主题、情节或氛围，AI 将据此创作；留空则完全自由发挥</span>
+                </div>
+                <div class="direct-mode-section">
+                    <label class="direct-mode-toggle">
+                        <input type="checkbox" id="directModeToggle">
+                        <span class="direct-mode-label">⚡ 直接生成（跳过头脑风暴与剧本创作，按我提供的剧本只补全必要字段）</span>
+                    </label>
+                    <p class="direct-mode-hint" id="directModeHint" style="display:none">
+                        已开启直接模式：请把<strong>完整剧本</strong>粘贴到上方输入框。支持
+                        <strong>Markdown 分镜表</strong>（镜头号/景别/画面内容/镜头运动/声音·台词/位置）、
+                        「角色名：对白」纯文本、或规范剧本 JSON。系统会用 LLM 把它<strong>结构化</strong>
+                        （对白原样保留、每个镜头都保留），再做字段补全与摄影镜头处理，<strong>不改写你的剧情与台词</strong>。
+                    </p>
                 </div>
                 <div class="act-count-section">
                     <label class="count-label">剧本幕数：</label>
@@ -114,13 +125,19 @@
                     <span class="count-unit">幕</span>
                     <span class="act-count-warning" id="actCountWarning" style="display:none">⚠ 幕数较多，生成时间会更长</span>
                 </div>
+                <p class="act-count-def">💡 幕是剧本的基本叙事单元，通常对应一个完整的场景或时间段，一个剧本通常有 3-5 幕。</p>
+                <div class="act-scene-map" id="actSceneMap" style="display:none">
+                    <label class="count-label">每幕场景分配：</label>
+                    <div class="act-scene-list" id="actSceneList"></div>
+                    <p class="act-scene-hint">选了多个场景时，可为每一幕指定使用场景池中的哪个场景。</p>
+                </div>
             </section>
 
             <!-- 生成角色按钮 -->
             <div class="action-section">
                 <button class="generate-btn cast-gen-btn" id="castGenerateBtn" disabled>
                     <span class="btn-icon">👥</span>
-                    <span class="btn-text">GENERATE CAST</span>
+                    <span class="btn-text">生成角色</span>
                     <span class="btn-subtitle">AI 生成角色档案</span>
                 </button>
             </div>
@@ -128,7 +145,7 @@
             <!-- 角色档案预览面板 -->
             <div class="cast-preview-panel" id="castPreviewPanel">
                 <div class="cast-preview-header">
-                    <span class="cast-preview-title">👥 CAST PROFILE</span>
+                    <span class="cast-preview-title">👥 角色档案</span>
                     <button class="download-btn download-btn-secondary cast-preview-dl-btn" id="downloadCastBtn" style="display:none">
                         <span>📥</span><span>下载角色档案</span>
                     </button>
@@ -151,8 +168,8 @@
             <div class="action-section">
                 <button class="generate-btn" id="generateBtn" disabled>
                     <span class="btn-icon">🎬</span>
-                    <span class="btn-text">ACTION!</span>
-                    <span class="btn-subtitle">Generate Script</span>
+                    <span class="btn-text">开拍！</span>
+                    <span class="btn-subtitle">生成剧本</span>
                 </button>
             </div>
 
@@ -161,7 +178,7 @@
                 <div class="log-header">
                     <div class="log-title">
                         <span class="log-icon">🎞️</span>
-                        <span>PRODUCTION LOG</span>
+                        <span>制作日志</span>
                     </div>
                     <button class="log-clear-btn" id="clearLogBtn">清空</button>
                 </div>
@@ -196,13 +213,17 @@
                         <span>🎥</span>
                         <span>下载镜头脚本</span>
                     </button>
+                    <button class="download-btn download-btn-primary" id="downloadSessionZipBtn" style="display:none;">
+                        <span>📦</span>
+                        <span>打包下载全部</span>
+                    </button>
                 </div>
             </div>
 
             <!-- 剧本编辑器 -->
             <div class="script-editor-panel" id="scriptEditorPanel" style="display: none;">
                 <div class="script-editor-header">
-                    <span class="script-editor-title">✏️ SCRIPT EDITOR</span>
+                    <span class="script-editor-title">✏️ 剧本编辑器</span>
                     <button class="download-btn download-btn-secondary script-dl-btn" id="downloadScriptEditedBtn">
                         <span>📥</span><span>下载剧本/下载修改后的剧本</span>
                     </button>

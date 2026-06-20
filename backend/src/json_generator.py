@@ -3,7 +3,7 @@ JSON生成器模块
 将导演AI的中间态指令转换为符合scene_json_spec.md规范的最终JSON文件
 """
 
-from typing import List, Dict
+from typing import List, Dict, Optional
 from .resource_loader import Character, Scene
 
 
@@ -21,7 +21,8 @@ class ScriptJSONGenerator:
             self.character_states[char.name] = "standing"
             self.character_positions[char.name] = None
     
-    def generate_final_json(self, ai_script, plot_summary: str, title: str = "", preserve_shot_fields: bool = False) -> List[Dict]:
+    def generate_final_json(self, ai_script, plot_summary: str, title: str = "", preserve_shot_fields: bool = False,
+                            act_scene_ids: Optional[List[str]] = None) -> List[Dict]:
         """
         将AI生成的剧本转换为最终的JSON格式。
 
@@ -41,10 +42,16 @@ class ScriptJSONGenerator:
         # ── 新格式：AI 直接输出场景数组 ──
         if isinstance(ai_script, list):
             result = []
-            for scene_obj in ai_script:
+            for idx, scene_obj in enumerate(ai_script):
                 scene_obj = dict(scene_obj)
-                scene_info_default = scene_obj.get("scene information", {})
-                scene_info_default["where"] = self.scene.id
+                scene_info_default = dict(scene_obj.get("scene information", {}))
+                # 多场景：每幕 where 写该幕对应场景 id；单场景沿用默认场景 id
+                if act_scene_ids and idx < len(act_scene_ids) and act_scene_ids[idx]:
+                    scene_info_default["where"] = act_scene_ids[idx]
+                else:
+                    scene_info_default["where"] = self.scene.id
+                # 移除历史遗留/导演误填的 scene_id（场景标识统一由 where 表达，不再单独输出）
+                scene_info_default.pop("scene_id", None)
                 if "who" not in scene_info_default:
                     scene_info_default["who"] = [char.name for char in self.characters]
                 if "what" not in scene_info_default:
@@ -392,11 +399,6 @@ class ScriptJSONGenerator:
                         if conf is not None and not (0.0 <= conf <= 1.0):
                             errors.append(
                                 f"场景{idx}片段{seg_idx}: confidence={conf} 超出 [0,1] 范围"
-                            )
-                        if "reason" not in segment:
-                            warnings.append(
-                                f"场景{idx}片段{seg_idx}: 缺少'reason'字段 "
-                                f"（建议填写便于人工复核）"
                             )
 
                     # 检查必填字段

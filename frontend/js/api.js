@@ -101,6 +101,17 @@ const API = {
         window.location.href = `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.DOWNLOAD_WORD}/${filename}`;
     },
 
+    // 打包下载当前会话所有输出文件
+    downloadSessionZip(sessionId) {
+        window.location.href = `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.DOWNLOAD_SESSION}/${sessionId}`;
+    },
+
+    // 获取 position_plan（供剧本编辑器做 Position N → 锚点名映射）
+    async getPositionPlan(sessionId) {
+        const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.POSITION_PLAN}/${sessionId}`);
+        return await response.json();
+    },
+
     // 获取历史生成记录
     async getHistory() {
         const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.HISTORY}`);

@@ -106,7 +106,9 @@ class PositionAgent:
         if not self.api_key:
             raise RuntimeError("DEEPSEEK_API_KEY environment variable is required.")
 
-        system_prompt = (
+        # Try to extract system_prompt from the prompt JSON.
+        # Each stage now embeds its system prompt in the JSON under "system_prompt".
+        fallback_system_prompt = (
             "你是一座在抽象剧本世界与真实场景坐标之间搭建桥梁的位置翻译官。"
             "你收到的剧本充满'Position 1'、'Position 2'这样的抽象编号——它们是戏剧意图的载体，但还不是真实的空间坐标。"
             "你的工作就是把这些戏剧意图翻译成真实场景中已有的点位坐标。\n\n"
@@ -120,14 +122,21 @@ class PositionAgent:
             "| 1 | 虚构 characters、position_ids、regions、objects、layouts、或 fields |\n"
             "| 2 | 跳过或忽略任一必须遵守的约束 |\n"
             "| 3 | 当你不确定时给出创意性答案而非保守的有效答案 |\n"
-            "| 4 | 遗漏任一 position_id（每个 position_id 必须恰好出现在 groups 或 singles 中一次）|\n\n"
+            "| 4 | 遗漏任一 position_id（每个 position_id 必须恰好出现在 groups 或 singles 中一次）|\n"
         )
+        try:
+            parsed = json.loads(prompt)
+            system_prompt = parsed.pop("system_prompt", fallback_system_prompt)
+            user_content = json.dumps(parsed, ensure_ascii=False)
+        except (json.JSONDecodeError, TypeError):
+            system_prompt = fallback_system_prompt
+            user_content = prompt
 
         payload = {
             "model": self.model,
             "messages": [
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": prompt},
+                {"role": "user", "content": user_content},
             ],
             "temperature": 0,
             "top_p": 1,
@@ -1125,53 +1134,63 @@ class PositionAgent:
             ],
         }
         derived_hints = self._build_stage1_hints()
+        system_prompt = (
+            "你是 PositionAgent。只返回有效的 JSON 对象。严格遵循每一个约束条件。"
+            "永远不要虚构角色、position_id、区域、物体、布局或字段。如果不确定，请优先选择保守的有效答案。"
+        )
+        stage1_prompt_text = (
+            "## Stage 1 — 分组阶段 (stage1_grouping)\n\n"
+            "### 2.1 重要约束\n"
+            "- 你绝不能将同一场景中的所有角色分到同一组。\n"
+            "- 你必须检测交互对（谁在和谁对话）。\n"
+            "- 你必须检测孤立的角色。\n"
+            "- 当发生移动动作时，你必须拆分分组。\n"
+            "- 你必须优先选择较小的分组而非较大的分组，除非所有角色都在积极交互。\n"
+            "- 如果位置是同一对话交互的积极参与者，它们必须被放在同一组。\n"
+            "- 你必须将 shot_description 作为镜头构图、分组和区域选择的额外硬性提示。\n\n"
+            "### 2.2 指令\n"
+            "1. 将剧本位置分组为多人组和单人。\n"
+            "2. 只使用提供的 position_id 值及其精确匹配的角色。\n"
+            "3. 不要虚构或重命名角色或 position_id。\n"
+            "4. 每个 position_id 在所有组和单人中必须恰好出现一次。\n"
+            "5. 当交互证据不足时，优先设为单人。\n"
+            "6. 一个组必须包含至少 2 个位置、2 个不同角色，最多 "
+            + str(self.max_layout_people)
+            + " 个位置。\n"
+            "7. 将直接对话或明显交互的角色分到一组。\n"
+            "8. 阅读完整的对话时间线，而不仅是每个位置的合并摘要。\n"
+            "9. 仔细阅读 shot_description。它可能明确描述了谁被框在一起、谁是前景/背景，以及镜头围绕哪个区域构建。\n"
+            "10. 综合使用节拍顺序、说话者顺序、当前位置和移动转换。\n"
+            "11. 移动动作会创建一个新的调度片段，因此移动的位置通常应与之前的位置分开重新分组。\n"
+            "12. 如果后续对话节拍显示未移动的角色在同一片段中与已移动角色积极对话，则该角色仍可属于移动后的新组。\n"
+            "13. must_group_dialogue_positions 下列出的任何位置都是硬约束：它们必须在同一组中。\n"
+            "14. 如果 shot_description 描述多个角色共享同一镜头构图或在同一交互中被框住，强烈倾向于将他们放在一组。\n"
+            "15. 如果 shot_description 指示分离、边缘构图、背景观察者或孤立构图，将其作为单人或更小分组的证据。\n"
+            "16. 当角色仍在同一片段中互相对话时，不要将对话链拆分到组和单人中。\n"
+            "17. 不要仅因为角色出现在同一场景或当前位置列表中就将其分入更大的群组。\n"
+            "18. 当只有一对角色明显在交互而另一个角色仅仅是存在时，输出一个小分组加一个单人。\n"
+            "19. 对于 3 人及以上的组，仅当所有成员在同一轮交互中积极互动时才保持整组在一起。\n"
+            "20. 如果多种输出都合理，优先选择分组更小的方案。\n\n"
+            "### 2.3 决策检查清单\n"
+            "- 步骤 1：识别由移动创建的位置，并将其视为新的分组候选。\n"
+            "- 步骤 2：从对话、回复、回应和指向性行为证据中识别最强的交互对。\n"
+            "- 步骤 2.5：使用完整对话时间线来决定哪些位置在同一移动后片段中是活跃的。\n"
+            "- 步骤 2.55：使用 shot_description 来验证相同角色是否在视觉上被组合在一起或分离。\n"
+            "- 步骤 2.6：在最终确定输出之前，强制执行 must_group_dialogue_positions。\n"
+            "- 步骤 3：将孤立或弱连接的角色保持为单人。\n"
+            "- 步骤 4：仅当每个成员都在积极交互时才输出大组。\n\n"
+            "### 2.4 移动拆分提示\n"
+            "此位置与移动动作相关联，通常应开始一个新的分组片段。"
+        )
         prompt = {
             "task": "stage1_grouping",
+            "system_prompt": system_prompt,
             "must_output_json": True,
-            "IMPORTANT": [
-                "You MUST NOT group all characters in the same scene together.",
-                "You MUST detect interaction pairs (who talks to whom).",
-                "You MUST detect isolated characters.",
-                "You MUST split groups when a move action happens.",
-                "You MUST prefer smaller groups over larger groups unless all characters are actively interacting.",
-                "If positions are active participants in the same dialogue interaction, they MUST be placed in the same group.",
-                "You MUST use shot_description as an additional hard hint for shot composition, grouping, and region choice.",
-            ],
-            "instructions": [
-                "Group screenplay positions into multi-character groups and singles.",
-                "Use only the provided position_id values and their exact matching characters.",
-                "Do not invent or rename characters or position_ids.",
-                "Every position_id must appear exactly once across groups and singles.",
-                "Prefer singles when interaction evidence is weak.",
-                f"A group must contain at least 2 positions, 2 distinct characters, and at most {self.max_layout_people} positions.",
-                "Group direct dialogue or obvious interaction together.",
-                "Read the full dialogue chronology, not only the merged per-position summary.",
-                "Read shot_description carefully. It may explicitly describe who is framed together, who is foreground/background, and which area the shot is built around.",
-                "Use beat order, speaker order, current positions, and move transitions together.",
-                "A move action creates a new blocking episode, so moved positions should usually be regrouped separately from earlier positions.",
-                "An unmoved character can still belong to the new post-move group if later dialogue beats show that character actively talking with the moved characters in the same episode.",
-                "Any positions listed under must_group_dialogue_positions are hard constraints: they must end up in the same group.",
-                "If shot_description says multiple characters share the same shot composition or are framed in one interaction, strongly prefer putting them in one group.",
-                "If shot_description indicates separation, edge framing, background observer, or isolated composition, use that as evidence for singles or smaller groups.",
-                "Do not split a dialogue chain across a group and a single when the characters are still speaking to each other in the same episode.",
-                "Do not group a character into a larger cluster only because the character appears in the same scene or current-position list.",
-                "When only one pair is clearly interacting and another character is merely present, output one small group plus one single.",
-                "For groups of 3 or more, keep the whole group together only if all members are actively interacting with each other in the same exchange.",
-                "If multiple outputs are plausible, prefer the one with smaller groups.",
-            ],
+            "stage1_grouping_instructions": stage1_prompt_text,
             "script_json": standardized_script,
             "derived_hints": derived_hints,
             "timeline_dialogue_analysis": self.timeline_analysis,
             "must_group_dialogue_positions": self.required_dialogue_groups,
-            "decision_checklist": [
-                "Step 1: identify move-created positions and treat them as new grouping candidates.",
-                "Step 2: identify the strongest interaction pairs from dialogue, reply, response, and directed action evidence.",
-                "Step 2.5: use the full dialogue timeline to decide which positions are active in the same post-move episode.",
-                "Step 2.55: use shot_description to validate whether the same characters are visually composed together or separated.",
-                "Step 2.6: enforce must_group_dialogue_positions before finalizing output.",
-                "Step 3: keep isolated or weakly connected characters as singles.",
-                "Step 4: only output a large group when every member is actively interacting.",
-            ],
             "output_schema": {
                 "groups": [
                     {
@@ -1257,44 +1276,69 @@ class PositionAgent:
                     "visible_episode_ids": self._collect_position_episode_ids([position_id], active_only=False),
                 }
             )
+        system_prompt = (
+            "你是 PositionAgent。只返回有效的 JSON 对象。严格遵循每一个约束条件。"
+            "永远不要虚构角色、position_id、区域、物体、布局或字段。如果不确定，请优先选择保守的有效答案。"
+        )
+        stage2_prompt_text = (
+            "## Stage 2 — 规划阶段 (stage2_planning)\n\n"
+            "### 3.1 指令\n"
+            "1. 为每个组和单人规划区域、布局和 lookat 值。\n"
+            "2. 只使用 scene_info_json 中的区域和目标。\n"
+            "3. 只使用 position_lib_json 中的布局。\n"
+            "4. 当 shot_description 和对话上下文描述镜头构图或空间焦点时，将它们作为区域选择提示。\n"
+            "5. 如果 scene_info_json.regions[*].spatial_relations 存在，将其作为区域邻接性、连通性和移动距离的首要事实来源。\n"
+            "6. 区域选择优先级为：1) move_position_links 和 spatial_relations，2) 跨连接节拍的地理连续性，3) anchor_count / 调度容量，4) region.description 作为语义参考，5) shot_description 和对话焦点作为辅助构图提示。\n"
+            "7. 如果另一个相同/相邻/近/中等距离的区域在空间上更合理地符合当前移动和调度连续性，不要仅因为某个区域的描述在语义上听起来完美就选择它。\n"
+            "8. 在空间合理性、连续性和 anchor_count 满足后使用 region.description，但在 shot_description 和对话语义之前。\n"
+            "9. 在规划区域时，你必须考虑每个区域的 anchor_count。锚点更多的区域可以支持更多的调度灵活性；只有一个锚点的区域应更保守地使用，除非剧本强烈要求。\n"
+            "10. 你必须考虑 scene_info_json 中描述的区域之间的关系，spatial_relations 优先于 region.description 中的任何自然语言线索。\n"
+            "11. 如果源区域和目标区域之间的直接 spatial_relations 标签为 far（远），则任何移动关联的源/目标对都是无效的。\n"
+            "12. 对于任何移动转换，源位置和目标位置必须映射到同一区域，或仅映射到相邻/近/中等/直接连接的区域。\n"
+            "13. 你绝不能选择在 scene_info_json 中被标记为相距很远的源区域和目标区域作为移动的两端。\n"
+            "14. connected 不意味着 adjacent 或 near。如果源区域和目标区域之间的直接 spatial_relations 标签为 far，即使 connected=true，该移动也是无效的。\n"
+            "15. move_position_links 列出了从 script_json 移动节拍中解析的精确 source_position_id 和 destination_position_id 对。在选择区域时，将每对视为硬性规划约束。\n"
+            "16. move_group_links 列出了 stage1 中接收移动目标位置的任何组或单人。对于任何移动关联的组，你必须考虑该组内每个位置的移动前后变化。如果任何移动成员的源区域到候选目标区域为 far，则该候选区域对整个拥有者无效。\n"
+            "17. 例如，如果 G2 包含来自 G1 的移动目标，则 G1 区域和 G2 区域不能是 far。移动关联的组永远不能使用 far 的目标区域。\n"
+            "18. 在检查移动合法性时，仅使用移动位置的直接源区域 -> 候选目标区域关系。不要通过引用恰好相邻或在语义上合适的第三个区域来证明移动目标的合理性。\n"
+            "19. 最终的 region 字段和最终的 reason 必须完全匹配。在返回之前，重新检查 region 字段是否为实际选定的合法区域。\n"
+            "20. 在修改推理后，不要在 region 字段中留下被拒绝的草稿候选。\n"
+            "21. reason 必须只证明最终选定区域的合理性。不要叙述一连串被拒绝的候选（如 A 无效，所以选 B）同时仍返回 region=A。\n"
+            "22. 如果你在推理过程中修改了候选，请更新 region 字段、layout 字段和 reason，使它们都指向同一个最终选择。\n"
+            "23. 如果两个位置在移动前后属于同一角色，在选择它们的区域时保持地理连续性。\n"
+            "24. 然而，如果移动目标变成一个明确离开场景、退出主要交互或仅作为远处背景观察者的孤立单人，你可以选择一个更适合该退出/撤退构图的相邻或中等距离区域。\n"
+            "25. 对于类似退出的单人，优先选择合理可达的隐蔽、边缘、藏身处或背景支持区域，而非强制将他们放回同一交互区域，但仍保持目标在相邻或中等距离范围内。永远不要为该移动使用相距很远的区域对。\n"
+            "26. 如果多个移动位置因为共同离开、分散、撤退或一起转换而保持分组，当 shot_description 和对话连续性支持时，你也可以为整个组选择一个相邻或中等距离的撤退区域。\n"
+            "27. 当剧本明确描述了协调离场或远离重组的移动时，不要强制同区域连续性。相反，从 scene_info_json 中选择空间上最合理的相邻或中等距离区域，但永远不要使用 far 区域。\n"
+            "28. 组的 lookat.mode 必须是 'center' 或 'target'。\n"
+            "29. 当组的 lookat.mode 为 'target' 时，恰好提供以下之一：target_character 或 target_object。\n"
+            "30. 如果使用 target_character，它必须是该组的角色之一。\n"
+            "31. 如果使用 target_object，它必须是来自 scene_info_json 的目标字符串。\n"
+            "32. 单人的 lookat 必须是来自 scene_info_json 的目标字符串。\n"
+            "33. stage1 中的每个 group_id 和单人 position_id 必须恰好出现一次。\n\n"
+            "### 3.2 区域规划规则\n"
+            "1. 将 scene_info_json.regions[*].spatial_relations 作为判断两个区域是相邻、近、中等还是远的最强信号。\n"
+            "2. 将 move_position_links 作为来自 script_json 的精确移动对约束。每个列出的 source_position_id -> destination_position_id 对必须避免相距很远的区域分配。\n"
+            "3. 使用 move_group_links 来强制执行组级别的移动连续性。如果一个组包含移动目标位置，则该组的候选区域相对于每个关联源位置和源拥有者必须是非 far 的。\n"
+            "4. 首先满足移动距离合理性和 spatial_relations，然后是连续性，再是 anchor_count。这些满足后，在 shot_description 和对话之前使用 region.description 作为下一个语义适配检查。\n"
+            "5. 如果某个区域在空间上不如另一个相同/相邻/近/中等选项合理，不要仅因其描述匹配场景语义就选择它。\n"
+            "6. 对于较大的组或可能需要多种不同调度选项的场景，优先选择锚点更多的区域。\n"
+            "7. 如果移动创建了新的调度节拍，目标区域仍应首先基于 spatial_relations 在空间上相对于源区域合理，然后是描述。\n"
+            "8. 不要将任何移动映射到直接 spatial_relations 标签为 far 的两个区域。\n"
+            "9. connected 不能覆盖 far。如果直接对为 far，即使区域在更大的场景图中仍然连通，也将其视为 far。\n"
+            "10. 对于移动关联的拥有者，允许同区域、相邻、近或中等距离的目标规划；禁止 far 目标规划。\n"
+            "11. 不要通过引用与某个第三区域的邻接关系来证明移动目标的合理性。只有移动位置的直接源区域 -> 候选区域关系对移动合法性有影响。\n"
+            "12. 返回的 region 字段必须是最终接受的区域，而不是更早被拒绝的草稿。\n"
+            "13. reason 必须只解释返回的区域。不要包含以与 region 字段中存储的区域不同的区域结尾的冗长自我修正。\n"
+            "14. 在 spatial_relations、连续性和 anchor_count 之后，使用 region.description 来区分多个已经合理的候选；然后才使用 shot_description 和对话作为最终的辅助构图检查。\n"
+            "15. 如果目标变成一个孤立单人，且 shot_description 有退出场景、远处背景、被动观察者或主要交互之外的线索，则相邻或中等距离的撤退区域是可以接受的，可能比留在同一区域更好。\n"
+            "16. 如果多个移动位置形成一个协调退出或撤退的组，当相邻或中等距离的撤退区域比原始交互区域更符合 shot_description 时可以接受，但不允许 far 区域。\n"
+        )
         prompt = {
             "task": "stage2_planning",
+            "system_prompt": system_prompt,
             "must_output_json": True,
-            "instructions": [
-                "Plan regions, layouts, and lookat values for every group and single.",
-                "Use only regions and targets from scene_info_json.",
-                "Use only layouts from position_lib_json.",
-                "Use shot_description and dialogue context as region-selection hints when they describe shot composition or spatial focus.",
-                "If scene_info_json.regions[*].spatial_relations is present, treat it as the primary source of truth for region adjacency, connectivity, and travel distance.",
-                "Region selection priority is: 1) move_position_links and spatial_relations, 2) geographic continuity across connected beats, 3) anchor_count / staging capacity, 4) region.description as a semantic reference, 5) shot_description and dialogue focus as supporting composition hints.",
-                "Do not choose a region mainly because its description sounds semantically perfect if another same / adjacent / near / medium region is more spatially plausible for the current move and blocking continuity.",
-                "Use region.description after spatial plausibility, continuity, and anchor_count are satisfied, but before shot_description and dialogue semantics.",
-                "You MUST consider each region's anchor_count when planning regions. Regions with more anchors can support more staging flexibility; regions with only one anchor should be used more conservatively unless the script strongly requires them.",
-                "You MUST consider the relationships between regions described in scene_info_json, with spatial_relations taking priority over any natural-language cues inside region.description.",
-                "Any move-linked source/destination pair is invalid if the direct spatial_relations label between the source region and destination region is far.",
-                "For any move transition, the source position and destination position MUST map to the same region, or to adjacent / near / medium / directly connected regions only.",
-                "You MUST NOT choose a source region and destination region that are labeled as far apart in scene_info_json as the two ends of a move.",
-                "connected does not mean adjacent or near. If the direct spatial_relations label between the source region and destination region is far, that move is invalid even if connected=true.",
-                "move_position_links lists the exact source_position_id and destination_position_id pairs parsed from script_json move beats. Treat each pair as a hard planning constraint when selecting regions.",
-                "move_group_links lists any group or single in stage1 that receives moved destination positions. For any move-linked group, you must consider every before/after position change inside that group. If any moved member's source region to the candidate destination region is far, that candidate region is invalid for the whole owner.",
-                "For example, if G2 contains moved destinations from G1, then G1 region and G2 region must not be far. A move-linked group can never use a far destination region.",
-                "When checking move legality, use only the direct source-region -> candidate-destination-region relation for the moved positions. Do not justify a move destination by referencing a third region that happens to be adjacent or semantically suitable.",
-                "The final region field and the final reason must match exactly. Before returning, re-check that the region field is the actually selected legal region.",
-                "Do not leave a rejected draft candidate in the region field after revising your reasoning.",
-                "The reason must justify only the final selected region. Do not narrate a chain of rejected candidates such as 'A is invalid, so choose B' while still returning region=A.",
-                "If you revise your candidate during reasoning, update the region field, layout field, and reason so they all point to the same final choice.",
-                "If two positions belong to the same character before and after a move, preserve geographic continuity when selecting their regions.",
-                "However, if a moved destination becomes an isolated single who is explicitly leaving the scene, withdrawing from the main interaction, or remaining only as a distant background observer, you may choose an adjacent or medium-distance region that better fits that exit / withdrawal composition.",
-                "For exit-like singles, prefer plausibly reachable secluded, edge, hideaway, or background-supporting regions over forcing them back into the same interaction region, but still keep the destination within adjacent or medium-distance reach. Never use a far-apart region pair for that move.",
-                "If multiple moved positions remain grouped because they are jointly leaving, dispersing, withdrawing, or transitioning together, you may also choose an adjacent or medium-distance retreat region for that whole group when the shot_description and dialogue continuity support it.",
-                "Do not force same-region continuity when the screenplay clearly depicts a coordinated departure or regroup-away movement. Instead, choose the most spatially plausible adjacent or medium region from scene_info_json, but never a far region.",
-                "Group lookat.mode must be 'center' or 'target'.",
-                "When group lookat.mode is 'target', provide exactly one of: target_character or target_object.",
-                "If target_character is used, it must be one of the group's characters.",
-                "If target_object is used, it must be a target string from scene_info_json.",
-                "Single lookat must be a target string from scene_info_json.",
-                "Every group_id and single position_id from stage1 must appear exactly once.",
-            ],
+            "stage2_planning_instructions": stage2_prompt_text,
             "where": self.where,
             "scene_info_json": compact_scene,
             "position_lib_json": {"layout_library": compact_layouts},
@@ -1306,24 +1350,6 @@ class PositionAgent:
                 "move_position_links": self._build_move_position_links(),
                 "move_group_links": self._build_move_group_links(),
                 "move_region_hints": self._build_move_region_hints(),
-                "region_planning_rules": [
-                    "Use scene_info_json.regions[*].spatial_relations as the strongest signal for whether two regions are adjacent, near, medium, or far.",
-                    "Use move_position_links as exact move-pair constraints from script_json. Every listed source_position_id -> destination_position_id pair must avoid far-apart region assignments.",
-                    "Use move_group_links to enforce group-level move continuity. If a group contains moved destination positions, the group's candidate region must be non-far relative to every linked source position and source owner.",
-                    "First satisfy move distance plausibility and spatial_relations, then continuity, then anchor_count. After those are satisfied, use region.description before shot_description and dialogue as the next semantic fit check.",
-                    "Do not pick a region mainly because its description matches the scene semantics if that region is less spatially plausible than another same / adjacent / near / medium option.",
-                    "Prefer regions with more anchors for larger groups or for scenes that likely need multiple distinct staging options.",
-                    "If a move creates a new blocking beat, the destination region should still remain spatially plausible relative to the source region based on spatial_relations first, then description.",
-                    "Do not map any move to two regions whose direct spatial_relations label is far.",
-                    "connected does not override far. If the direct pair is far, treat it as far even if the regions are still connected inside the larger scene graph.",
-                    "Same-region, adjacent, near, or medium destination planning is allowed for move-linked owners; far destination planning is forbidden.",
-                    "Do not justify a move destination by citing adjacency to some third region. Only the direct source-region -> candidate-region relation of the moved positions matters for move legality.",
-                    "The returned region field must already be the final accepted region, not an earlier rejected draft.",
-                    "The reason must explain only the returned region. Do not include long self-corrections that conclude with a different region than the one stored in the region field.",
-                    "Use region.description to distinguish between multiple already-plausible candidates after spatial_relations, continuity, and anchor_count; only then use shot_description and dialogue as the final supporting composition check.",
-                    "If the destination becomes an isolated single with shot_description cues like exiting the scene, distant background, passive observer, or outside main interaction, adjacent or medium-distance retreat regions are acceptable and may be better than staying in the same region.",
-                    "If multiple moved positions form a coordinated exit or withdrawal group, adjacent or medium-distance retreat regions are acceptable when they better match the shot_description than the original interaction region, but far regions are not allowed.",
-                ],
             },
             "output_schema": {
                 "groups": [
@@ -1356,17 +1382,24 @@ class PositionAgent:
         return json.dumps(prompt, ensure_ascii=False, indent=2)
 
     def _build_stage3_prompt(self):
+        system_prompt = (
+            "你是 PositionAgent。只返回有效的 JSON 对象。严格遵循每一个约束条件。"
+            "永远不要虚构角色、position_id、区域、物体、布局或字段。如果不确定，请优先选择保守的有效答案。"
+        )
+        stage3_prompt_text = (
+            "## Stage 3 — 编译阶段 (stage3_compilation)\n\n"
+            "1. 编译最终的位置计划。\n"
+            "2. 移除所有 reason 字段。\n"
+            "3. 使用与 script_json.where 和 scene_info_json.where 完全相同的 where 值。\n"
+            "4. 恰好保留每个 position_id 一次。\n"
+            "5. 不要虚构任何额外字段。\n"
+            "6. 对于组的 lookat target 模式，恰好保留 target_character 或 target_object 之一。\n"
+        )
         prompt = {
             "task": "stage3_compilation",
+            "system_prompt": system_prompt,
             "must_output_json": True,
-            "instructions": [
-                "Compile the final position plan.",
-                "Remove all reason fields.",
-                "Use where exactly as script_json.where and scene_info_json.where.",
-                "Preserve every position_id exactly once.",
-                "Do not invent any extra fields.",
-                "For group lookat target mode, preserve exactly one of target_character or target_object.",
-            ],
+            "stage3_compilation_instructions": stage3_prompt_text,
             "where": self.where,
             "template_json": self.template_json,
             "stage1_grouping": self.stage1_result,

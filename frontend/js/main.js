@@ -58,7 +58,7 @@ async function loadCharacters() {
 // 检查表单完整性
 function checkFormComplete() {
     const castGenBtn = document.getElementById('castGenerateBtn');
-    if (APP_STATE.selectedScene) {
+    if (APP_STATE.scenePool.length > 0) {
         UI.enableStep('step3');
         castGenBtn.disabled = false;
     } else {
@@ -91,6 +91,7 @@ async function generateCast() {
     try {
         const result = await API.generateCharacters({
             scene_id: APP_STATE.selectedScene,
+            scene_pool: APP_STATE.scenePool,
             character_count: APP_STATE.requiredCharacterCount || 2,
             creative_idea: document.getElementById('creativeIdea').value.trim(),
             partial_characters: partialChars
@@ -117,6 +118,14 @@ async function generateCast() {
 // 生成剧本
 async function generateScript() {
     const generateBtn = document.getElementById('generateBtn');
+
+    // 直接模式：必须在输入框提供剧本内容
+    const directMode = !!(document.getElementById('directModeToggle') || {}).checked;
+    if (directMode && !document.getElementById('creativeIdea').value.trim()) {
+        alert('已开启「直接生成」：请先在创作灵感输入框中粘贴你的剧本（JSON 或纯文本）。');
+        return;
+    }
+
     generateBtn.disabled = true;
 
     UI.hideResults();
@@ -124,11 +133,14 @@ async function generateScript() {
     document.getElementById('logPanel').style.display = 'block';
 
     // 开始日志
-    UI.addLog('info', '🚀 开始生成剧本...');
+    UI.addLog('info', directMode ? '⚡ 直接模式：按你提供的剧本生成（跳过头脑风暴与创作）...' : '🚀 开始生成剧本...');
     if (APP_STATE.generatedCharacters && APP_STATE.generatedCharacters.length > 0) {
         UI.addLog('info', `角色: ${APP_STATE.generatedCharacters.map(c => c.name).join(', ')}`);
     }
-    UI.addLog('info', `场景: ${APP_STATE.scenes.find(s => s.id === APP_STATE.selectedScene)?.name || APP_STATE.selectedScene}`);
+    const poolNames = (APP_STATE.scenePool || [])
+        .map(id => APP_STATE.scenes.find(s => s.id === id)?.name || id)
+        .join(' / ');
+    UI.addLog('info', `场景: ${poolNames || APP_STATE.selectedScene}`);
 
     let succeeded = false;
     try {
@@ -137,9 +149,12 @@ async function generateScript() {
         await API.generateScript({
             custom_characters: APP_STATE.generatedCharacters || [],
             scene_id: APP_STATE.selectedScene,
+            scene_pool: APP_STATE.scenePool,
+            act_scenes: APP_STATE.actScenes,
             creative_idea: document.getElementById('creativeIdea').value.trim(),
             required_character_count: APP_STATE.requiredCharacterCount,
-            act_count: APP_STATE.actCount
+            act_count: APP_STATE.actCount,
+            direct_mode: !!(document.getElementById('directModeToggle') || {}).checked
         }, (data) => {
             if (data.type === 'success') succeeded = true;
             handleStreamData(data);
@@ -200,24 +215,41 @@ function handleStreamData(data) {
 
 // 设置事件监听
 function setupEventListeners() {
-    // 场景选择
-    document.getElementById('sceneSelect').addEventListener('change', (e) => {
-        APP_STATE.selectedScene = e.target.value;
-        
-        if (e.target.value) {
-            const scene = APP_STATE.scenes.find(s => s.id === e.target.value);
-            if (scene) {
-                UI.showSceneInfo(scene);
-            }
+    // 场景池多选（复选框）
+    document.getElementById('scenePoolList').addEventListener('change', (e) => {
+        const cb = e.target.closest('.scene-pool-checkbox');
+        if (!cb) return;
+
+        const checked = Array.from(document.querySelectorAll('.scene-pool-checkbox:checked'))
+            .map(el => el.value);
+        APP_STATE.scenePool = checked;
+        APP_STATE.selectedScene = checked[0] || null;
+
+        if (checked.length > 0) {
+            // 展示所有已勾选场景的信息（多场景逐个分块）
+            const selectedScenes = checked
+                .map(id => APP_STATE.scenes.find(s => s.id === id))
+                .filter(Boolean);
+            UI.showSceneInfo(selectedScenes);
 
             UI.enableStep('step2');
-
             const count = parseInt(document.getElementById('characterCount').value) || 2;
             APP_STATE.requiredCharacterCount = count;
             UI.updateCharacterCount(count);
+        } else {
+            document.getElementById('sceneInfo').style.display = 'none';
         }
 
+        UI.renderActSceneMap(APP_STATE.scenePool, APP_STATE.actCount);
         checkFormComplete();
+    });
+
+    // 每幕 → 场景 分配下拉
+    document.getElementById('actSceneList').addEventListener('change', (e) => {
+        const sel = e.target.closest('.act-scene-select');
+        if (!sel) return;
+        const idx = parseInt(sel.dataset.actIndex);
+        if (!isNaN(idx)) APP_STATE.actScenes[idx] = sel.value;
     });
 
     // 角色数量 - 减少
@@ -342,9 +374,25 @@ function setupEventListeners() {
         updateActCount(Math.max(1, Math.min(10, v)));
     });
 
+    // 直接模式开关：联动提示文案 + 输入框占位提示
+    const directToggle = document.getElementById('directModeToggle');
+    if (directToggle) {
+        directToggle.addEventListener('change', (e) => {
+            const on = e.target.checked;
+            APP_STATE.directMode = on;
+            const hint = document.getElementById('directModeHint');
+            if (hint) hint.style.display = on ? '' : 'none';
+        });
+    }
+
     // 下载 Word 版剧本
     document.getElementById('downloadWordBtn').addEventListener('click', () => {
         if (APP_STATE.currentFilename) API.downloadWord(APP_STATE.currentFilename);
+    });
+
+    // 打包下载当前会话所有文件
+    document.getElementById('downloadSessionZipBtn').addEventListener('click', () => {
+        if (APP_STATE.currentSessionId) API.downloadSessionZip(APP_STATE.currentSessionId);
     });
 
     // 历史面板
@@ -400,6 +448,8 @@ function updateActCount(count) {
     document.getElementById('actCountInput').value = count;
     const warning = document.getElementById('actCountWarning');
     if (warning) warning.style.display = count > 5 ? 'inline' : 'none';
+    // 幕数变化时重渲「每幕 → 场景」分配
+    UI.renderActSceneMap(APP_STATE.scenePool, count);
 }
 
 // 加载历史记录
@@ -447,6 +497,23 @@ async function loadScriptEditor(filename) {
         const result = await API.getScriptContent(filename);
         if (result.success) {
             APP_STATE.currentScriptFilename = filename;
+
+            // 同时加载 position_plan，构建 Position N → 锚点名 映射
+            if (APP_STATE.currentSessionId) {
+                try {
+                    const pp = await API.getPositionPlan(APP_STATE.currentSessionId);
+                    if (pp.success) {
+                        APP_STATE.positionPlanMap = buildPositionMap(pp.data);
+                    } else {
+                        APP_STATE.positionPlanMap = {};
+                    }
+                } catch (e) {
+                    APP_STATE.positionPlanMap = {};
+                }
+            } else {
+                APP_STATE.positionPlanMap = {};
+            }
+
             UI.renderScriptViewer(result.data);
         } else {
             viewer.innerHTML = `<p style="padding:20px;color:#f44336">加载失败：${result.error}</p>`;
@@ -454,6 +521,27 @@ async function loadScriptEditor(filename) {
     } catch (e) {
         viewer.innerHTML = `<p style="padding:20px;color:#f44336">网络错误：${e.message}</p>`;
     }
+}
+
+// 从 position_plan 构建 { "Position 1": "中央锚点" } 这样的映射
+function buildPositionMap(plan) {
+    const map = {};
+    // singles: [{position_id, character, region, ...}]
+    (plan.singles || []).forEach(s => {
+        if (s.position_id && s.region) {
+            map[s.position_id] = s.region; // region 即锚点/区域名
+        }
+    });
+    // groups: position_id 嵌在 positions[] 里，region 在 group 顶层；多个角色共享同一 region
+    (plan.groups || []).forEach(g => {
+        if (!g.region) return;
+        (g.positions || []).forEach(p => {
+            if (p.position_id) {
+                map[p.position_id] = g.region;
+            }
+        });
+    });
+    return map;
 }
 
 // 从历史记录加载剧本

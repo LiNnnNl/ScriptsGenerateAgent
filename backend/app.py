@@ -3,6 +3,13 @@ ScriptAgent Web UI
 使用 Flask 提供简单的 Web 界面
 """
 
+import os
+
+# ── SSL 修复：使用 certifi 的 CA 证书，修复 "unable to get local issuer certificate" ──
+import certifi
+os.environ["SSL_CERT_FILE"] = certifi.where()
+os.environ["SSL_CERT_DIR"] = ""
+
 from flask import Flask, request, jsonify, send_file, Response, stream_with_context, send_from_directory
 from flask_cors import CORS
 import json
@@ -251,12 +258,26 @@ def generate_characters():
     creative_idea = (data.get('creative_idea') or '').strip()
     partial_characters = data.get('partial_characters', [])
 
-    # 获取场景名称描述
-    scene_desc = scene_id
-    for scene in resource_loader.get_all_scenes():
-        if scene.id == scene_id:
-            scene_desc = f"{scene.name}：{scene.description}"
-            break
+    # 场景池（多场景）：角色跨幕复用，参考整池概述作为环境参考；缺省回退单 scene_id
+    scene_pool_ids = data.get('scene_pool') or []
+    if not isinstance(scene_pool_ids, list):
+        scene_pool_ids = []
+    scene_pool_ids = [str(s).strip() for s in scene_pool_ids if str(s).strip()]
+    if not scene_pool_ids and scene_id:
+        scene_pool_ids = [scene_id]
+
+    # 获取场景名称描述（单场景=单条；多场景=整池概述）
+    _scenes_by_id = {sc.id: sc for sc in resource_loader.get_all_scenes()}
+    _pool_descs = [
+        f"{_scenes_by_id[sid].name}：{_scenes_by_id[sid].description}"
+        for sid in scene_pool_ids if sid in _scenes_by_id
+    ]
+    if len(_pool_descs) > 1:
+        scene_desc = "（多场景，角色需跨场景通用）\n" + "\n".join(f"- {d}" for d in _pool_descs)
+    elif _pool_descs:
+        scene_desc = _pool_descs[0]
+    else:
+        scene_desc = scene_id
 
     # 构建已指定角色说明
     specified = [c for c in partial_characters if (c.get('name') or '').strip()]
@@ -506,6 +527,31 @@ def download_file(filename):
         }), 500
 
 
+@app.route('/api/position_plan/<session_id>', methods=['GET'])
+def get_position_plan(session_id):
+    """返回某次会话的 position_plan JSON（含 anchor 名称映射，供前端做 Position N → 锚点名 显示）"""
+    try:
+        data = _registry.load_registry()
+        session = data.get("sessions", {}).get(session_id)
+        if not session:
+            return jsonify({'success': False, 'error': '会话不存在'}), 404
+
+        fname = session.get("files", {}).get("position_plan")
+        if not fname:
+            return jsonify({'success': False, 'error': '无 position_plan 文件'}), 404
+
+        fpath = Path("outputs") / fname
+        if not fpath.exists():
+            return jsonify({'success': False, 'error': '文件不存在'}), 404
+
+        with open(fpath, 'r', encoding='utf-8') as f:
+            plan = json.load(f)
+        return jsonify({'success': True, 'data': plan})
+    except Exception as e:
+        logger.error("get_position_plan 失败: %s", e)
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @app.route('/api/history', methods=['GET'])
 def get_history():
     """返回历史生成会话列表（按时间倒序）"""
@@ -527,6 +573,48 @@ def update_history_label(session_id):
             return jsonify({'success': False, 'error': '会话不存在'}), 404
         return jsonify({'success': True})
     except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/download_session/<session_id>', methods=['GET'])
+def download_session_zip(session_id):
+    """打包下载某次生成会话的所有输出文件（剧本/角色档案/位置规划/摄影脚本等）"""
+    import io, zipfile
+    try:
+        data = _registry.load_registry()
+        session = data.get("sessions", {}).get(session_id)
+        if not session:
+            return jsonify({'success': False, 'error': '会话不存在'}), 404
+
+        files_info = session.get("files", {})
+        word_export = session.get("word_export")
+
+        output_dir = Path("outputs")
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
+            # 收集所有文件
+            keys = ['script', 'actors_profile', 'position_plan', 'position_detail', 'camera_script']
+            for key in keys:
+                fname = files_info.get(key)
+                if fname:
+                    fpath = output_dir / fname
+                    if fpath.exists():
+                        zf.write(fpath, fname)
+            # word 导出（如果存在）
+            if word_export:
+                fpath = output_dir / word_export
+                if fpath.exists():
+                    zf.write(fpath, word_export)
+
+        buf.seek(0)
+        return send_file(
+            buf,
+            as_attachment=True,
+            download_name=f"session_{session_id}.zip",
+            mimetype='application/zip',
+        )
+    except Exception as e:
+        logger.error("download_session_zip 失败: %s", e)
         return jsonify({'success': False, 'error': str(e)}), 500
 
 

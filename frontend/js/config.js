@@ -12,13 +12,17 @@ const API_CONFIG = {
         SCRIPT_CONTENT: '/api/script_content',
         HISTORY: '/api/history',
         ACTIONS: '/api/actions',
-        SHOT_TYPES: '/api/shot_types'
+        SHOT_TYPES: '/api/shot_types',
+        DOWNLOAD_SESSION: '/api/download_session',
+        POSITION_PLAN: '/api/position_plan'
     }
 };
 
 // 全局状态
 const APP_STATE = {
-    selectedScene: null,
+    selectedScene: null,    // 兼容字段：= scenePool[0]
+    scenePool: [],          // 多场景：已选场景 id 数组（仅含有锚点的可选场景）
+    actScenes: [],          // 多场景：下标=幕序号，值=该幕场景 id
     customCharacters: [],   // [{name: string, description: string}]
     castSlots: [],          // [{mode: 'library'|'custom', selectedName: '', customName: '', customDesc: ''}]
     requiredCharacterCount: 2,

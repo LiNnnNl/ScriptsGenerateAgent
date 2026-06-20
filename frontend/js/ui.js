@@ -123,6 +123,11 @@ const UI = {
         if (cameraBtn) {
             cameraBtn.style.display = cameraScriptFilename ? '' : 'none';
         }
+
+        const zipBtn = document.getElementById('downloadSessionZipBtn');
+        if (zipBtn) {
+            zipBtn.style.display = APP_STATE.currentSessionId ? '' : 'none';
+        }
     },
 
     // 显示错误
@@ -145,39 +150,91 @@ const UI = {
         document.getElementById('errorPanel').style.display = 'none';
     },
 
-    // 渲染场景列表
+    // 渲染场景池（多选复选框）：有锚点（regions 非空）才可勾选，无锚点禁用并标注
     renderScenes(scenes) {
-        const select = document.getElementById('sceneSelect');
-        select.innerHTML = '<option value="">请选择场景...</option>' +
-            scenes.map(scene => `<option value="${scene.id}">${scene.name}</option>`).join('');
+        const list = document.getElementById('scenePoolList');
+        list.innerHTML = scenes.map(scene => {
+            const hasAnchor = scene.regions && scene.regions.length > 0;
+            const disabledAttr = hasAnchor ? '' : 'disabled';
+            const note = hasAnchor ? '' : '<span class="scene-pool-note">暂无坐标锚点，不可选</span>';
+            return `
+            <label class="scene-pool-item ${hasAnchor ? '' : 'is-disabled'}">
+                <input type="checkbox" class="scene-pool-checkbox" value="${scene.id}" ${disabledAttr}>
+                <span class="scene-pool-name">${scene.name}</span>
+                ${note}
+            </label>`;
+        }).join('');
     },
 
-    // 显示场景信息
-    showSceneInfo(scene) {
-        const info = document.getElementById('sceneInfo');
-        const description = document.getElementById('sceneDescription');
-        const positions = document.getElementById('scenePositions');
-
-        description.textContent = scene.description;
-
+    // 渲染「每幕 → 场景」分配下拉（仅多场景时显示）；选项=场景池内场景
+    renderActSceneMap(poolIds, actCount) {
+        const wrap = document.getElementById('actSceneMap');
+        const listEl = document.getElementById('actSceneList');
+        if (!poolIds || poolIds.length <= 1) {
+            wrap.style.display = 'none';
+            listEl.innerHTML = '';
+            return;
+        }
+        const sceneById = {};
+        (APP_STATE.scenes || []).forEach(s => { sceneById[s.id] = s; });
+        const options = poolIds
+            .map(id => `<option value="${id}">${(sceneById[id] || {}).name || id}</option>`)
+            .join('');
         let html = '';
+        for (let i = 0; i < actCount; i++) {
+            // 默认按顺序轮转分配
+            const current = APP_STATE.actScenes[i] || poolIds[i % poolIds.length];
+            APP_STATE.actScenes[i] = current;
+            html += `
+            <div class="act-scene-row">
+                <span class="act-scene-label">第 ${i + 1} 幕</span>
+                <select class="act-scene-select" data-act-index="${i}">
+                    ${options.replace(`value="${current}"`, `value="${current}" selected`)}
+                </select>
+            </div>`;
+        }
+        APP_STATE.actScenes = APP_STATE.actScenes.slice(0, actCount);
+        listEl.innerHTML = html;
+        wrap.style.display = 'block';
+    },
 
-        if (scene.regions && scene.regions.length > 0) {
-            for (const region of scene.regions) {
-                html += `<div class="position-group">`;
-                html += `<div class="position-group-title">${region.name}</div>`;
-                html += `<p class="region-description">${region.description}</p>`;
-                if (region.markers && region.markers.length > 0) {
-                    html += `<p class="region-markers"><span class="markers-label">标志性物体：</span>${region.markers.join('、')}</p>`;
-                }
-                html += `</div>`;
-            }
-        } else {
-            html = '<p>暂无区域信息</p>';
+    // 显示场景信息（支持单个或多个已选场景；多场景时逐个分块展示）
+    showSceneInfo(scenes) {
+        const info = document.getElementById('sceneInfo');
+        const scroll = info.querySelector('.scene-info-scroll');
+        const list = Array.isArray(scenes) ? scenes.filter(Boolean) : (scenes ? [scenes] : []);
+
+        if (list.length === 0) {
+            info.style.display = 'none';
+            return;
         }
 
-        positions.innerHTML = html;
+        const multi = list.length > 1;
+        let html = '';
+        list.forEach(scene => {
+            html += `<div class="scene-info-block">`;
+            if (multi) html += `<div class="scene-info-title">${scene.name}</div>`;
+            html += `<div class="info-label">场景描述</div>`;
+            html += `<p class="scene-description">${scene.description || ''}</p>`;
+            html += `<div class="info-label">场景区域与锚点</div>`;
+            html += `<div class="positions-list">`;
+            if (scene.regions && scene.regions.length > 0) {
+                for (const region of scene.regions) {
+                    html += `<div class="position-group">`;
+                    html += `<div class="position-group-title">${region.name}</div>`;
+                    html += `<p class="region-description">${region.description}</p>`;
+                    if (region.markers && region.markers.length > 0) {
+                        html += `<p class="region-markers"><span class="markers-label">标志性物体：</span>${region.markers.join('、')}</p>`;
+                    }
+                    html += `</div>`;
+                }
+            } else {
+                html += '<p>暂无区域信息</p>';
+            }
+            html += `</div></div>`;
+        });
 
+        scroll.innerHTML = html;
         info.style.display = 'block';
     },
 
@@ -212,9 +269,7 @@ const UI = {
                         <button class="mode-btn" data-editor-mode="custom" data-index="${i}">自定义输入</button>
                     </div>
                     <div class="cast-library-panel">
-                        <select class="cast-select editor-select" data-index="${i}">
-                            ${this._buildCharSelectOptions('')}
-                        </select>
+                        ${this._buildCharDropdown('', i, 'cast-select editor-select')}
                         <div class="cast-char-preview" style="display:none"></div>
                     </div>
                     <div class="cast-custom-panel" style="display:none">
@@ -275,6 +330,8 @@ const UI = {
 
     // 挂载替换编辑器事件
     _attachEditorListeners(container) {
+        // 自定义下拉（悬停预览角色信息/图片）
+        this._attachDropdown(container);
         // 展开/收起编辑器
         container.querySelectorAll('.cast-replace-btn').forEach(btn => {
             btn.addEventListener('click', () => {
@@ -396,6 +453,22 @@ const UI = {
     },
 
     // 构建角色库选择器的 options HTML（按性别分组）
+    // 构建下拉选项的悬停提示（角色信息摘要）
+    _buildCharTitle(char) {
+        const lines = [];
+        const app = char.appearance || {};
+        const basics = [char.gender, char.ip, app.height].filter(Boolean).join(' · ');
+        if (basics) lines.push(basics);
+        const traits = Array.isArray(char.traits) && char.traits.length
+            ? char.traits.join(' · ')
+            : (char.personality_traits || '');
+        if (traits) lines.push(`性格：${traits}`);
+        const bg = (char.background || '').trim();
+        if (bg) lines.push(`背景：${bg.slice(0, 120)}${bg.length > 120 ? '…' : ''}`);
+        // title 属性用换行符分隔多行，并转义引号
+        return lines.join('\n').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    },
+
     _buildCharSelectOptions(selectedName) {
         const grouped = {};
         for (const char of APP_STATE.characters) {
@@ -411,11 +484,179 @@ const UI = {
                 const traits = Array.isArray(char.traits) && char.traits.length
                     ? ` · ${char.traits.slice(0, 2).join('/')}` : '';
                 const sel = char.name === selectedName ? ' selected' : '';
-                html += `<option value="${char.name}"${sel}>${char.name}${traits}</option>`;
+                const title = this._buildCharTitle(char);
+                html += `<option value="${char.name}"${sel} title="${title}">${char.name}${traits}</option>`;
             }
             html += '</optgroup>';
         }
         return html;
+    },
+
+    // 构建自定义下拉（保留隐藏的原生 <select> 以兼容既有 change/value 逻辑，
+    // 额外提供可在选项上悬停、显示角色信息与图片的菜单）
+    _buildCharDropdown(selectedName, i, selectClass) {
+        const sel = APP_STATE.characters.find(c => c.name === selectedName);
+        const label = sel ? sel.name : '请选择角色…';
+        return `
+        <div class="cast-dd" data-index="${i}">
+            <select class="${selectClass}" data-index="${i}" style="display:none">
+                ${this._buildCharSelectOptions(selectedName)}
+            </select>
+            <button type="button" class="cast-dd-trigger${sel ? '' : ' placeholder'}">
+                <span class="cast-dd-trigger-text">${this._esc(label)}</span>
+                <span class="cast-dd-arrow">▾</span>
+            </button>
+            <div class="cast-dd-menu" style="display:none">
+                ${this._buildCharMenuItems(selectedName)}
+            </div>
+        </div>`;
+    },
+
+    // 构建自定义下拉的选项列表
+    _buildCharMenuItems(selectedName) {
+        const grouped = {};
+        for (const char of APP_STATE.characters) {
+            const group = char.gender || 'other';
+            if (!grouped[group]) grouped[group] = [];
+            grouped[group].push(char);
+        }
+        const groupLabels = { female: '女性', male: '男性', none: '机械/无性别', other: '其他' };
+        let html = `<div class="cast-dd-item${selectedName ? '' : ' selected'}" data-name=""><span class="cast-dd-thumb cast-dd-thumb-empty"></span><span class="cast-dd-name">请选择角色…</span></div>`;
+        for (const [group, chars] of Object.entries(grouped)) {
+            html += `<div class="cast-dd-group-label">${groupLabels[group] || group}</div>`;
+            for (const char of chars) {
+                const traits = Array.isArray(char.traits) && char.traits.length
+                    ? ` · ${char.traits.slice(0, 2).join('/')}` : '';
+                const sel = char.name === selectedName ? ' selected' : '';
+                const hasImg = char.gameobject_name ? ' has-img' : '';
+                const imgURL = char.gameobject_name ? this._charImageURL(char.gameobject_name) : '';
+                const thumb = imgURL
+                    ? `<img class="cast-dd-thumb" src="${imgURL}" alt="" loading="lazy" onerror="this.classList.add('cast-dd-thumb-empty');this.removeAttribute('src')">`
+                    : `<span class="cast-dd-thumb cast-dd-thumb-empty"></span>`;
+                html += `<div class="cast-dd-item${sel}${hasImg}" data-name="${this._esc(char.name)}">${thumb}<span class="cast-dd-name">${this._esc(char.name + traits)}</span></div>`;
+            }
+        }
+        return html;
+    },
+
+    // 挂载自定义下拉的交互（展开/收起、悬停预览、选择同步到隐藏 select）
+    _attachDropdown(container) {
+        container.querySelectorAll('.cast-dd').forEach(dd => {
+            const trigger = dd.querySelector('.cast-dd-trigger');
+            const menu = dd.querySelector('.cast-dd-menu');
+            const select = dd.querySelector('select');
+            menu._ddParent = dd; // 记住归位的父节点（打开时会移到 body）
+
+            trigger.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const isOpen = menu.style.display !== 'none';
+                this._closeAllMenus();
+                if (!isOpen) {
+                    // 移到 body 下，避开 .main-card 的 transform 形成的 fixed 包含块
+                    document.body.appendChild(menu);
+                    menu.style.display = '';
+                    this._positionMenu(trigger, menu);
+                }
+            });
+
+            menu.addEventListener('click', (e) => e.stopPropagation());
+
+            menu.querySelectorAll('.cast-dd-item').forEach(item => {
+                item.addEventListener('mouseenter', () => this._showHoverCard(item));
+                item.addEventListener('mouseleave', () => this._hideHoverCard());
+                item.addEventListener('click', () => {
+                    const name = item.dataset.name;
+                    select.value = name;
+                    dd.querySelector('.cast-dd-trigger-text').textContent = name || '请选择角色…';
+                    trigger.classList.toggle('placeholder', !name);
+                    menu.querySelectorAll('.cast-dd-item').forEach(it => it.classList.toggle('selected', it === item));
+                    this._closeAllMenus();
+                    // 触发原生 change，复用既有处理逻辑
+                    select.dispatchEvent(new Event('change', { bubbles: true }));
+                });
+            });
+        });
+
+        // 点击空白处 / 滚动 / 缩放时关闭（全局只绑定一次）
+        if (!this._ddGlobalBound) {
+            document.addEventListener('click', () => this._closeAllMenus());
+            // 捕获阶段监听页面滚动：fixed 菜单不随页面移动故关闭；但在菜单内部滚动列表时不关
+            window.addEventListener('scroll', (e) => {
+                const t = e.target;
+                if (t && t.nodeType === 1 && t.closest && t.closest('.cast-dd-menu')) return;
+                this._closeAllMenus();
+            }, true);
+            window.addEventListener('resize', () => this._closeAllMenus());
+            this._ddGlobalBound = true;
+        }
+    },
+
+    // 关闭所有下拉菜单，并把（曾移到 body 的）菜单归位到原 .cast-dd 内
+    _closeAllMenus() {
+        document.querySelectorAll('.cast-dd-menu').forEach(m => {
+            m.style.display = 'none';
+            if (m._ddParent && m.parentElement !== m._ddParent) {
+                m._ddParent.appendChild(m);
+            }
+        });
+        this._hideHoverCard();
+    },
+
+    // 将 fixed 定位的菜单对齐到触发按钮下方；下方空间不足时向上展开
+    _positionMenu(trigger, menu) {
+        const r = trigger.getBoundingClientRect();
+        const gap = 2;
+        const margin = 8;
+        menu.style.width = r.width + 'px';
+        menu.style.left = r.left + 'px';
+        // 先按内容测量需要的高度（受 CSS max-height 限制）
+        menu.style.maxHeight = '';
+        menu.style.top = '-9999px';
+        const needed = menu.offsetHeight;
+        const spaceBelow = window.innerHeight - r.bottom - gap - margin;
+        const spaceAbove = r.top - gap - margin;
+        if (spaceBelow >= needed || spaceBelow >= spaceAbove) {
+            // 向下展开
+            menu.style.top = (r.bottom + gap) + 'px';
+            menu.style.maxHeight = Math.min(360, Math.max(120, spaceBelow)) + 'px';
+        } else {
+            // 向上展开
+            const h = Math.min(360, Math.max(120, spaceAbove));
+            menu.style.maxHeight = h + 'px';
+            menu.style.top = Math.max(margin, r.top - gap - Math.min(needed, h)) + 'px';
+        }
+    },
+
+    // 悬停某个选项时，在旁边显示该角色的信息与图片
+    _showHoverCard(item) {
+        const char = APP_STATE.characters.find(c => c.name === item.dataset.name);
+        if (!char) { this._hideHoverCard(); return; }
+        let card = document.getElementById('castDdHoverCard');
+        if (!card) {
+            card = document.createElement('div');
+            card.id = 'castDdHoverCard';
+            card.className = 'cast-dd-hovercard';
+            document.body.appendChild(card);
+        }
+        card.innerHTML = this._buildCharPreviewHTML(char);
+        card.style.display = '';
+        // 定位：默认在选项右侧，空间不足则放到左侧
+        const r = item.getBoundingClientRect();
+        const cardW = card.offsetWidth || 260;
+        const cardH = card.offsetHeight || 200;
+        let left = r.right + 10;
+        if (left + cardW > window.innerWidth - 8) left = r.left - cardW - 10;
+        if (left < 8) left = 8;
+        let top = r.top;
+        if (top + cardH > window.innerHeight - 8) top = window.innerHeight - cardH - 8;
+        if (top < 8) top = 8;
+        card.style.left = left + 'px';
+        card.style.top = top + 'px';
+    },
+
+    _hideHoverCard() {
+        const card = document.getElementById('castDdHoverCard');
+        if (card) card.style.display = 'none';
     },
 
     // 生成角色预览 HTML（只显示展示字段，不显示 gameobject_name 等引擎字段）
@@ -452,8 +693,6 @@ const UI = {
         const libraryActive = isLibrary ? ' active' : '';
         const customActive = isLibrary ? '' : ' active';
 
-        const selectOptions = this._buildCharSelectOptions(slot.selectedName);
-
         // 预览卡片
         const previewChar = APP_STATE.characters.find(c => c.name === slot.selectedName);
         const previewDisplay = previewChar ? '' : ' style="display:none"';
@@ -469,9 +708,7 @@ const UI = {
                 </div>
             </div>
             <div class="cast-library-panel"${libraryDisplay}>
-                <select class="cast-select" data-index="${i}">
-                    ${selectOptions}
-                </select>
+                ${this._buildCharDropdown(slot.selectedName, i, 'cast-select')}
                 <div class="cast-char-preview"${previewDisplay}>
                     ${previewHTML}
                 </div>
@@ -564,6 +801,8 @@ const UI = {
 
     // 挂载角色表单事件
     _attachCastListeners(container) {
+        // 自定义下拉（悬停预览角色信息/图片）
+        this._attachDropdown(container);
         // 模式切换
         container.querySelectorAll('.mode-btn').forEach(btn => {
             btn.addEventListener('click', () => {
@@ -668,18 +907,20 @@ const UI = {
             const info      = scene['scene information'] || {};
             const who       = (info.who || []).join('、');
             const initPos   = (scene['initial position'] || [])
-                .map(p => `${p.character} → ${p.position}`).join('　');
+                .map(p => {
+                    const anchor = (APP_STATE.positionPlanMap || {})[p.position] || p.position;
+                    return `${p.character} → ${anchor}`;
+                }).join('　');
             const sceneChars = (info.who && info.who.length) ? info.who : allChars;
-
-            // 场景名下拉
-            const whereOpts = sceneOpts.map(s =>
-                `<option value="${this._esc(s.id)}"${s.id === info.where ? ' selected' : ''}>${this._esc(s.label)}</option>`
-            ).join('');
 
             const beats = (scene['scene'] || []).map((beat, bi) => {
                 if (beat.speaker !== undefined) {
                     const positions = (beat['current position'] || [])
-                        .map(p => `${p.character}→${p.position}`).join('　');
+                        .map(p => {
+                            const pos = p.position;
+                            const anchor = (APP_STATE.positionPlanMap || {})[pos] || pos;
+                            return `${p.character}→${anchor}`;
+                        }).join('　');
                     // 说话人下拉
                     const speakerOpts = sceneChars.map(c =>
                         `<option value="${this._esc(c)}"${c === beat.speaker ? ' selected' : ''}>${this._esc(c)}</option>`
@@ -718,9 +959,6 @@ const UI = {
             <div class="sv-scene" data-scene="${si}">
                 <div class="sv-scene-header">
                     <span class="sv-scene-num">第 ${si + 1} 幕</span>
-                    <select class="sv-where-select" data-scene="${si}">
-                        ${whereOpts}
-                    </select>
                     <span class="sv-scene-who">${this._esc(who)}</span>
                     <button class="sv-del-scene" data-scene="${si}" title="删除此幕">✕</button>
                 </div>
@@ -756,11 +994,8 @@ const UI = {
         return this._collectChars(data);
     },
 
-    // 获取场景选项：优先 APP_STATE.scenes，否则从剧本提取
+    // 获取场景选项（仅从剧本提取，不允许切换场景类型）
     _getSceneOpts() {
-        if (APP_STATE.scenes?.length) {
-            return APP_STATE.scenes.map(s => ({ id: s.id, label: s.name || s.id }));
-        }
         const set = new Set();
         (APP_STATE.currentScriptData || []).forEach(scene => {
             const w = scene['scene information']?.where;
@@ -787,24 +1022,44 @@ const UI = {
         return result;
     },
 
+    // 动作下拉的显示名：取中文描述的第一个分句作为简短中文名；无描述则回退英文 ID
+    _actionLabel(a) {
+        const d = (a.description || '').trim();
+        if (!d) return a.trigger;
+        const short = d.split(/[，,。（(]/)[0].trim();
+        return short || a.trigger;
+    },
+
+    // 构建 trigger → 显示名 映射；同名动作按出场顺序加序号 1/2/3 区分。底层 value 仍是英文 ID
+    _buildActionLabelMap(list) {
+        const base = list.map(a => ({ trigger: a.trigger, name: this._actionLabel(a) }));
+        const counts = {};
+        base.forEach(b => { counts[b.name] = (counts[b.name] || 0) + 1; });
+        const seen = {};
+        const map = {};
+        base.forEach(b => {
+            if (counts[b.name] > 1) {
+                seen[b.name] = (seen[b.name] || 0) + 1;
+                map[b.trigger] = `${b.name}${seen[b.name]}`;
+            } else {
+                map[b.trigger] = b.name;
+            }
+        });
+        return map;
+    },
+
     _renderShotSelects(si, bi, beat) {
         const shotTypes  = APP_STATE.shotTypes  || [];
-        const shotBlends = APP_STATE.shotBlends || [];
         const curType  = beat.shot_type  || '';
-        const curBlend = beat.shot_blend || '';
 
         const typeOpts  = shotTypes.map(t =>
             `<option value="${this._esc(t)}"${t === curType  ? ' selected' : ''}>${this._esc(t)}</option>`
-        ).join('');
-        const blendOpts = shotBlends.map(b =>
-            `<option value="${this._esc(b)}"${b === curBlend ? ' selected' : ''}>${this._esc(b)}</option>`
         ).join('');
 
         return `
         <div class="sv-shot-editor">
             <span class="sv-label">镜头</span>
             <select class="sv-shot-type" data-scene="${si}" data-beat="${bi}">${typeOpts}</select>
-            <select class="sv-shot-blend" data-scene="${si}" data-beat="${bi}">${blendOpts}</select>
             <textarea class="sv-shot-desc sv-editable"
                 data-scene="${si}" data-beat="${bi}" data-field="shot_description"
                 rows="2" placeholder="镜头描述..."></textarea>
@@ -812,13 +1067,14 @@ const UI = {
     },
 
     _renderActionEditor(si, bi, actions, sceneChars, actionsFlat) {
+        const labelMap = this._buildActionLabelMap(actionsFlat);
         const rows = actions.map((act, ai) => `
             <div class="sv-action-row" data-ai="${ai}">
                 <select class="sv-action-char" data-scene="${si}" data-beat="${bi}" data-ai="${ai}">
                     ${sceneChars.map(c => `<option value="${this._esc(c)}"${c === act.character ? ' selected' : ''}>${this._esc(c)}</option>`).join('')}
                 </select>
                 <select class="sv-action-name" data-scene="${si}" data-beat="${bi}" data-ai="${ai}">
-                    ${actionsFlat.map(a => `<option value="${this._esc(a.trigger)}"${a.trigger === act.action ? ' selected' : ''} title="${this._esc(a.description||'')}">${this._esc(a.trigger)}</option>`).join('')}
+                    ${actionsFlat.map(a => `<option value="${this._esc(a.trigger)}"${a.trigger === act.action ? ' selected' : ''} title="${this._esc(a.description || a.trigger)}">${this._esc(labelMap[a.trigger] || this._actionLabel(a))}</option>`).join('')}
                 </select>
                 <button class="sv-del-action" data-scene="${si}" data-beat="${bi}" data-ai="${ai}">✕</button>
             </div>`).join('');
@@ -855,16 +1111,6 @@ const UI = {
             });
         });
 
-        // 场景名下拉
-        viewer.querySelectorAll('.sv-where-select').forEach(sel => {
-            sel.addEventListener('change', () => {
-                const si = parseInt(sel.dataset.scene);
-                if (data[si]?.['scene information']) {
-                    data[si]['scene information'].where = sel.value;
-                }
-            });
-        });
-
         // 说话人下拉
         viewer.querySelectorAll('.sv-speaker-select').forEach(sel => {
             sel.addEventListener('change', () => {
@@ -881,14 +1127,6 @@ const UI = {
             sel.addEventListener('change', () => {
                 const si = parseInt(sel.dataset.scene), bi = parseInt(sel.dataset.beat);
                 if (data[si]?.['scene']?.[bi]) data[si]['scene'][bi].shot_type = sel.value;
-            });
-        });
-
-        // 镜头衔接方式下拉
-        viewer.querySelectorAll('.sv-shot-blend').forEach(sel => {
-            sel.addEventListener('change', () => {
-                const si = parseInt(sel.dataset.scene), bi = parseInt(sel.dataset.beat);
-                if (data[si]?.['scene']?.[bi]) data[si]['scene'][bi].shot_blend = sel.value;
             });
         });
 
@@ -1046,7 +1284,10 @@ const UI = {
                 const info = scene['scene information'] || {};
                 const who = (info.who || []).join('、');
                 const initPos = (scene['initial position'] || [])
-                    .map(p => `${p.character || ''} → ${p.position || ''}`)
+                    .map(p => {
+                        const anchor = (APP_STATE.positionPlanMap || {})[p.position] || p.position || '';
+                        return `${p.character || ''} → ${anchor}`;
+                    })
                     .join('　');
                 const beats = (scene['scene'] || []).map(beat => {
                     if (beat.speaker !== undefined) {
@@ -1058,7 +1299,10 @@ const UI = {
                             .map(a => `[${a.character || ''}] ${a.action || ''}${a.state ? ` (${a.state})` : ''}`)
                             .join(' · ');
                         const positions = (beat['current position'] || [])
-                            .map(p => `${p.character || ''}→${p.position || ''}`)
+                            .map(p => {
+                                const anchor = (APP_STATE.positionPlanMap || {})[p.position] || p.position || '';
+                                return `${p.character || ''}→${anchor}`;
+                            })
                             .join('　');
                         const motion = beat.motion_description || '';
                         const shotMeta = [shot, anchors ? `锚点 ${anchors}` : '', camera].filter(Boolean).join(' · ');
@@ -1074,7 +1318,10 @@ const UI = {
                     } else if (beat.move) {
                         const moves = (beat.move || []).map(m => `${m.character} → ${m.destination}`).join('　');
                         const positions = (beat['current position'] || [])
-                            .map(p => `${p.character || ''}→${p.position || ''}`)
+                            .map(p => {
+                                const anchor = (APP_STATE.positionPlanMap || {})[p.position] || p.position || '';
+                                return `${p.character || ''}→${anchor}`;
+                            })
                             .join('　');
                         return `
                         <div class="ob-beat ob-move">
