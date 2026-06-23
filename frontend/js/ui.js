@@ -73,12 +73,12 @@ const UI = {
     },
 
     // 显示成功结果
-    showSuccess(filename, actorsProfileFilename, positionFilename, warnings = [], positionPlanFilename = null, positionDetailFilename = null, cameraScriptFilename = null, estimatedDuration = null) {
+    showSuccess(filename, actorsProfileFilename, positionFilename, warnings = [], positionPlanFilename = null, positionDetailFilename = null, cameraScriptFilename = null, estimatedDuration = null, title = null) {
         const resultPanel = document.getElementById('resultPanel');
         const messageEl = document.getElementById('resultMessage');
         const durationEl = document.getElementById('resultDuration');
 
-        messageEl.textContent = `剧本：${filename}`;
+        messageEl.textContent = title ? `片名：《${title}》 · 文件：${filename}` : `剧本：${filename}`;
         if (estimatedDuration) {
             const secs = estimatedDuration.estimated_duration_seconds;
             const lowSecs = Math.max(0, secs - 30);
@@ -1516,7 +1516,7 @@ const UI = {
   <div class="history-session-header">
     <span class="history-session-label" contenteditable="true"
           data-sid="${s.session_id}"
-          onblur="saveHistoryLabel(this)">${label}</span>
+          onblur="saveHistoryLabel(this)">${this._esc(label)}</span>
     <span class="history-session-meta">${acts} 幕 · ${scene}</span>
   </div>
   <div class="history-session-time">${dt}</div>

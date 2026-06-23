@@ -4,6 +4,7 @@ document.addEventListener('DOMContentLoaded', init);
 async function init() {
     await Promise.all([loadScenes(), loadCharacters(), loadActions(), loadShotTypes()]);
     setupEventListeners();
+    LocalProjects.init();
     loadHistory();
 }
 
@@ -197,10 +198,12 @@ function handleStreamData(data) {
         }
 
         APP_STATE.currentSessionId = data.session_id || null;
+        APP_STATE.currentScriptTitle = data.title || null;
+        if (data.title) UI.addLog('success', `🎬 片名：《${data.title}》`);
         if (data.camera_script_filename) {
             UI.addLog('success', `🎥 镜头脚本: ${data.camera_script_filename}`);
         }
-        UI.showSuccess(data.filename, data.actors_profile_filename, data.position_filename, [], data.position_plan_filename, data.position_detail_filename, data.camera_script_filename, data.estimated_duration);
+        UI.showSuccess(data.filename, data.actors_profile_filename, data.position_filename, [], data.position_plan_filename, data.position_detail_filename, data.camera_script_filename, data.estimated_duration, data.title);
         UI.showVersionLabelSection(true);
         loadScriptEditor(data.filename);
         loadHistory();

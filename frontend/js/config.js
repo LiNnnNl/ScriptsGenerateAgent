@@ -35,6 +35,7 @@ const APP_STATE = {
     currentCharactersFilename: null, // 生成的角色档案文件名
     currentScriptFilename: null,     // 当前剧本文件名（用于编辑器下载）
     currentScriptData: null,         // 当前剧本数据（可编辑，下载时序列化）
+    currentScriptTitle: null,        // 生成后自动获得的片名
     currentPositionPlanFilename: null,
     currentPositionDetailFilename: null,
     actCount: 3,
@@ -42,5 +43,7 @@ const APP_STATE = {
     historyPanelOpen: false,
     availableActions: {},  // { state: [{trigger, description, state}] }
     shotTypes: [],         // 合法 shot_type 列表
-    shotBlends: []         // 合法 shot_blend 列表
+    shotBlends: [],        // 合法 shot_blend 列表
+    localProject: null,    // 当前打开的本地 .scriptagent.json 项目
+    localProjectHandle: null
 };

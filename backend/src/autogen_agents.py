@@ -637,6 +637,15 @@ def build_treatment_system_message(act_count: int = 3) -> str:
     return dramatic_opening + "\n\n" + core_task + red_lines + qa + output
 
 
+def build_title_system_message() -> str:
+    return (
+        "你是一位电影片名策划。根据用户提供的剧本摘要生成一个准确、有记忆点的中文标题。\n"
+        "要求：标题为 2—12 个中文字符或简短中英混合词组；不要书名号、引号、句号、解释或副标题；"
+        "避免使用‘未命名剧本’‘一个故事’等泛化名称。\n"
+        "只输出 JSON：{\"title\": \"片名\"}"
+    )
+
+
 def _append_user_constraints(user_constraints: Optional[List[str]] = None, fixed_dialogues: Optional[List[dict]] = None) -> str:
     """生成用户约束段落，注入各 Agent prompt。"""
     parts = []
@@ -981,6 +990,14 @@ def create_treatment_agent(act_count: int = 3, model: Optional[str] = None) -> A
         name="TreatmentAgent",
         model_client=make_model_client(model),
         system_message=build_treatment_system_message(act_count),
+    )
+
+
+def create_title_agent(model: Optional[str] = None) -> AssistantAgent:
+    return AssistantAgent(
+        name="TitleAgent",
+        model_client=make_model_client(model),
+        system_message=build_title_system_message(),
     )
 
 

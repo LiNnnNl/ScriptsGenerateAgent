@@ -21,7 +21,10 @@
             <h1 class="title">SCRIPT AGENT</h1>
             <p class="subtitle">CINEMA-GRADE AI SCRIPT GENERATOR</p>
             <div class="divider"></div>
-            <button class="history-toggle-btn" id="historyBtn">📋 历史记录</button>
+            <div class="header-actions">
+                <button class="history-toggle-btn" id="localProjectOpenBtn">📂 打开本地项目/剧本</button>
+                <button class="history-toggle-btn" id="historyBtn">📋 生成记录</button>
+            </div>
         </header>
 
         <!-- 历史记录侧边栏 -->
@@ -224,9 +227,21 @@
             <div class="script-editor-panel" id="scriptEditorPanel" style="display: none;">
                 <div class="script-editor-header">
                     <span class="script-editor-title">✏️ 剧本编辑器</span>
-                    <button class="download-btn download-btn-secondary script-dl-btn" id="downloadScriptEditedBtn">
-                        <span>📥</span><span>下载剧本/下载修改后的剧本</span>
-                    </button>
+                    <div class="script-editor-actions">
+                        <span class="local-save-status" id="localSaveStatus">尚未保存为本地项目</span>
+                        <button class="download-btn download-btn-secondary compact-btn" id="localProjectSaveBtn">💾 保存项目</button>
+                        <button class="download-btn download-btn-secondary compact-btn" id="localVersionBtn">＋ 创建版本</button>
+                        <button class="download-btn download-btn-secondary script-dl-btn" id="downloadScriptEditedBtn">
+                            <span>📥</span><span>导出剧本 JSON</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="local-version-panel" id="localVersionPanel" style="display:none;">
+                    <div class="local-version-create">
+                        <input type="text" id="localVersionName" class="version-label-input" placeholder="版本名称，如：导演审阅版">
+                        <button class="download-btn download-btn-secondary compact-btn" id="localVersionCreateBtn">保存当前版本</button>
+                    </div>
+                    <div class="local-version-list" id="localVersionList"></div>
                 </div>
                 <div class="script-viewer" id="scriptViewer"></div>
             </div>
@@ -249,6 +264,7 @@
     <script src="js/config.js"></script>
     <script src="js/api.js"></script>
     <script src="js/ui.js"></script>
+    <script src="js/local-projects.js"></script>
     <script src="js/main.js"></script>
 </body>
 </html>
