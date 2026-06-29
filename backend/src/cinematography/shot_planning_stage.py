@@ -22,12 +22,13 @@ class ShotPlanningStage:
     VALID_GROUP_STRUCTURES = {"one_to_one", "one_to_many", "many_equal", "one_to_one_plus_observer", "isolated"}
     VALID_TRANSITIONS = {"none", "enter", "exit", "regroup", "approach", "disperse"}
 
-    def __init__(self, script_json, llm_client=None, output_path=None, stage_output_dir=None):
+    def __init__(self, script_json, llm_client=None, output_path=None, stage_output_dir=None, progress_callback=None):
         self.raw_script_json = self._load_json_like(script_json)
         self.llm_client = llm_client
         self.output_path = Path(output_path) if output_path else Path("Assets") / "Json" / self.OUTPUT_FILENAME
         self.stage_output_dir = Path(stage_output_dir) if stage_output_dir else Path("Assets") / "Json" / "AgentStage"
         self.stage_output_dir.mkdir(parents=True, exist_ok=True)
+        self.progress_callback = progress_callback
         self.output_path.parent.mkdir(parents=True, exist_ok=True)
 
         self.script_payload = copy.deepcopy(self.raw_script_json)
@@ -169,6 +170,11 @@ class ShotPlanningStage:
 
             self._write_json_file(self.output_path, self.script_payload)
             self._write_stage_files()
+            self._emit_progress(
+                "success",
+                "shot_window",
+                self._format_window_summary(window_index, total_windows, beat_start, beat_end, request_entries),
+            )
 
         self.enriched_script = self.script_payload
         self._write_json_file(self.output_path, self.enriched_script)
@@ -185,6 +191,27 @@ class ShotPlanningStage:
             flush=True,
         )
         return copy.deepcopy(result)
+
+    def _emit_progress(self, level, phase, message):
+        if not self.progress_callback:
+            return
+        try:
+            self.progress_callback(level, phase, message)
+        except Exception:
+            pass
+
+    def _format_window_summary(self, window_index, total_windows, beat_start, beat_end, request_entries):
+        lines = [
+            f"🎥 [摄影指导期][Stage1 {window_index}/{total_windows}] 已完成 beat {beat_start}-{beat_end} 的画面描述"
+        ]
+        for request in request_entries:
+            beat = request.get("beat") or {}
+            desc = beat.get("shot_description") or "已生成镜头描述"
+            desc = str(desc).replace("\n", " ").strip()
+            if len(desc) > 90:
+                desc = desc[:90] + "..."
+            lines.append(f"- beat {request.get('beat_index')}: {desc}")
+        return "\n".join(lines)
 
     def _write_stage_files(self):
         self._write_json_file(

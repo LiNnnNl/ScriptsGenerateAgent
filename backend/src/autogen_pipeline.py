@@ -35,6 +35,7 @@ from .autogen_agents import (
     create_synopsis_agent,
     create_character_bios_agent,
     create_treatment_agent,
+    create_title_agent,
     create_director_agent,
     create_critic_agent,
     create_dialogue_agent,
@@ -167,6 +168,65 @@ def _filter_script_for_review(script: list) -> str:
             })
         filtered.append(filtered_scene)
     return json.dumps(filtered, ensure_ascii=False, indent=2)
+
+
+def _build_title_input(script: list) -> str:
+    """压缩剧本为标题 Agent 所需的最小剧情摘要，限制额外 token 消耗。"""
+    scenes = []
+    for scene_obj in (script or [])[:10]:
+        info = scene_obj.get("scene information", {})
+        dialogues = []
+        for beat in scene_obj.get("scene", []):
+            speaker = str(beat.get("speaker", "")).strip()
+            content = str(beat.get("content", "")).strip()
+            if speaker and content:
+                dialogues.append(f"{speaker}：{content[:80]}")
+            if len(dialogues) >= 4:
+                break
+        scenes.append({
+            "where": info.get("where", ""),
+            "what": str(info.get("what", ""))[:180],
+            "dialogues": dialogues,
+        })
+    return json.dumps(scenes, ensure_ascii=False)
+
+
+def _fallback_script_title(script: list) -> str:
+    """标题 Agent 不可用时，从首个核心事件提取稳定、可读的标题。"""
+    for scene_obj in (script or []):
+        info = scene_obj.get("scene information", {})
+        for key in ("title", "what", "where"):
+            text = str(info.get(key, "") or "").strip()
+            if not text:
+                continue
+            text = re.sub(r"[《》\"'“”‘’]", "", text)
+            text = re.split(r"[，。！？；：,.!?;:\n]", text)[0].strip()
+            if text:
+                return text[:12]
+    return "新剧本"
+
+
+def _clean_script_title(value: Any, script: list) -> str:
+    title = str(value or "").strip()
+    title = re.sub(r"^[《\"'“”‘’]+|[》\"'“”‘’]+$", "", title).strip()
+    title = re.split(r"[\n\r]", title)[0].strip()
+    return title[:24] if title else _fallback_script_title(script)
+
+
+async def _generate_script_title(script: list, bridge: "AutoGenStreamBridge") -> str:
+    fallback = _fallback_script_title(script)
+    try:
+        result = await _run_stage_agent_json_object(
+            create_title_agent(),
+            f"请为以下剧本摘要命名：\n{_build_title_input(script)}",
+        )
+        title = _clean_script_title((result or {}).get("title"), script)
+        _emit_stage_log(bridge, "success", "output", "title", f"🎬 自动片名：《{title}》")
+        return title
+    except Exception as exc:
+        logger.warning("[TitleAgent] 标题生成失败，使用规则兜底：%s", exc)
+        _emit_stage_log(bridge, "warning", "output", "title", f"⚠️ 标题生成失败，已使用：《{fallback}》")
+        return fallback
 
 
 async def _run_stage_agent_json_object(agent, prompt: str) -> Optional[dict]:
@@ -1027,6 +1087,8 @@ async def run_autogen_pipeline(
     filepath = output_dir / filename
     generator.export_to_file(final_json, str(filepath))
 
+    script_title = await _generate_script_title(final_json, bridge)
+
     # 计算剧本估算时长（基于对白长度）
     def _calc_duration(script_json: list) -> dict:
         total_chars = 0
@@ -1066,6 +1128,9 @@ async def run_autogen_pipeline(
         _emit_stage_log(bridge, 'info', 'cinematography', 'start', '🎥 [摄影指导期] 摄影指导智能体开始规划画面和镜头...')
 
         try:
+            def _emit_cinematography_progress(level: str, phase: str, message: str) -> None:
+                _emit_stage_log(bridge, level, 'cinematography', phase, message)
+
             cine_result = await _running_loop.run_in_executor(
                 None,
                 run_cinematography_pipeline,
@@ -1075,6 +1140,7 @@ async def run_autogen_pipeline(
                 str(output_dir),
                 timestamp,
                 act_scene_map if multi_scene else None,
+                _emit_cinematography_progress,
             )
             if cine_result.get("ok"):
                 draft_script = cine_result["enriched_script"]
@@ -1221,6 +1287,7 @@ async def run_autogen_pipeline(
         },
         scene_id=session_scene_id,
         act_count=act_count,
+        label=script_title,
     )
 
     logger.info("Pipeline 完成 | 剧本=%s 角色档案=%s 位置规划=%s 位置详情=%s",
@@ -1234,6 +1301,7 @@ async def run_autogen_pipeline(
         'position_plan_filename': position_plan_filename,
         'position_detail_filename': position_detail_filename,
         'session_id': session_id,
+        'title': script_title,
         'estimated_duration': duration_info,
         'warnings': validation_result.get('warnings', []) if validation_result else []
     })

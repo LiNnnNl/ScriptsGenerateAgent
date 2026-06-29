@@ -47,6 +47,7 @@ class CinematographyPositionStage:
         layout_lib_json: Dict,
         llm_client,
         stage_output_dir,
+        progress_callback=None,
     ):
         self.script_json = script_json
         self.scene_info_json = scene_info_json
@@ -54,6 +55,7 @@ class CinematographyPositionStage:
         self.llm_client = llm_client
         self.stage_output_dir = Path(stage_output_dir)
         self.stage_output_dir.mkdir(parents=True, exist_ok=True)
+        self.progress_callback = progress_callback
 
         self.grouping_result: Optional[Dict] = None
         self.planning_result: Optional[Dict] = None
@@ -72,6 +74,7 @@ class CinematographyPositionStage:
         # Substage 1: grouping (with character assignments)
         self.grouping_result = self._run_grouping(where, position_ids, char_map, shot_descriptions)
         self._save(GROUPING_FILENAME, self.grouping_result)
+        self._emit_progress("success", "position_grouping", self._format_grouping_summary(where, self.grouping_result))
         logger.info("[Stage2][grouping] groups=%d singles=%d",
                     len(self.grouping_result.get("groups", [])),
                     len(self.grouping_result.get("singles", [])))
@@ -79,11 +82,13 @@ class CinematographyPositionStage:
         # Substage 2: planning (region/neartarget/lookat)
         self.planning_result = self._run_planning(where, self.grouping_result)
         self._save(PLANNING_FILENAME, self.planning_result)
+        self._emit_progress("success", "position_planning", self._format_planning_summary(where, self.planning_result))
         logger.info("[Stage2][planning] done")
 
         # Substage 3: coordinate calculation
         self.coordinate_result = self._run_coordinates(self.planning_result)
         self._save(COORDINATE_FILENAME, self.coordinate_result)
+        self._emit_progress("success", "position_coordinates", self._format_coordinate_summary(where, self.coordinate_result))
         logger.info("[Stage2][coordinates] positions resolved=%d",
                     len(self.coordinate_result.get("positions", {})))
 
@@ -104,6 +109,53 @@ class CinematographyPositionStage:
         }
         self._save(STAGE_FILENAME, stage_result)
         return stage_result
+
+    def _emit_progress(self, level: str, phase: str, message: str) -> None:
+        if not self.progress_callback:
+            return
+        try:
+            self.progress_callback(level, phase, message)
+        except Exception:
+            pass
+
+    def _format_grouping_summary(self, where: str, grouping: Dict) -> str:
+        lines = [f"📍 [摄影指导期][Stage2]《{where}》站位分组完成"]
+        for group in grouping.get("groups", [])[:6]:
+            chars = ", ".join(
+                item.get("character") or item.get("position_id", "")
+                for item in group.get("positions", [])
+            )
+            lines.append(f"- {group.get('group_id', 'Group')}: {chars} / {group.get('layout', 'layout')}")
+        for single in grouping.get("singles", [])[:6]:
+            lines.append(f"- 单人: {single.get('character') or single.get('position_id', '')}")
+        return "\n".join(lines)
+
+    def _format_planning_summary(self, where: str, planning: Dict) -> str:
+        lines = [f"📍 [摄影指导期][Stage2]《{where}》区域与朝向规划完成"]
+        for group in planning.get("groups", [])[:6]:
+            chars = ", ".join(
+                item.get("character") or item.get("position_id", "")
+                for item in group.get("positions", [])
+            )
+            lines.append(f"- {group.get('group_id', 'Group')}: {chars} → {group.get('region', '')}")
+        for single in planning.get("singles", [])[:6]:
+            lines.append(
+                f"- {single.get('character') or single.get('position_id', '')}: {single.get('region', '')} / {single.get('neartarget', '')}"
+            )
+        return "\n".join(lines)
+
+    def _format_coordinate_summary(self, where: str, coordinates: Dict) -> str:
+        positions = coordinates.get("positions", {})
+        lines = [f"📍 [摄影指导期][Stage2]《{where}》坐标计算完成：{len(positions)} 个位置"]
+        for position_id, value in list(positions.items())[:8]:
+            if isinstance(value, dict):
+                x = value.get("x", value.get("X", ""))
+                y = value.get("y", value.get("Y", ""))
+                z = value.get("z", value.get("Z", ""))
+                lines.append(f"- {position_id}: ({x}, {y}, {z})")
+            else:
+                lines.append(f"- {position_id}: {value}")
+        return "\n".join(lines)
 
     # ──────────────────────────────────────────────
     # Substage implementations

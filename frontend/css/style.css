@@ -1220,8 +1220,27 @@ body {
 .script-editor-actions {
     display: flex;
     align-items: center;
-    gap: 14px;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
 }
+
+.header-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+.compact-btn { padding: 8px 12px; font-size: 0.76rem; }
+.local-save-status { font-family: 'Roboto Mono', monospace; font-size: 0.7rem; color: rgba(224,224,224,.55); }
+.local-save-status[data-state="saved"] { color: #63c174; }
+.local-save-status[data-state="dirty"] { color: #d4af37; }
+.local-save-status[data-state="error"] { color: #ef6b6b; }
+.local-version-panel { padding: 14px 20px; border-bottom: 1px solid rgba(212,175,55,.18); background: rgba(0,0,0,.22); }
+.local-version-create { display: flex; gap: 10px; }
+.local-version-create .version-label-input { flex: 1; }
+.local-version-list { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; max-height: 260px; overflow-y: auto; }
+.local-version-item { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid rgba(212,175,55,.15); background: rgba(255,255,255,.025); font-family: 'Roboto Mono', monospace; font-size: .73rem; }
+.local-version-type { margin-left: 8px; color: rgba(212,175,55,.65); font-size: .65rem; }
+.local-version-time { margin-top: 4px; color: rgba(224,224,224,.4); }
+.local-version-actions { display: flex; gap: 6px; }
+.local-version-actions button { border: 1px solid rgba(212,175,55,.25); background: transparent; color: var(--gold-light); padding: 5px 9px; cursor: pointer; }
+.local-version-actions button:hover { border-color: var(--gold); }
 
 .script-editor-hint {
     font-family: 'Roboto Mono', monospace;
