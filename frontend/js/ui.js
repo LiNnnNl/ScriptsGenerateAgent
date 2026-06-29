@@ -40,7 +40,8 @@ const UI = {
         const entry = document.createElement('div');
         entry.className = `log-entry ${type}`;
         const stagePrefix = this._formatStagePrefix(meta);
-        entry.innerHTML = `<span class="log-timestamp">[${timestamp}]</span>${stagePrefix}${message}`;
+        const safeMessage = this._esc(message).replace(/\n/g, '<br>');
+        entry.innerHTML = `<span class="log-timestamp">[${timestamp}]</span>${stagePrefix}${safeMessage}`;
         
         logContent.appendChild(entry);
         logContent.scrollTop = logContent.scrollHeight;

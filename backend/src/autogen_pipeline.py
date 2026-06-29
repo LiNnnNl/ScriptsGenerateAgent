@@ -1128,6 +1128,9 @@ async def run_autogen_pipeline(
         _emit_stage_log(bridge, 'info', 'cinematography', 'start', '🎥 [摄影指导期] 摄影指导智能体开始规划画面和镜头...')
 
         try:
+            def _emit_cinematography_progress(level: str, phase: str, message: str) -> None:
+                _emit_stage_log(bridge, level, 'cinematography', phase, message)
+
             cine_result = await _running_loop.run_in_executor(
                 None,
                 run_cinematography_pipeline,
@@ -1137,6 +1140,7 @@ async def run_autogen_pipeline(
                 str(output_dir),
                 timestamp,
                 act_scene_map if multi_scene else None,
+                _emit_cinematography_progress,
             )
             if cine_result.get("ok"):
                 draft_script = cine_result["enriched_script"]

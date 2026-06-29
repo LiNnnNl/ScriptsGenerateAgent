@@ -63,6 +63,7 @@ class CameraPlanningStage:
         llm_client=None,
         output_dir=None,
         stage_output_dir=None,
+        progress_callback=None,
     ):
         self.raw_script_json = self._load_json_like(script_json)
         self.scene_info_json = self._load_json_like(scene_info_json)
@@ -76,6 +77,7 @@ class CameraPlanningStage:
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.stage_output_dir.mkdir(parents=True, exist_ok=True)
         self.output_path = self.output_dir / self.OUTPUT_FILENAME
+        self.progress_callback = progress_callback
 
         self.script_payload = copy.deepcopy(self.raw_script_json)
         self.timeline_root = self._extract_timeline_root(self.script_payload)
@@ -195,6 +197,11 @@ class CameraPlanningStage:
 
             self._write_json_file(self.output_path, self.script_payload)
             self._write_stage_files()
+            self._emit_progress(
+                "success",
+                "camera_window",
+                self._format_window_summary(window_index, total_windows, beat_start, beat_end, request_entries),
+            )
 
         self.enriched_script = self._normalize_script_output(self.script_payload)
         self._write_json_file(self.output_path, self.enriched_script)
@@ -206,6 +213,30 @@ class CameraPlanningStage:
             flush=True,
         )
         return copy.deepcopy(result)
+
+    def _emit_progress(self, level, phase, message):
+        if not self.progress_callback:
+            return
+        try:
+            self.progress_callback(level, phase, message)
+        except Exception:
+            pass
+
+    def _format_window_summary(self, window_index, total_windows, beat_start, beat_end, request_entries):
+        lines = [
+            f"🎥 [摄影指导期][Stage3 {window_index}/{total_windows}] 已完成 beat {beat_start}-{beat_end} 的镜头参数"
+        ]
+        for request in request_entries:
+            beat = request.get("beat") or {}
+            shot = beat.get("shot") or "默认镜头"
+            shot_type = beat.get("shot_type") or "默认景别"
+            follow = beat.get("Follow")
+            blend = beat.get("shot_blend") or "Cut"
+            follow_text = "跟随" if follow else "固定"
+            lines.append(
+                f"- beat {request.get('beat_index')}: {shot_type} / {shot} / {follow_text} / {blend}"
+            )
+        return "\n".join(lines)
 
     # ------------------------------------------------------------------
     # Prompting

@@ -42,7 +42,7 @@ _SHOT_BLEND_MAP = {
 # Public API
 # ─────────────────────────────────────────────��
 
-def run_cinematography_pipeline(script, scene, resource_dir, output_dir, timestamp, act_scene_map=None):
+def run_cinematography_pipeline(script, scene, resource_dir, output_dir, timestamp, act_scene_map=None, progress_callback=None):
     """
     Synchronous three-stage cinematography post-processing pipeline.
     Designed to run inside asyncio.get_event_loop().run_in_executor().
@@ -110,6 +110,7 @@ def run_cinematography_pipeline(script, scene, resource_dir, output_dir, timesta
                     llm_client=client,
                     output_path=stage_output_dir / f"stage1_script_{timestamp}.json",
                     stage_output_dir=stage_output_dir,
+                    progress_callback=progress_callback,
                 )
                 result1 = stage1.run()
                 enriched_scene = result1.get("script_with_shot_description") or scene_obj
@@ -154,6 +155,7 @@ def run_cinematography_pipeline(script, scene, resource_dir, output_dir, timesta
                     layout_lib_json=layout_lib,
                     llm_client=client,
                     stage_output_dir=stage_output_dir,
+                    progress_callback=progress_callback,
                 )
                 stage2_result = stage2.run()
                 position_plan_json = stage2_result.get("position_plan")
@@ -178,6 +180,7 @@ def run_cinematography_pipeline(script, scene, resource_dir, output_dir, timesta
                     llm_client=client,
                     output_dir=stage_output_dir,
                     stage_output_dir=stage_output_dir,
+                    progress_callback=progress_callback,
                 )
                 result3 = stage3.run()
                 final_scene = result3.get("script_with_camera_plan") or enriched_scene
@@ -237,6 +240,7 @@ def run_cinematography_pipeline(script, scene, resource_dir, output_dir, timesta
                             llm_client=client,
                             output_dir=stage_output_dir,
                             stage_output_dir=stage_output_dir,
+                            progress_callback=progress_callback,
                         )
                         retry_result = stage3_retry.run()
                         new_scene = retry_result.get("script_with_camera_plan")
