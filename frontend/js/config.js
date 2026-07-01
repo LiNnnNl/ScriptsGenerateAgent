@@ -44,6 +44,19 @@ const APP_STATE = {
     availableActions: {},  // { state: [{trigger, description, state}] }
     shotTypes: [],         // 合法 shot_type 列表
     shotBlends: [],        // 合法 shot_blend 列表
+    characterImageKeys: new Set([
+        'F01_WithCamera',
+        'F02_WithCamera',
+        'M01_WithCamera',
+        'RobotRecon',
+        'TR_assasin',
+        'TR_service',
+        'TR_worker',
+        'ToonRobot',
+        'chamber',
+        'jett',
+        'sage',
+    ]),
     localProject: null,    // 当前打开的本地 .scriptagent.json 项目
     localProjectHandle: null
 };

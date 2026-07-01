@@ -439,8 +439,10 @@ const UI = {
 
     // 构建角色图片 URL
     _charImageURL(gameobject_name) {
-        if (!gameobject_name) return '';
-        return `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.CHARACTER_IMAGE}/${encodeURIComponent(gameobject_name)}`;
+        const key = (gameobject_name || '').trim();
+        if (!key || !/^[A-Za-z0-9_-]+$/.test(key)) return '';
+        if (APP_STATE.characterImageKeys && !APP_STATE.characterImageKeys.has(key)) return '';
+        return `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.CHARACTER_IMAGE}/${encodeURIComponent(key)}`;
     },
 
     // 构建角色的描述字符串（用于发送给AI）
@@ -667,10 +669,7 @@ const UI = {
         const bodyType = (app.body_type || '').slice(0, 60) + ((app.body_type || '').length > 60 ? '…' : '');
         const traits = Array.isArray(char.traits) ? char.traits.join(' · ') : '';
         const bg = (char.background || '').slice(0, 80) + ((char.background || '').length > 80 ? '…' : '');
-        const gobj = char.gameobject_name || '';
-        const imgURL = gobj
-            ? `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.CHARACTER_IMAGE}/${encodeURIComponent(gobj)}`
-            : '';
+        const imgURL = this._charImageURL(char.gameobject_name);
         return `
             <div class="char-preview-layout">
                 <div class="char-preview-info">

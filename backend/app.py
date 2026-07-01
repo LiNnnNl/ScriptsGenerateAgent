@@ -254,6 +254,7 @@ def get_characters(style_tag):
 def generate_characters():
     """使用 AI 生成角色档案 JSON（按指定格式）"""
     import os
+    import httpx
     from openai import OpenAI
 
     data = request.json or {}
@@ -347,7 +348,10 @@ def generate_characters():
 
     client = OpenAI(
         api_key=os.getenv('API_KEY'),
-        base_url=os.getenv('BASE_URL', 'https://ark.cn-beijing.volces.com/api/v3')
+        base_url=os.getenv('BASE_URL', 'https://ark.cn-beijing.volces.com/api/v3'),
+        timeout=120,
+        max_retries=0,
+        http_client=httpx.Client(trust_env=False),
     )
     model_name = os.getenv('MODEL', 'doubao-seed-2-0-lite-260215')
 

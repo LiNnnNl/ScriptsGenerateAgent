@@ -276,6 +276,10 @@ async def _run_director_agent(
         thinking_started = False
         raw_content = None
         try:
+            _emit_stage_log(
+                bridge, 'info', 'direct' if '直接' in label else 'draft', 'director_attempt',
+                f'🤖 [{label}] 请求模型中（第 {attempt + 1}/{_STAGE_MAX_RETRIES + 1} 次）...'
+            )
             async for event in director.on_messages_stream(
                 [TextMessage(content=prompt, source="user")],
                 cancellation_token=CancellationToken()
@@ -290,14 +294,33 @@ async def _run_director_agent(
                 if hasattr(event, 'chat_message') and event.chat_message:
                     raw_content = event.chat_message.content
                     logger.info("[%s] 原始输出（前500字）: %s", label, raw_content[:500])
+                    _emit_stage_log(
+                        bridge, 'info', 'direct' if '直接' in label else 'draft', 'director_response',
+                        f'📥 [{label}] 已收到模型输出，正在提取 JSON...'
+                    )
                     if thinking_started:
                         bridge.put_event({'type': 'thinking_done'})
                         thinking_started = False
             if thinking_started:
                 bridge.put_event({'type': 'thinking_done'})
             if not raw_content:
+                _emit_stage_log(
+                    bridge, 'warning', 'direct' if '直接' in label else 'draft', 'director_empty',
+                    f'⚠️ [{label}] 模型未返回内容'
+                )
                 return None
-            return _extract_json_from_text(raw_content)
+            parsed = _extract_json_from_text(raw_content)
+            if parsed is None:
+                _emit_stage_log(
+                    bridge, 'warning', 'direct' if '直接' in label else 'draft', 'director_parse_failed',
+                    f'⚠️ [{label}] 未能从模型输出中提取合法 JSON'
+                )
+            else:
+                _emit_stage_log(
+                    bridge, 'success', 'direct' if '直接' in label else 'draft', 'director_parse_ok',
+                    f'✅ [{label}] JSON 提取成功'
+                )
+            return parsed
         except Exception as e:
             if thinking_started:
                 bridge.put_event({'type': 'thinking_done'})
@@ -319,6 +342,124 @@ async def _run_director_agent(
             else:
                 raise
     return None
+
+
+def _direct_collect_scene_characters(scene_obj: Dict, beats: List[Dict], fallback_names: List[str]) -> List[str]:
+    names: List[str] = []
+    seen = set()
+
+    def add(name: Any) -> None:
+        value = str(name or "").strip()
+        if value and value not in seen and value.lower() not in _NARRATION_LABELS:
+            seen.add(value)
+            names.append(value)
+
+    for name in (scene_obj.get("scene information") or {}).get("who", []) or []:
+        add(name)
+    for entry in scene_obj.get("initial position", []) or []:
+        if isinstance(entry, dict):
+            add(entry.get("character"))
+    for beat in beats:
+        if not isinstance(beat, dict):
+            continue
+        add(beat.get("speaker"))
+        for action in beat.get("actions", []) or []:
+            if isinstance(action, dict):
+                add(action.get("character"))
+        moves = beat.get("move", [])
+        if isinstance(moves, dict):
+            moves = [moves]
+        for move in moves or []:
+            if isinstance(move, dict):
+                add(move.get("character"))
+        for entry in beat.get("current position", []) or []:
+            if isinstance(entry, dict):
+                add(entry.get("character"))
+
+    if not names:
+        for name in fallback_names:
+            add(name)
+    return names
+
+
+def _normalize_direct_scene(scene_obj: Dict, fallback_names: List[str], scene_name: str, what_snippet: str) -> Dict:
+    """直接模式本地兜底规范化：只补技术字段，不改写用户对白。"""
+    scene_obj = dict(scene_obj) if isinstance(scene_obj, dict) else {"scene": []}
+    raw_beats = scene_obj.get("scene") or []
+    beats = [dict(item) for item in raw_beats if isinstance(item, dict)]
+    who = _direct_collect_scene_characters(scene_obj, beats, fallback_names)
+
+    info = dict(scene_obj.get("scene information") or {})
+    info.setdefault("who", who)
+    info.setdefault("where", scene_name)
+    info.setdefault("what", what_snippet)
+    scene_obj["scene information"] = info
+
+    initial_positions = [
+        dict(item) for item in (scene_obj.get("initial position") or [])
+        if isinstance(item, dict) and item.get("character")
+    ]
+    existing_pos = {
+        item.get("character"): item.get("position")
+        for item in initial_positions
+        if item.get("character") and item.get("position")
+    }
+    for index, name in enumerate(who, start=1):
+        if name not in existing_pos:
+            pos_id = f"Position {index}"
+            initial_positions.append({"character": name, "position": pos_id})
+            existing_pos[name] = pos_id
+    scene_obj["initial position"] = initial_positions
+
+    position_descriptions = dict(scene_obj.get("position_descriptions") or {})
+    for name, pos_id in existing_pos.items():
+        if pos_id and pos_id not in position_descriptions:
+            position_descriptions[pos_id] = f"{scene_name} - {name} 的初始站位"
+    scene_obj["position_descriptions"] = position_descriptions
+
+    current_positions = dict(existing_pos)
+    normalized_beats: List[Dict] = []
+    for beat in beats:
+        has_move = "move" in beat
+        if has_move and isinstance(beat.get("move"), dict):
+            beat["move"] = [beat["move"]]
+
+        if not beat.get("shot"):
+            beat["shot"] = "scene" if has_move else "character"
+        if not beat.get("shot_blend"):
+            beat["shot_blend"] = "Cut"
+        if beat["shot"] == "scene":
+            if "camera" not in beat or beat.get("camera") is None:
+                beat["camera"] = 1
+        else:
+            if not beat.get("shot_type"):
+                beat["shot_type"] = "中景"
+            if "Follow" not in beat or beat.get("Follow") is None:
+                beat["Follow"] = 0
+            beat.setdefault("actions", [])
+        beat.setdefault("shot_description", "")
+
+        if not beat.get("current position"):
+            beat["current position"] = [
+                {"character": name, "position": pos}
+                for name, pos in current_positions.items() if pos
+            ]
+        else:
+            for entry in beat.get("current position", []) or []:
+                if isinstance(entry, dict) and entry.get("character") and entry.get("position"):
+                    current_positions[entry["character"]] = entry["position"]
+
+        normalized_beats.append(beat)
+
+        moves = beat.get("move", []) or []
+        if isinstance(moves, dict):
+            moves = [moves]
+        for move in moves:
+            if isinstance(move, dict) and move.get("character") and move.get("destination"):
+                current_positions[move["character"]] = move["destination"]
+
+    scene_obj["scene"] = normalized_beats
+    return scene_obj
 
 
 def _extract_position_files(final_json: list, scene_id: str):
@@ -429,11 +570,15 @@ async def _build_direct_draft(creative_idea: str, characters, scene, bridge, dir
     返回结构与 DirectorAgent 产出一致，可直接喂给后续的验证 / 输出 / 摄影阶段。
     """
     text = (creative_idea or "").strip()
+    _emit_stage_log(
+        bridge, 'info', 'direct', 'input',
+        f'📄 [直接模式] 收到用户剧本 {len(text)} 个字符，开始解析'
+    )
 
     scenes = _try_parse_json_scenes(text)
     if scenes is not None:
         _emit_stage_log(bridge, 'info', 'direct', 'json',
-                        '🧩 [直接模式] 检测到规范 JSON，直接采用，跳过导演结构化')
+                        f'🧩 [直接模式] 检测到 JSON 输入，解析到 {len(scenes)} 个场景，跳过导演结构化')
     elif text:
         _emit_stage_log(bridge, 'info', 'direct', 'parsing',
                         '🎬 [直接模式] DirectorAgent 将用户剧本结构化（保留对白与镜头、分配站位，不创作）...')
@@ -461,35 +606,21 @@ async def _build_direct_draft(creative_idea: str, characters, scene, bridge, dir
     what_snippet = (creative_idea[:60] + ("…" if len(creative_idea) > 60 else "")) if creative_idea else scene.name
 
     normalized: List[Dict] = []
-    for sc in scenes:
-        sc = dict(sc) if isinstance(sc, dict) else {"scene": []}
-        beats = sc.get("scene") or []
-
-        # 收集本场景出现的角色（按出场顺序去重）
-        speakers: List[str] = []
-        seen = set()
-        for b in beats:
-            sp = (b.get("speaker") or "").strip() if isinstance(b, dict) else ""
-            if sp and sp not in seen:
-                seen.add(sp)
-                speakers.append(sp)
-        who = speakers or default_names
-
-        info = dict(sc.get("scene information") or {})
-        info.setdefault("who", who)
-        info.setdefault("where", scene.name)
-        info.setdefault("what", what_snippet)
-        sc["scene information"] = info
-
-        if "initial position" not in sc:
-            sc["initial position"] = [{"character": n, "position": ""} for n in who]
-        sc["scene"] = beats
-        normalized.append(sc)
+    for index, sc in enumerate(scenes, start=1):
+        normalized_scene = _normalize_direct_scene(sc, default_names, scene.name, what_snippet)
+        normalized.append(normalized_scene)
+        beat_count = len(normalized_scene.get("scene", []))
+        who_count = len(normalized_scene.get("scene information", {}).get("who", []))
+        _emit_stage_log(
+            bridge, 'info', 'direct', 'normalize_scene',
+            f'🧱 [直接模式] 场景 {index} 已补齐基础字段：{who_count} 个角色 / {beat_count} 个片段'
+        )
 
     total_beats = sum(len(s.get("scene", [])) for s in normalized)
+    position_count = sum(len(s.get("position_descriptions", {}) or {}) for s in normalized)
     _emit_stage_log(bridge, 'success', 'direct', 'parsed',
                     f'✅ [直接模式] 已解析用户剧本：{len(normalized)} 个场景 / {total_beats} 个片段，'
-                    f'跳过头脑风暴与剧本起草')
+                    f'补齐 {position_count} 个站位描述，跳过头脑风暴与剧本起草')
     return normalized
 
 
