@@ -1,0 +1,19 @@
+{
+  "id": "04_talk_show",
+  "name": "测试题4：单人脱口秀风格",
+  "creative_idea": "生成一段吐槽研究生生活的单人脱口秀风格剧本。",
+  "status": "error",
+  "started_at": "2026-07-01T09:46:43",
+  "elapsed_seconds": 0.39,
+  "title": null,
+  "session_id": null,
+  "estimated_duration": null,
+  "error": "HTTP Error 502: Bad Gateway",
+  "files": {},
+  "event_file": "04_talk_show__events.ndjson",
+  "script_summary": {
+    "act_count": 0,
+    "beat_count": 0,
+    "acts": []
+  }
+}

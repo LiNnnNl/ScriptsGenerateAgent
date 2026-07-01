@@ -1,0 +1,19 @@
+{
+  "id": "03_movie_robot",
+  "name": "测试题3：电影风格",
+  "creative_idea": "生成一个机器人主题的，电影风格剧本。",
+  "status": "error",
+  "started_at": "2026-07-01T09:46:43",
+  "elapsed_seconds": 0.23,
+  "title": null,
+  "session_id": null,
+  "estimated_duration": null,
+  "error": "HTTP Error 502: Bad Gateway",
+  "files": {},
+  "event_file": "03_movie_robot__events.ndjson",
+  "script_summary": {
+    "act_count": 0,
+    "beat_count": 0,
+    "acts": []
+  }
+}

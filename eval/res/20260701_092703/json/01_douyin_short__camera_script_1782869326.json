@@ -1,0 +1,73 @@
+{
+  "scenes": [
+    {
+      "scene_index": 0,
+      "events": [
+        {
+          "event_index": 0,
+          "shot": "character",
+          "target": "捷风",
+          "target_position": "Position 1",
+          "shot_type": "中近景",
+          "shot_blend": "cut",
+          "follow": 0,
+          "camera": null,
+          "shot_description": "前景中心位置站着捷风，正抬一只手不耐烦挥动；中景右侧舷边斜靠着贤者，星空背景铺在舱室后方。",
+          "motion_enabled": true,
+          "motion_preset": "dialogue_push",
+          "play_motion_on_activate": true,
+          "motion_start_delay": 0.0,
+          "motion_reset_on_replay": true
+        },
+        {
+          "event_index": 1,
+          "shot": "character",
+          "target": "捷风",
+          "target_position": "Position 1",
+          "shot_type": "中近景",
+          "shot_blend": "cut",
+          "follow": 0,
+          "camera": null,
+          "shot_description": "前景中心的捷风身体前倾准备冲出，突然僵在原地；中景右侧舷边的贤者依旧保持斜靠姿势静立，星空留在背景处。",
+          "motion_enabled": true,
+          "motion_preset": "dialogue_push",
+          "play_motion_on_activate": true,
+          "motion_start_delay": 0.0,
+          "motion_reset_on_replay": true
+        },
+        {
+          "event_index": 2,
+          "shot": "character",
+          "target": "捷风",
+          "target_position": "Position 1",
+          "shot_type": "特写",
+          "shot_blend": "cut",
+          "follow": 0,
+          "camera": null,
+          "shot_description": "前景中心的捷风身体后仰，睁大眼睛盯着自己手腕上的状态条；中景右侧舷边的贤者依旧斜靠静立，漆黑星空衬在舱室背景。",
+          "motion_enabled": true,
+          "motion_preset": "tight_reveal",
+          "play_motion_on_activate": true,
+          "motion_start_delay": 0.0,
+          "motion_reset_on_replay": true
+        },
+        {
+          "event_index": 3,
+          "shot": "character",
+          "target": "贤者",
+          "target_position": "Position 2",
+          "shot_type": "中景",
+          "shot_blend": "cut",
+          "follow": 0,
+          "camera": null,
+          "shot_description": "前景处的捷风仍停在惊讶的姿势中；中景右侧斜靠舷边的贤者开口说话，星空背景铺满整个舱室后方。",
+          "motion_enabled": true,
+          "motion_preset": "gentle_push",
+          "play_motion_on_activate": true,
+          "motion_start_delay": 0.0,
+          "motion_reset_on_replay": true
+        }
+      ]
+    }
+  ]
+}

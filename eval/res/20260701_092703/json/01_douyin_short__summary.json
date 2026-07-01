@@ -1,0 +1,54 @@
+{
+  "id": "01_douyin_short",
+  "name": "测试题1：抖音短视频风格",
+  "creative_idea": "瓦罗兰特中的捷风和奶妈为主角的抖音短视频剧本。",
+  "status": "success",
+  "started_at": "2026-07-01T09:27:03",
+  "elapsed_seconds": 318.35,
+  "title": "猛冲全靠贤者奶",
+  "session_id": "1782869326",
+  "estimated_duration": {
+    "estimated_duration_seconds": 26,
+    "dialogue_lines": 4,
+    "dialogue_chars": 71
+  },
+  "error": null,
+  "files": {
+    "script": "01_douyin_short__script_1782869326.json",
+    "camera_script": "01_douyin_short__camera_script_1782869326.json",
+    "actors_profile": "01_douyin_short__actors_profile_1782869326.json",
+    "position_plan": "01_douyin_short__position_plan_1782869326.json",
+    "position_detail": "01_douyin_short__position_detail_1782869326.json"
+  },
+  "event_file": "01_douyin_short__events.ndjson",
+  "script_summary": {
+    "act_count": 1,
+    "beat_count": 4,
+    "acts": [
+      {
+        "index": 1,
+        "where": "Space Station",
+        "what": "猛冲莽杀的捷风吐槽奶妈拖节奏，反转发现自己全程靠贤者奶命，搞笑反差收尾",
+        "beat_count": 4,
+        "preview": [
+          {
+            "speaker": "捷风",
+            "content": "最后那个残血我直接秒了，你跟这么快干嘛，拖节奏啊！"
+          },
+          {
+            "speaker": "捷风",
+            "content": "看我直接给他掏了——"
+          },
+          {
+            "speaker": "捷风",
+            "content": "我靠？！我血条早就空了大半？我刚才吃了三枪我都没发现！"
+          },
+          {
+            "speaker": "贤者",
+            "content": "慢点儿，我跟着呢。"
+          }
+        ]
+      }
+    ]
+  }
+}

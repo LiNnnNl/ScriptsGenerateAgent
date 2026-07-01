@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ScriptsGenerateAgent Eval</title>
+  <style>
+    :root { color-scheme: light; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    body { margin: 0; background: #f6f7f9; color: #20242a; }
+    main { max-width: 1180px; margin: 0 auto; padding: 28px; }
+    h1 { margin: 0 0 8px; font-size: 28px; }
+    .sub { color: #667085; margin-bottom: 24px; }
+    .summary { display: flex; gap: 12px; margin-bottom: 22px; flex-wrap: wrap; }
+    .stat { background: white; border: 1px solid #d9dee7; border-radius: 8px; padding: 12px 16px; min-width: 120px; }
+    .stat b { display: block; font-size: 22px; }
+    table { width: 100%; border-collapse: collapse; background: white; border: 1px solid #d9dee7; border-radius: 8px; overflow: hidden; margin-bottom: 24px; }
+    th, td { padding: 10px 12px; border-bottom: 1px solid #edf0f4; text-align: left; vertical-align: top; }
+    th { background: #eef2f7; font-size: 13px; color: #475467; }
+    a { color: #1d5fd1; text-decoration: none; margin-right: 10px; }
+    .case-card { background: white; border: 1px solid #d9dee7; border-radius: 8px; padding: 18px; margin-bottom: 18px; }
+    .case-card header { display: flex; justify-content: space-between; gap: 12px; align-items: center; }
+    .case-card h3 { margin: 0; font-size: 20px; }
+    .idea { color: #344054; }
+    .meta { color: #667085; font-size: 14px; margin: 8px 0 12px; }
+    .pill { display: inline-block; border-radius: 999px; padding: 3px 9px; font-size: 12px; font-weight: 700; }
+    .pill.ok { color: #067647; background: #dcfae6; }
+    .pill.bad { color: #b42318; background: #fee4e2; }
+    .act { border-top: 1px solid #edf0f4; margin-top: 14px; padding-top: 12px; }
+    .act h4 { margin: 0 0 6px; font-size: 15px; }
+    .act p { margin: 0 0 8px; color: #475467; }
+    .act ul { margin: 0; padding-left: 20px; }
+    .act li { margin: 4px 0; }
+    .error { color: #b42318; background: #fff1f0; border: 1px solid #ffccc7; padding: 10px; border-radius: 6px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>ScriptsGenerateAgent Eval</h1>
+    <div class="sub">生成时间：2026-07-01 09:46:44 · 结果目录：/Users/lin/Desktop/work_space/ScriptsGenerateAgent/eval/res/20260701_094500</div>
+    <section class="summary">
+      <div class="stat"><b>0/4</b>成功</div>
+      <div class="stat"><b>205.29s</b>总耗时</div>
+    </section>
+    <table>
+      <thead><tr><th>测试题</th><th>状态</th><th>耗时</th><th>标题</th><th>文件</th></tr></thead>
+      <tbody><tr><td>测试题1：抖音短视频风格</td><td><span class="pill bad">error</span></td><td>102.41s</td><td></td><td>   <a href="../json/01_douyin_short__events.ndjson">事件流</a></td></tr><tr><td>测试题2：竖屏短剧风格</td><td><span class="pill bad">error</span></td><td>102.26s</td><td></td><td>   <a href="../json/02_vertical_drama__events.ndjson">事件流</a></td></tr><tr><td>测试题3：电影风格</td><td><span class="pill bad">error</span></td><td>0.23s</td><td></td><td>   <a href="../json/03_movie_robot__events.ndjson">事件流</a></td></tr><tr><td>测试题4：单人脱口秀风格</td><td><span class="pill bad">error</span></td><td>0.39s</td><td></td><td>   <a href="../json/04_talk_show__events.ndjson">事件流</a></td></tr></tbody>
+    </table>
+    <article class="case-card"><header><h3>测试题1：抖音短视频风格</h3><span class="pill bad">error</span></header><p class="idea">瓦罗兰特中的捷风和奶妈为主角的抖音短视频剧本。</p><div class="meta">耗时 102.41s · 标题 未生成 · 幕数 0 · beat 0</div><nav>   <a href="../json/01_douyin_short__events.ndjson">事件流</a></nav></article><article class="case-card"><header><h3>测试题2：竖屏短剧风格</h3><span class="pill bad">error</span></header><p class="idea">生成一个竖屏短剧风格剧本。</p><div class="meta">耗时 102.26s · 标题 未生成 · 幕数 0 · beat 0</div><nav>   <a href="../json/02_vertical_drama__events.ndjson">事件流</a></nav></article><article class="case-card"><header><h3>测试题3：电影风格</h3><span class="pill bad">error</span></header><p class="idea">生成一个机器人主题的，电影风格剧本。</p><div class="meta">耗时 0.23s · 标题 未生成 · 幕数 0 · beat 0</div><p class="error">HTTP Error 502: Bad Gateway</p><nav>   <a href="../json/03_movie_robot__events.ndjson">事件流</a></nav></article><article class="case-card"><header><h3>测试题4：单人脱口秀风格</h3><span class="pill bad">error</span></header><p class="idea">生成一段吐槽研究生生活的单人脱口秀风格剧本。</p><div class="meta">耗时 0.39s · 标题 未生成 · 幕数 0 · beat 0</div><p class="error">HTTP Error 502: Bad Gateway</p><nav>   <a href="../json/04_talk_show__events.ndjson">事件流</a></nav></article>
+  </main>
+</body>
+</html>

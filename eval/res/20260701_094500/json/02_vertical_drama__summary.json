@@ -1,0 +1,19 @@
+{
+  "id": "02_vertical_drama",
+  "name": "测试题2：竖屏短剧风格",
+  "creative_idea": "生成一个竖屏短剧风格剧本。",
+  "status": "error",
+  "started_at": "2026-07-01T09:45:00",
+  "elapsed_seconds": 102.26,
+  "title": null,
+  "session_id": null,
+  "estimated_duration": null,
+  "error": null,
+  "files": {},
+  "event_file": "02_vertical_drama__events.ndjson",
+  "script_summary": {
+    "act_count": 0,
+    "beat_count": 0,
+    "acts": []
+  }
+}

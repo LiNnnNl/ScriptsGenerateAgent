@@ -1,0 +1,19 @@
+{
+  "id": "01_douyin_short",
+  "name": "测试题1：抖音短视频风格",
+  "creative_idea": "瓦罗兰特中的捷风和奶妈为主角的抖音短视频剧本。",
+  "status": "error",
+  "started_at": "2026-07-01T09:45:00",
+  "elapsed_seconds": 102.41,
+  "title": null,
+  "session_id": null,
+  "estimated_duration": null,
+  "error": null,
+  "files": {},
+  "event_file": "01_douyin_short__events.ndjson",
+  "script_summary": {
+    "act_count": 0,
+    "beat_count": 0,
+    "acts": []
+  }
+}

@@ -46,6 +46,7 @@ from .autogen_agents import (
     is_quota_error,
     make_fallback_model_client,
 )
+from .prompt_renderers.title_generation import build_title_generation_user_prompt
 from .autogen_tools import validate_script_constraints, validate_json_spec, auto_fix_script
 from .resource_loader import ResourceLoader, Character, Scene
 from .json_generator import ScriptJSONGenerator
@@ -218,7 +219,7 @@ async def _generate_script_title(script: list, bridge: "AutoGenStreamBridge") ->
     try:
         result = await _run_stage_agent_json_object(
             create_title_agent(),
-            f"请为以下剧本摘要命名：\n{_build_title_input(script)}",
+            build_title_generation_user_prompt(_build_title_input(script)),
         )
         title = _clean_script_title((result or {}).get("title"), script)
         _emit_stage_log(bridge, "success", "output", "title", f"🎬 自动片名：《{title}》")
@@ -1019,7 +1020,7 @@ async def run_autogen_pipeline(
     # ── 阶段四 后半：最终封包输出（纯 Python）──
     import asyncio as _asyncio
     _running_loop = _asyncio.get_running_loop()
-    timestamp = int(time.time())
+    timestamp = time.time_ns()
     output_dir = Path('outputs')
     output_dir.mkdir(exist_ok=True)
 
