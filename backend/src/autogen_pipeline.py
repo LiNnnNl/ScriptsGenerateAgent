@@ -382,6 +382,97 @@ def _direct_collect_scene_characters(scene_obj: Dict, beats: List[Dict], fallbac
     return names
 
 
+def _direct_current_position_map(entries: Any) -> Dict[str, str]:
+    if not isinstance(entries, list):
+        return {}
+    result: Dict[str, str] = {}
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        character = str(entry.get("character") or "").strip()
+        position = str(entry.get("position") or "").strip()
+        if character and position:
+            result[character] = position
+    return result
+
+
+def _direct_positions_are_collapsed(scene_obj: Dict, who: List[str]) -> bool:
+    """Detect the common direct-mode failure where every character is assigned one Position."""
+    if len(who) < 2:
+        return False
+    who_set = set(who)
+
+    initial_positions = [
+        str(entry.get("position") or "").strip()
+        for entry in scene_obj.get("initial position", []) or []
+        if isinstance(entry, dict)
+        and str(entry.get("character") or "").strip() in who_set
+        and str(entry.get("position") or "").strip()
+    ]
+    if len(initial_positions) >= 2 and len(set(initial_positions)) == 1:
+        return True
+
+    total_current_beats = 0
+    collapsed_current_beats = 0
+    for beat in scene_obj.get("scene", []) or []:
+        if not isinstance(beat, dict):
+            continue
+        current_map = _direct_current_position_map(beat.get("current position"))
+        positions = [current_map[name] for name in who if current_map.get(name)]
+        if len(positions) >= 2:
+            total_current_beats += 1
+            if len(set(positions)) == 1:
+                collapsed_current_beats += 1
+
+    return total_current_beats > 0 and collapsed_current_beats == total_current_beats
+
+
+def _spread_direct_collapsed_positions(scene_obj: Dict, who: List[str], scene_name: str) -> None:
+    """Spread collapsed Position 1/1/1 style assignments into stable per-character slots."""
+    slot_by_character = {name: f"Position {index}" for index, name in enumerate(who, start=1)}
+    scene_obj["initial position"] = [
+        {"character": name, "position": slot_by_character[name]}
+        for name in who
+    ]
+
+    position_descriptions = dict(scene_obj.get("position_descriptions") or {})
+    for name, position in slot_by_character.items():
+        position_descriptions[position] = position_descriptions.get(
+            position,
+            f"{scene_name} - {name} 的独立初始站位",
+        )
+    scene_obj["position_descriptions"] = position_descriptions
+
+    current_positions = dict(slot_by_character)
+    for beat in scene_obj.get("scene", []) or []:
+        if not isinstance(beat, dict):
+            continue
+        raw_map = _direct_current_position_map(beat.get("current position"))
+        raw_positions = [raw_map[name] for name in who if raw_map.get(name)]
+        should_replace = not raw_map or (len(raw_positions) >= 2 and len(set(raw_positions)) == 1)
+        if should_replace:
+            beat["current position"] = [
+                {"character": name, "position": current_positions[name]}
+                for name in who if current_positions.get(name)
+            ]
+        else:
+            for name, position in raw_map.items():
+                current_positions[name] = position
+            for name in who:
+                if name not in raw_map and current_positions.get(name):
+                    beat.setdefault("current position", []).append({
+                        "character": name,
+                        "position": current_positions[name],
+                    })
+
+        moves = beat.get("move", []) or []
+        if isinstance(moves, dict):
+            moves = [moves]
+        for move in moves:
+            if isinstance(move, dict) and move.get("character") and move.get("destination"):
+                current_positions[str(move["character"]).strip()] = str(move["destination"]).strip()
+
+
 def _normalize_direct_scene(scene_obj: Dict, fallback_names: List[str], scene_name: str, what_snippet: str) -> Dict:
     """直接模式本地兜底规范化：只补技术字段，不改写用户对白。"""
     scene_obj = dict(scene_obj) if isinstance(scene_obj, dict) else {"scene": []}
@@ -459,6 +550,9 @@ def _normalize_direct_scene(scene_obj: Dict, fallback_names: List[str], scene_na
                 current_positions[move["character"]] = move["destination"]
 
     scene_obj["scene"] = normalized_beats
+    if _direct_positions_are_collapsed(scene_obj, who):
+        _spread_direct_collapsed_positions(scene_obj, who, scene_name)
+        scene_obj["_direct_position_repair_applied"] = True
     return scene_obj
 
 
@@ -608,6 +702,7 @@ async def _build_direct_draft(creative_idea: str, characters, scene, bridge, dir
     normalized: List[Dict] = []
     for index, sc in enumerate(scenes, start=1):
         normalized_scene = _normalize_direct_scene(sc, default_names, scene.name, what_snippet)
+        repaired_positions = bool(normalized_scene.pop("_direct_position_repair_applied", False))
         normalized.append(normalized_scene)
         beat_count = len(normalized_scene.get("scene", []))
         who_count = len(normalized_scene.get("scene information", {}).get("who", []))
@@ -615,6 +710,11 @@ async def _build_direct_draft(creative_idea: str, characters, scene, bridge, dir
             bridge, 'info', 'direct', 'normalize_scene',
             f'🧱 [直接模式] 场景 {index} 已补齐基础字段：{who_count} 个角色 / {beat_count} 个片段'
         )
+        if repaired_positions:
+            _emit_stage_log(
+                bridge, 'warning', 'direct', 'position_repair',
+                f'📍 [直接模式] 场景 {index} 检测到多个角色被分到同一 Position，已按角色拆成独立站位'
+            )
 
     total_beats = sum(len(s.get("scene", [])) for s in normalized)
     position_count = sum(len(s.get("position_descriptions", {}) or {}) for s in normalized)

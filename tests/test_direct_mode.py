@@ -83,6 +83,73 @@ class DirectModeTests(unittest.TestCase):
         self.assertNotIn("shot_type", beat)
         self.assertNotIn("Follow", beat)
 
+    def test_collapsed_initial_positions_are_spread_by_character(self):
+        normalized = _normalize_direct_scene(
+            {
+                "scene information": {"who": ["陈屿", "林静", "老赵"]},
+                "initial position": [
+                    {"character": "陈屿", "position": "Position 1"},
+                    {"character": "林静", "position": "Position 1"},
+                    {"character": "老赵", "position": "Position 1"},
+                ],
+                "scene": [
+                    {"speaker": "陈屿", "content": "都别挤在一起。"},
+                    {"speaker": "林静", "content": "站位重新分开。"},
+                ],
+            },
+            fallback_names=[],
+            scene_name="太空站",
+            what_snippet="测试塌缩站位",
+        )
+
+        self.assertTrue(normalized.pop("_direct_position_repair_applied"))
+        self.assertEqual(
+            [
+                {"character": "陈屿", "position": "Position 1"},
+                {"character": "林静", "position": "Position 2"},
+                {"character": "老赵", "position": "Position 3"},
+            ],
+            normalized["initial position"],
+        )
+        for beat in normalized["scene"]:
+            self.assertEqual(
+                ["Position 1", "Position 2", "Position 3"],
+                [entry["position"] for entry in beat["current position"]],
+            )
+
+    def test_collapsed_current_positions_are_spread_by_character(self):
+        normalized = _normalize_direct_scene(
+            {
+                "scene information": {"who": ["陈屿", "林静"]},
+                "initial position": [
+                    {"character": "陈屿", "position": "Position 1"},
+                    {"character": "林静", "position": "Position 2"},
+                ],
+                "scene": [
+                    {
+                        "speaker": "陈屿",
+                        "content": "当前位置塌了。",
+                        "current position": [
+                            {"character": "陈屿", "position": "Position 1"},
+                            {"character": "林静", "position": "Position 1"},
+                        ],
+                    }
+                ],
+            },
+            fallback_names=[],
+            scene_name="太空站",
+            what_snippet="测试 current position 塌缩",
+        )
+
+        self.assertTrue(normalized.pop("_direct_position_repair_applied"))
+        self.assertEqual(
+            [
+                {"character": "陈屿", "position": "Position 1"},
+                {"character": "林静", "position": "Position 2"},
+            ],
+            normalized["scene"][0]["current position"],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

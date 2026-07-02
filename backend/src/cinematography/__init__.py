@@ -230,6 +230,12 @@ def run_cinematography_pipeline(script, scene, resource_dir, output_dir, timesta
                         continue
                     data = _scene_retry_data[retry_si]
                     logger.info("[Cinematography] Retrying Stage 3 for scene %d", retry_si)
+                    if progress_callback:
+                        progress_callback(
+                            "warning",
+                            "camera_retry",
+                            f"🔁 [摄影指导期][Stage3 retry] camera_script 校验失败，正在重跑场景 {retry_si + 1}",
+                        )
                     try:
                         stage3_retry = CameraPlanningStage(
                             script_json=data["scene_obj"],
@@ -410,6 +416,11 @@ def _build_camera_script(enriched_script, camera_lib):
                 moves = beat.get("move") or []
                 if moves and isinstance(moves, list):
                     target = moves[0].get("character", "")
+            if not target:
+                for pos_entry in beat.get("current position", []):
+                    if isinstance(pos_entry, dict) and pos_entry.get("character"):
+                        target = pos_entry.get("character", "")
+                        break
 
             # Find target's current position
             target_position = ""
@@ -417,6 +428,13 @@ def _build_camera_script(enriched_script, camera_lib):
                 for pos_entry in beat.get("current position", []):
                     if isinstance(pos_entry, dict) and pos_entry.get("character") == target:
                         target_position = pos_entry.get("position", "")
+                        break
+            if not target_position:
+                for pos_entry in beat.get("current position", []):
+                    if isinstance(pos_entry, dict) and pos_entry.get("position"):
+                        target_position = pos_entry.get("position", "")
+                        if not target:
+                            target = pos_entry.get("character", "")
                         break
 
             event = {
