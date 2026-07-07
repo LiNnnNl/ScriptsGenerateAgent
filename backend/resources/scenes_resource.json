@@ -346,6 +346,29 @@
       { "id": "Position 9",  "camera_group": "D", "description": "角落深处，更隐蔽的位置，适合不愿被旁人察觉的秘密交谈", "is_sittable": false },
       { "id": "Position 10", "camera_group": "E", "description": "树屋大树旁，空间狭小隐蔽，适合极度私密的双人对话", "is_sittable": false }
     ]
+  },
+  {
+    "id": "Auditorium",
+    "name": "礼堂",
+    "style_tag": "Modern_Realism",
+    "description": "正式礼堂空间，由开阔舞台和评委席组成，适合比赛答辩、公开演讲、颁奖展示、多人登台或台上台下对峙交流。",
+    "camera_groups": [
+      {
+        "id": "A",
+        "name": "舞台",
+        "position_ids": ["Position 1", "Position 2", "Position 3"]
+      },
+      {
+        "id": "B",
+        "name": "评委席",
+        "position_ids": ["Position 4"]
+      }
+    ],
+    "valid_positions": [
+      { "id": "Position 1", "camera_group": "A", "description": "舞台左侧，适合角色登台、侧向发言、与舞台中央形成站位层次", "is_sittable": false },
+      { "id": "Position 2", "camera_group": "A", "description": "舞台右侧，适合多人分列、候场回应、制造舞台两侧对峙关系", "is_sittable": false },
+      { "id": "Position 3", "camera_group": "A", "description": "舞台前侧，适合主讲、展示、公开宣告或面向观众的关键表达", "is_sittable": false },
+      { "id": "Position 4", "camera_group": "B", "description": "评委席，适合评审、提问、裁定、旁观或与舞台角色形成台上台下关系", "is_sittable": true }
+    ]
   }
 ]
-
