@@ -47,6 +47,26 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 app.config['JSON_AS_ASCII'] = False  # 支持中文
+_repo_dir = Path(__file__).resolve().parent.parent
+_frontend_dir = _repo_dir / "frontend"
+
+
+class _ScriptPrefixMiddleware:
+    """Allow the app to sit behind a `/script` URL prefix."""
+
+    def __init__(self, wsgi_app):
+        self.wsgi_app = wsgi_app
+
+    def __call__(self, environ, start_response):
+        path_info = environ.get("PATH_INFO", "")
+        if path_info == "/script":
+            environ["PATH_INFO"] = "/"
+        elif path_info.startswith("/script/"):
+            environ["PATH_INFO"] = path_info[len("/script"):]
+        return self.wsgi_app(environ, start_response)
+
+
+app.wsgi_app = _ScriptPrefixMiddleware(app.wsgi_app)
 
 # 启用CORS（跨域资源共享）
 _cors_origins = os.getenv("CORS_ORIGINS", "*")
@@ -65,6 +85,18 @@ CORS(app, resources={
 
 # 初始化资源加载器
 resource_loader = ResourceLoader()
+
+
+def _serve_frontend_asset(asset_path='index.html'):
+    target = (_frontend_dir / asset_path).resolve()
+    try:
+        target.relative_to(_frontend_dir.resolve())
+    except ValueError:
+        return jsonify({'success': False, 'error': 'Invalid frontend asset path'}), 400
+
+    if target.is_file():
+        return send_from_directory(str(_frontend_dir), asset_path)
+    return send_from_directory(str(_frontend_dir), 'index.html')
 
 
 @app.route('/api/health', methods=['GET'])
@@ -653,6 +685,15 @@ def download_word(filename):
     except Exception as e:
         logger.error("download_word 失败: %s", e)
         return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/', defaults={'asset_path': 'index.html'}, methods=['GET'])
+@app.route('/<path:asset_path>', methods=['GET'])
+def serve_frontend(asset_path):
+    """Serve the static frontend so `/script/*` can point at this backend."""
+    if asset_path.startswith('api/'):
+        return jsonify({'success': False, 'error': 'Not Found'}), 404
+    return _serve_frontend_asset(asset_path)
 
 
 if __name__ == '__main__':

@@ -19,8 +19,8 @@
 
 后端和前端现在是分离运行：
 
-- 后端 Flask 只提供 `/api/*`，默认端口 `5001`
-- 前端是纯静态文件，开发时用任意静态服务器打开，推荐端口 `8080`
+- 后端 Flask 默认端口 `5001`：本地开发时提供 `/api/*`；在反代 / Tunnel 的 `/script/*` 场景下也可直接托管前端静态文件
+- 前端仍是纯静态文件；本地开发时可继续用任意静态服务器打开，推荐端口 `8080`
 
 ### macOS / Linux
 
@@ -55,6 +55,12 @@ python3 -m http.server 8080
 
 打开 `http://localhost:8080`。本地开发时前端会自动请求 `http://localhost:5001/api/*`。
 
+如需模拟线上 `/script/` 前缀访问，也可以直接打开：
+
+```text
+http://localhost:5001/script/
+```
+
 ### Windows
 
 首次运行：
@@ -83,6 +89,8 @@ python -m http.server 8080
 ```
 
 打开 `http://localhost:8080`。
+
+如需验证统一入口部署，也可以直接访问 `http://localhost:5001/script/`。
 
 > 摄影指导后处理默认启用（无需额外配置）。
 
@@ -125,7 +133,8 @@ scripts/tmux-dev.sh attach
 
 ```text
 后端 API: http://127.0.0.1:5001
-前端页面: http://127.0.0.1:8080
+前端页面（本地开发）: http://127.0.0.1:8080
+前端页面（统一入口）: http://127.0.0.1:5001/script/
 ```
 
 常用管理：
@@ -167,8 +176,8 @@ DNS 只负责把域名指到服务器。路径转发由 Nginx/Caddy/IIS 处理�
 推荐路径：
 
 ```text
-https://couvzob.kdns.fr/script  -> http://127.0.0.1:8080
-https://couvzob.kdns.fr/api     -> http://127.0.0.1:5001/api
+https://couvzob.kdns.fr/script  -> http://127.0.0.1:5001
+https://couvzob.kdns.fr/api     -> http://127.0.0.1:5001
 ```
 
 Nginx 示例：
@@ -179,7 +188,7 @@ server {
     server_name couvzob.kdns.fr;
 
     location /api/ {
-        proxy_pass http://127.0.0.1:5001/api/;
+        proxy_pass http://127.0.0.1:5001;
         proxy_http_version 1.1;
         proxy_buffering off;
         proxy_read_timeout 600s;
@@ -190,9 +199,11 @@ server {
     }
 
     location /script/ {
-        proxy_pass http://127.0.0.1:8080/;
+        proxy_pass http://127.0.0.1:5001;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
     }
 
     location = /script {
@@ -201,7 +212,7 @@ server {
 }
 ```
 
-前端如果通过 `/script/` 访问，但 API 仍走同域名 `/api/`，无需额外配置。若前端和后端分属不同域名，在 `frontend/index.html` 的脚本加载前注入：
+若通过同域名 `/script/` 暴露前端，前端会自动把 API 指向同域名下的 `/script/api/*`。若前端和后端分属不同域名，或你希望显式指定 API 地址，可在 `frontend/index.html` 的脚本加载前注入：
 
 ```html
 <script>

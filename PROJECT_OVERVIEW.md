@@ -21,8 +21,8 @@
 
 ## 2. 技术栈与运行
 
-- **后端**：Python + Flask；多 Agent 基于 AutoGen（`RoundRobinGroupChat` / `AssistantAgent`）。入口 `backend/app.py`，跑 `uv run python backend/app.py`，只提供 `/api/*`，服务在 `:5001`，debug 热重载。
-- **前端**：原生 HTML/JS/CSS，**无框架、无构建步骤**，作为独立静态站点运行。`frontend/index.html` + `frontend/js/{config,api,main,ui}.js` + `frontend/css/style.css`；本地推荐 `python3 -m http.server 8080`。
+- **后端**：Python + Flask；多 Agent 基于 AutoGen（`RoundRobinGroupChat` / `AssistantAgent`）。入口 `backend/app.py`，跑 `uv run python backend/app.py`，服务在 `:5001`；本地开发时主要提供 `/api/*`，在反代 / Tunnel 的 `/script/*` 场景下也可直接托管前端静态文件，debug 热重载。
+- **前端**：原生 HTML/JS/CSS，**无框架、无构建步骤**。`frontend/index.html` + `frontend/js/{config,api,main,ui}.js` + `frontend/css/style.css`；本地推荐 `python3 -m http.server 8080` 独立开发，也可由 Flask 在 `/script/*` 下统一托管。
 - **LLM 调用**：通过 OpenAI 兼容接口（`backend/src/autogen_agents.py` 的 `make_model_client`，主模型 + 额度耗尽后的 `make_fallback_model_client` 备用模型）。
 - **Git**：分支 `autogen_agents`，远程 `LiNnnNl/ScriptsGenerateAgent`。
 
@@ -41,7 +41,7 @@
 ```
 ScriptsGenerateAgent/
 ├── backend/
-│   ├── app.py                      # Flask API 入口 + 所有 /api 路由
+│   ├── app.py                      # Flask 入口：/api 路由 + /script 下的前端静态托管
 │   ├── requirements.txt
 │   ├── resources/                  # 资源库（部分为不可再生的权威数据）
 │   │   ├── scenes_resource.json        # 场景列表 + valid_positions（逻辑槽，旧版）
@@ -181,6 +181,7 @@ ScriptsGenerateAgent/
 
 | 方法 | 路径 | 作用 |
 |------|------|------|
+| GET | `/` `/script` `/script/<asset>` | 前端静态页面与资源（供反代 / Tunnel 场景使用） |
 | GET | `/api/health` | 部署探活 |
 | GET | `/api/scenes` `/api/scenes/<style_tag>` | 场景列表 |
 | GET | `/api/characters` `/api/characters/<style_tag>` | 角色列表 |

@@ -28,6 +28,10 @@ function resolveApiBaseUrl() {
         return 'http://localhost:5001';
     }
 
+    if (window.location.pathname === '/script' || window.location.pathname.startsWith('/script/')) {
+        return `${window.location.origin}/script`;
+    }
+
     return '';
 }
 
