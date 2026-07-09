@@ -17,26 +17,197 @@
 
 ## 快速启动
 
+后端和前端现在是分离运行：
+
+- 后端 Flask 只提供 `/api/*`，默认端口 `5001`
+- 前端是纯静态文件，开发时用任意静态服务器打开，推荐端口 `8080`
+
 ### macOS / Linux
 
 ```bash
 # 首次运行，创建虚拟环境并安装依赖
-cd backend
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+uv venv
+uv pip install -r backend/requirements.txt
 
-# 启动后端
-python -m flask run --port 5001
+# 推荐：用 tmux 同时管理前后端
+scripts/tmux-dev.sh start
+scripts/tmux-dev.sh attach
 ```
 
-### Windows（双击 bat）
+常用 tmux 管理命令：
 
+```bash
+scripts/tmux-dev.sh status
+scripts/tmux-dev.sh restart
+scripts/tmux-dev.sh stop
 ```
+
+手动启动也可以：
+
+```bash
+# 终端 1：启动后端
+uv run python backend/app.py
+
+# 终端 2：启动前端静态服务
+cd frontend
+python3 -m http.server 8080
+```
+
+打开 `http://localhost:8080`。本地开发时前端会自动请求 `http://localhost:5001/api/*`。
+
+### Windows
+
+首次运行：
+
+```powershell
+uv venv
+uv pip install -r backend/requirements.txt
+```
+
+然后双击：
+
+```text
 start_backend.bat
+start_frontend.bat
 ```
+
+或手动开两个 PowerShell：
+
+```powershell
+# 终端 1：启动后端
+uv run python backend/app.py
+
+# 终端 2：启动前端
+cd frontend
+python -m http.server 8080
+```
+
+打开 `http://localhost:8080`。
 
 > 摄影指导后处理默认启用（无需额外配置）。
+
+---
+
+## 部署到服务器
+
+### macOS / Linux 服务器
+
+1. 安装基础工具：
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+# Ubuntu/Debian 如未安装 tmux：
+sudo apt update
+sudo apt install -y tmux
+```
+
+2. 拉取代码并安装依赖：
+
+```bash
+git clone <your-repo-url>
+cd ScriptsGenerateAgent
+uv venv
+uv pip install -r backend/requirements.txt
+cp backend/.env.example backend/.env
+```
+
+编辑 `backend/.env`，填入 `API_KEY` 等变量。
+
+3. 用 tmux 常驻运行：
+
+```bash
+scripts/tmux-dev.sh start
+scripts/tmux-dev.sh status
+scripts/tmux-dev.sh attach
+```
+
+服务地址：
+
+```text
+后端 API: http://127.0.0.1:5001
+前端页面: http://127.0.0.1:8080
+```
+
+常用管理：
+
+```bash
+scripts/tmux-dev.sh restart
+scripts/tmux-dev.sh stop
+```
+
+### Windows 服务器
+
+1. 安装 Python、Git、uv。
+
+2. 拉取代码并安装依赖：
+
+```powershell
+git clone <your-repo-url>
+cd ScriptsGenerateAgent
+uv venv
+uv pip install -r backend/requirements.txt
+copy backend\.env.example backend\.env
+```
+
+编辑 `backend\.env`，填入 `API_KEY` 等变量。
+
+3. 启动服务：
+
+```powershell
+start_backend.bat
+start_frontend.bat
+```
+
+保持两个窗口打开即可。正式长期运行建议用 NSSM、Windows 服务或计划任务管理这两个命令。
+
+### 绑定域名与反向代理
+
+DNS 只负责把域名指到服务器。路径转发由 Nginx/Caddy/IIS 处理。
+
+推荐路径：
+
+```text
+https://couvzob.kdns.fr/script  -> http://127.0.0.1:8080
+https://couvzob.kdns.fr/api     -> http://127.0.0.1:5001/api
+```
+
+Nginx 示例：
+
+```nginx
+server {
+    listen 80;
+    server_name couvzob.kdns.fr;
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:5001/api/;
+        proxy_http_version 1.1;
+        proxy_buffering off;
+        proxy_read_timeout 600s;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /script/ {
+        proxy_pass http://127.0.0.1:8080/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+
+    location = /script {
+        return 301 /script/;
+    }
+}
+```
+
+前端如果通过 `/script/` 访问，但 API 仍走同域名 `/api/`，无需额外配置。若前端和后端分属不同域名，在 `frontend/index.html` 的脚本加载前注入：
+
+```html
+<script>
+window.SCRIPT_AGENT_API_BASE_URL = 'https://api.example.com';
+</script>
+```
 
 ---
 
@@ -112,6 +283,7 @@ ScriptsGenerateAgent/
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
+| GET | `/api/health` | 后端健康检查 |
 | GET | `/api/scenes` | 场景列表（含区域/锚点） |
 | GET | `/api/characters` | 角色库 |
 | POST | `/api/characters` | 向角色库添加角色 |

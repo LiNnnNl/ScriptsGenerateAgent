@@ -10,6 +10,7 @@ from ..prompt_files.critic_agent import critic_agent_prompt
 from ..prompt_files.dialogue_agent import dialogue_agent_prompt
 from ..prompt_files.director_agent import director_agent_prompt
 from ..prompt_files.director_agent_direct import director_agent_direct_prompt
+from ..prompt_files.director_agent_word import director_agent_word_prompt
 from ..prompt_files.fixed_dialogues import fixed_dialogues_prompt
 from ..prompt_files.narrative_arch_agent import narrative_arch_agent_prompt
 from ..prompt_files.stash.position_agent_autogen_stash import position_agent_autogen_prompt
@@ -18,9 +19,9 @@ from ..prompt_files.title_agent import title_agent_prompt
 from ..prompt_files.treatment_agent import treatment_agent_prompt
 from ..prompt_files.user_constraints import user_constraints_prompt
 from ..prompt_files.validation_agent import validation_agent_prompt
-from ..prompt_files.video_style_guide import video_style_guide_prompt
 from ..prompt_utils import render_prompt
 from ..resource_loader import Character, ResourceLoader, Scene
+from ..script_style_skill import build_script_style_context
 
 
 def _build_stage_common_context(
@@ -154,6 +155,7 @@ def build_director_system_message(
     user_constraints: Optional[List[str]] = None,
     direct_mode: bool = False,
     act_scene_map: Optional[Dict[int, Scene]] = None,
+    script_style_guide: Optional[str] = None,
 ) -> str:
     total_count = required_character_count if required_character_count > 0 else len(characters)
     if total_count == 0:
@@ -189,7 +191,53 @@ def build_director_system_message(
         char_count_rule=char_count_rule,
         shot_types_str=shot_types_str,
         user_constraints=(_append_user_constraints(user_constraints) + "\n") if user_constraints else "",
-        video_style_guide=video_style_guide_prompt,
+        video_style_guide=script_style_guide or build_script_style_context(),
+    )
+
+
+def build_director_word_system_message(
+    characters: List[Character],
+    scene: Scene,
+    resource_loader: ResourceLoader,
+    required_character_count: int = 0,
+    act_count: int = 3,
+    user_constraints: Optional[List[str]] = None,
+    act_scene_map: Optional[Dict[int, Scene]] = None,
+    script_style_guide: Optional[str] = None,
+) -> str:
+    total_count = required_character_count if required_character_count > 0 else len(characters)
+    if total_count == 0:
+        total_count = 2
+    extra_count = max(0, total_count - len(characters))
+
+    shot_types = resource_loader.shot_types
+    shot_types_str = "、".join(f'"{item}"' for item in shot_types) if shot_types else '"全景"、"中景"、"中近景"、"近景"、"仰拍镜头"、"俯拍镜头"'
+
+    if characters and extra_count == 0:
+        char_count_rule = f"1. **角色数量（最高优先级）**: 剧本中出现的角色总数必须恰好为 **{total_count}** 位，即 {', '.join(c.name for c in characters)}，**绝对不得引入任何其他角色**。"
+    elif characters and extra_count > 0:
+        char_count_rule = f"1. **角色数量（最高优先级）**: 剧本中出现的角色总数必须恰好为 **{total_count}** 位：指定角色 {', '.join(c.name for c in characters)} 必须全部出现，另外还需自由创作 {extra_count} 位新角色。"
+    else:
+        char_count_rule = f"1. **角色数量（最高优先级）**: 剧本中出现的角色总数必须恰好为 **{total_count}** 位，全部由 AI 自由创作，但数量严格固定。"
+
+    act_count_rule = f"0. **幕数（最高优先级）**: 输出 JSON 数组必须恰好包含 **{act_count}** 个场景对象（即 {act_count} 幕），不多不少。"
+    if act_scene_map:
+        act_scene_lines = "；".join(f"第 {index + 1} 幕 = {(act_scene_map.get(index) or scene).name}" for index in range(act_count))
+        act_count_rule += (
+            "\n   **每幕场景（多场景，最高优先级）**：各幕剧情必须发生在指定场景，"
+            f"幕-场景对应：{act_scene_lines}。"
+        )
+
+    return render_prompt(
+        director_agent_word_prompt,
+        char_info=_render_character_info(characters, total_count, extra_count),
+        scene_info=_render_scene_info(scene, resource_loader, act_count, act_scene_map),
+        action_info=_render_action_info(resource_loader),
+        act_count_rule=act_count_rule,
+        char_count_rule=char_count_rule,
+        shot_types_str=shot_types_str,
+        user_constraints=(_append_user_constraints(user_constraints) + "\n") if user_constraints else "",
+        video_style_guide=script_style_guide or build_script_style_context(),
     )
 
 
@@ -205,11 +253,11 @@ def build_character_bios_system_message() -> str:
     return character_bios_agent_prompt
 
 
-def build_treatment_system_message(act_count: int = 3) -> str:
+def build_treatment_system_message(act_count: int = 3, script_style_guide: Optional[str] = None) -> str:
     return render_prompt(
         treatment_agent_prompt,
         act_count=act_count,
-        video_style_guide=video_style_guide_prompt,
+        video_style_guide=script_style_guide or build_script_style_context(),
     )
 
 
@@ -217,36 +265,49 @@ def build_title_system_message() -> str:
     return title_agent_prompt
 
 
-def build_critic_system_message(user_constraints: Optional[List[str]] = None, fixed_dialogues: Optional[List[dict]] = None) -> str:
+def build_critic_system_message(
+    user_constraints: Optional[List[str]] = None,
+    fixed_dialogues: Optional[List[dict]] = None,
+    script_style_guide: Optional[str] = None,
+) -> str:
     return render_prompt(
         critic_agent_prompt,
         constraints=_append_user_constraints(user_constraints, fixed_dialogues),
-        video_style_guide=video_style_guide_prompt,
+        video_style_guide=script_style_guide or build_script_style_context(),
     )
 
 
-def build_dialogue_system_message(user_constraints: Optional[List[str]] = None, fixed_dialogues: Optional[List[dict]] = None) -> str:
+def build_dialogue_system_message(
+    user_constraints: Optional[List[str]] = None,
+    fixed_dialogues: Optional[List[dict]] = None,
+    script_style_guide: Optional[str] = None,
+) -> str:
     return render_prompt(
         dialogue_agent_prompt,
         constraints=_append_user_constraints(user_constraints, fixed_dialogues),
-        video_style_guide=video_style_guide_prompt,
+        video_style_guide=script_style_guide or build_script_style_context(),
     )
 
 
-def build_concept_pitch_system_message(characters: List[Character], scene: Scene, required_character_count: int = 0) -> str:
+def build_concept_pitch_system_message(
+    characters: List[Character],
+    scene: Scene,
+    required_character_count: int = 0,
+    script_style_guide: Optional[str] = None,
+) -> str:
     return render_prompt(
         concept_pitch_agent_prompt,
         common_context=_build_stage_common_context(characters, scene, required_character_count),
-        video_style_guide=video_style_guide_prompt,
+        video_style_guide=script_style_guide or build_script_style_context(),
     )
 
 
-def build_character_voice_system_message() -> str:
-    return render_prompt(character_voice_agent_prompt, video_style_guide=video_style_guide_prompt)
+def build_character_voice_system_message(script_style_guide: Optional[str] = None) -> str:
+    return render_prompt(character_voice_agent_prompt, video_style_guide=script_style_guide or build_script_style_context())
 
 
-def build_narrative_arch_system_message() -> str:
-    return render_prompt(narrative_arch_agent_prompt, video_style_guide=video_style_guide_prompt)
+def build_narrative_arch_system_message(script_style_guide: Optional[str] = None) -> str:
+    return render_prompt(narrative_arch_agent_prompt, video_style_guide=script_style_guide or build_script_style_context())
 
 
 def build_validation_system_message() -> str:

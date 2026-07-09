@@ -43,11 +43,20 @@ class PromptFilesTest(unittest.TestCase):
     def test_autogen_prompt_builders_are_importable(self):
         from src.prompt_renderers.autogen_agent_prompts import (
             build_character_bios_system_message,
+            build_director_word_system_message,
             build_synopsis_system_message,
             build_title_system_message,
             build_validation_system_message,
         )
+        from src.resource_loader import ResourceLoader
 
+        loader = ResourceLoader()
+        scene = loader.get_scene_by_id("Auditorium") or loader.get_all_scenes()[0]
+        director_word_prompt = build_director_word_system_message([], scene, loader, 2, 2)
+
+        self.assertIn("剧本导演AI", director_word_prompt)
+        self.assertIn("shot_description", director_word_prompt)
+        self.assertIn("不要把 `shot_description` 留空", director_word_prompt)
         self.assertIn("character_bios", build_character_bios_system_message())
         self.assertIn("synopsis", build_synopsis_system_message())
         self.assertIn('"title"', build_title_system_message())

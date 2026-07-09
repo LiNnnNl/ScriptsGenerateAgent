@@ -49,6 +49,8 @@ from .autogen_agents import (
 from .prompt_renderers.title_generation import build_title_generation_user_prompt
 from .autogen_tools import validate_script_constraints, validate_json_spec, auto_fix_script
 from .resource_loader import ResourceLoader, Character, Scene
+from .script_style_skill import ScriptStyleSkill
+from .script_tone_skill import ScriptToneSkill
 from .json_generator import ScriptJSONGenerator
 from .cinematography import run_cinematography_pipeline
 from .schema import (
@@ -738,6 +740,8 @@ async def run_autogen_pipeline(
     custom_characters_input = request_params.get('custom_characters', [])
     scene_id = request_params.get('scene_id')
     creative_idea = (request_params.get('creative_idea') or '').strip()
+    requested_script_style_id = str(request_params.get('script_style_id') or '').strip()
+    requested_script_tone_id = str(request_params.get('script_tone_id') or '').strip()
     required_character_count = int(request_params.get('required_character_count', 0) or 0)
     act_count = max(1, min(10, int(request_params.get('act_count', 3) or 3)))
     # 直接模式：跳过创意会议/起草/审查，直接用用户提供的剧本（creative_idea），只补必要字段
@@ -766,6 +770,28 @@ async def run_autogen_pipeline(
     # 去重，保持顺序
     seen = set()
     user_constraints = [c for c in user_constraints if not (tuple(c) in seen or seen.add(tuple(c)))]
+
+    # ── 剧本风格 Skill：由导演入口统一锁定一次，供所有 Agent 共享 ──
+    style_skill = ScriptStyleSkill()
+    style_result = style_skill.resolve(creative_idea, requested_style_id=requested_script_style_id)
+    script_style_guide = style_skill.render_context(creative_idea, requested_style_id=requested_script_style_id)
+    selected_style = style_result.get("selected", {})
+    style_source = '用户按钮选择' if style_result.get('source') == 'user_button' else '创作灵感自动识别'
+    _emit_stage_log(
+        bridge, 'info', 'setup', 'script_style',
+        f"🎞️ 导演已锁定剧本风格: {selected_style.get('name', '未明确指定')}"
+        f"（{style_source}）"
+    )
+
+    tone_skill = ScriptToneSkill()
+    tone_result = tone_skill.resolve(requested_script_tone_id)
+    script_style_guide = script_style_guide + "\n\n" + tone_skill.render_context(requested_script_tone_id)
+    selected_tone = tone_result.get("selected", {})
+    if tone_result.get("explicit"):
+        _emit_stage_log(
+            bridge, 'info', 'setup', 'script_tone',
+            f"🎭 已锁定剧情倾向: {selected_tone.get('name', '未指定')}（用户按钮选择）"
+        )
 
     # ── 从 creative_idea 中提取用户提供的固定对白（格式：角色名: 对白内容）──
     _fixed_dlg_pattern = re.compile(r'^([A-Za-z\u4e00-\u9fff]{1,8})\s*[:：]\s*([^\n]{1,200})', re.MULTILINE)
@@ -900,10 +926,23 @@ async def run_autogen_pipeline(
     model_supports_tools = os.getenv("MODEL_FUNCTION_CALLING", "false").lower() == "true"
     _emit_stage_log(bridge, 'info', 'setup', 'init', '🤖 初始化多 Agent 系统...')
 
-    treatment = create_treatment_agent(act_count=act_count)
-    director = create_director_agent(characters, scene, resource_loader, required_character_count, act_count, user_constraints=user_constraints, act_scene_map=act_scene_map if multi_scene else None)
-    critic = create_critic_agent(user_constraints=user_constraints, fixed_dialogues=fixed_dialogues)
-    dialogue = create_dialogue_agent(user_constraints=user_constraints, fixed_dialogues=fixed_dialogues)
+    treatment = create_treatment_agent(act_count=act_count, script_style_guide=script_style_guide)
+    director = create_director_agent(
+        characters, scene, resource_loader, required_character_count, act_count,
+        user_constraints=user_constraints,
+        act_scene_map=act_scene_map if multi_scene else None,
+        script_style_guide=script_style_guide,
+    )
+    critic = create_critic_agent(
+        user_constraints=user_constraints,
+        fixed_dialogues=fixed_dialogues,
+        script_style_guide=script_style_guide,
+    )
+    dialogue = create_dialogue_agent(
+        user_constraints=user_constraints,
+        fixed_dialogues=fixed_dialogues,
+        script_style_guide=script_style_guide,
+    )
     validator = create_validation_agent(resource_loader, scene) if model_supports_tools else None
 
     _emit_stage_log(bridge, 'success', 'setup', 'ready', '✅ Agents 初始化完成（创意会议、大纲、导演、审查、验证）')
@@ -924,6 +963,7 @@ async def run_autogen_pipeline(
         direct_director = create_director_agent(
             characters, scene, resource_loader, required_character_count, act_count,
             user_constraints=user_constraints, direct_mode=True,
+            script_style_guide=script_style_guide,
         )
         draft_script = await _build_direct_draft(creative_idea, characters, scene, bridge, direct_director)
     else:
@@ -933,9 +973,12 @@ async def run_autogen_pipeline(
         _emit_stage_log(bridge, 'info', 'meeting', 'start',
                         '🎭 [创意会议] 三位创作顾问开始头脑风暴（每人最多发言 2 轮）...')
 
-        concept_pitch = create_concept_pitch_agent(characters, scene, required_character_count)
-        character_voice = create_character_voice_agent()
-        narrative_arch = create_narrative_arch_agent()
+        concept_pitch = create_concept_pitch_agent(
+            characters, scene, required_character_count,
+            script_style_guide=script_style_guide,
+        )
+        character_voice = create_character_voice_agent(script_style_guide=script_style_guide)
+        narrative_arch = create_narrative_arch_agent(script_style_guide=script_style_guide)
 
         # 每位最多 2 轮 = 最多 6 条消息；任意一位写出 [AGREE] 则提前终止
         _meeting_termination = MaxMessageTermination(6) | TextMentionTermination("[AGREE]")

@@ -20,6 +20,7 @@ from dotenv import load_dotenv
 from src.resource_loader import ResourceLoader
 from src.autogen_bridge import AutoGenStreamBridge
 from src.autogen_pipeline import run_autogen_pipeline
+from src.director_word_pipeline import run_director_word_pipeline
 from src.prompt_renderers.character_generation import (
     build_character_generation_prompt,
     character_generation_system_prompt,
@@ -44,14 +45,19 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-FRONTEND_DIR = Path(__file__).parent.parent / "frontend"
-app = Flask(__name__, static_folder=str(FRONTEND_DIR), static_url_path='')
+app = Flask(__name__)
 app.config['JSON_AS_ASCII'] = False  # 支持中文
 
 # 启用CORS（跨域资源共享）
+_cors_origins = os.getenv("CORS_ORIGINS", "*")
+_cors_origins = [
+    origin.strip()
+    for origin in _cors_origins.split(",")
+    if origin.strip()
+] or "*"
 CORS(app, resources={
     r"/api/*": {
-        "origins": "*",
+        "origins": _cors_origins,
         "methods": ["GET", "POST", "PATCH", "OPTIONS"],
         "allow_headers": ["Content-Type"]
     }
@@ -59,6 +65,16 @@ CORS(app, resources={
 
 # 初始化资源加载器
 resource_loader = ResourceLoader()
+
+
+@app.route('/api/health', methods=['GET'])
+def health_check():
+    """部署探活：前后端分离后，后端只承诺 API 可用。"""
+    return jsonify({
+        'success': True,
+        'service': 'script-agent-api',
+        'time': datetime.now().isoformat(timespec='seconds'),
+    })
 
 
 @app.route('/api/shot_types', methods=['GET'])
@@ -449,6 +465,20 @@ def generate_script():
     return Response(stream_with_context(generate()), mimetype='application/x-ndjson')
 
 
+@app.route('/api/generate_director_word', methods=['POST'])
+def generate_director_word():
+    """导演 Word 模式：只调用 DirectorAgent，生成可读分镜剧本并导出 Word。"""
+
+    def generate():
+        bridge = AutoGenStreamBridge()
+        bridge.run_in_thread(
+            run_director_word_pipeline(bridge, resource_loader, request.json or {})
+        )
+        yield from bridge.flask_generator()
+
+    return Response(stream_with_context(generate()), mimetype='application/x-ndjson')
+
+
 @app.route('/api/script_content/<filename>', methods=['GET'])
 def get_script_content(filename):
     """返回生成的剧本 JSON 内容（供前端编辑器加载）"""
@@ -623,16 +653,6 @@ def download_word(filename):
     except Exception as e:
         logger.error("download_word 失败: %s", e)
         return jsonify({'success': False, 'error': str(e)}), 500
-
-
-@app.route('/', defaults={'path': ''})
-@app.route('/<path:path>')
-def serve_frontend(path):
-    """托管前端静态文件"""
-    from flask import send_from_directory
-    if path and (FRONTEND_DIR / path).exists():
-        return send_from_directory(str(FRONTEND_DIR), path)
-    return send_from_directory(str(FRONTEND_DIR), 'index.html')
 
 
 if __name__ == '__main__':

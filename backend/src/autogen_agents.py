@@ -81,6 +81,7 @@ from .prompt_renderers.autogen_agent_prompts import (
     build_critic_system_message,
     build_dialogue_system_message,
     build_director_system_message,
+    build_director_word_system_message,
     build_narrative_arch_system_message,
     build_position_agent_system_message,
     build_synopsis_system_message,
@@ -104,10 +105,12 @@ def create_director_agent(
     user_constraints: Optional[List[str]] = None,
     direct_mode: bool = False,
     act_scene_map: Optional[Dict[int, Scene]] = None,
+    script_style_guide: Optional[str] = None,
 ) -> AssistantAgent:
     system_message = build_director_system_message(
         characters, scene, resource_loader, required_character_count, act_count,
         user_constraints, direct_mode=direct_mode, act_scene_map=act_scene_map,
+        script_style_guide=script_style_guide,
     )
     return AssistantAgent(
         name="DirectorAgent" if not direct_mode else "DirectorAgent_Direct",
@@ -116,13 +119,45 @@ def create_director_agent(
     )
 
 
+def create_director_word_agent(
+    characters: List[Character],
+    scene: Scene,
+    resource_loader: ResourceLoader,
+    required_character_count: int = 0,
+    act_count: int = 3,
+    model: Optional[str] = None,
+    user_constraints: Optional[List[str]] = None,
+    act_scene_map: Optional[Dict[int, Scene]] = None,
+    script_style_guide: Optional[str] = None,
+) -> AssistantAgent:
+    system_message = build_director_word_system_message(
+        characters, scene, resource_loader, required_character_count, act_count,
+        user_constraints=user_constraints, act_scene_map=act_scene_map,
+        script_style_guide=script_style_guide,
+    )
+    return AssistantAgent(
+        name="DirectorAgent_Word",
+        model_client=make_model_client(model),
+        system_message=system_message,
+    )
 
 
-def create_critic_agent(model: Optional[str] = None, user_constraints: Optional[List[str]] = None, fixed_dialogues: Optional[List[dict]] = None) -> AssistantAgent:
+
+
+def create_critic_agent(
+    model: Optional[str] = None,
+    user_constraints: Optional[List[str]] = None,
+    fixed_dialogues: Optional[List[dict]] = None,
+    script_style_guide: Optional[str] = None,
+) -> AssistantAgent:
     return AssistantAgent(
         name="CriticAgent",
         model_client=make_model_client(model),
-        system_message=build_critic_system_message(user_constraints=user_constraints, fixed_dialogues=fixed_dialogues),
+        system_message=build_critic_system_message(
+            user_constraints=user_constraints,
+            fixed_dialogues=fixed_dialogues,
+            script_style_guide=script_style_guide,
+        ),
     )
 
 
@@ -155,11 +190,15 @@ def create_character_bios_agent(model: Optional[str] = None) -> AssistantAgent:
     )
 
 
-def create_treatment_agent(act_count: int = 3, model: Optional[str] = None) -> AssistantAgent:
+def create_treatment_agent(
+    act_count: int = 3,
+    model: Optional[str] = None,
+    script_style_guide: Optional[str] = None,
+) -> AssistantAgent:
     return AssistantAgent(
         name="TreatmentAgent",
         model_client=make_model_client(model),
-        system_message=build_treatment_system_message(act_count),
+        system_message=build_treatment_system_message(act_count, script_style_guide=script_style_guide),
     )
 
 
@@ -171,11 +210,20 @@ def create_title_agent(model: Optional[str] = None) -> AssistantAgent:
     )
 
 
-def create_dialogue_agent(model: Optional[str] = None, user_constraints: Optional[List[str]] = None, fixed_dialogues: Optional[List[dict]] = None) -> AssistantAgent:
+def create_dialogue_agent(
+    model: Optional[str] = None,
+    user_constraints: Optional[List[str]] = None,
+    fixed_dialogues: Optional[List[dict]] = None,
+    script_style_guide: Optional[str] = None,
+) -> AssistantAgent:
     return AssistantAgent(
         name="DialogueAgent",
         model_client=make_model_client(model),
-        system_message=build_dialogue_system_message(user_constraints=user_constraints, fixed_dialogues=fixed_dialogues),
+        system_message=build_dialogue_system_message(
+            user_constraints=user_constraints,
+            fixed_dialogues=fixed_dialogues,
+            script_style_guide=script_style_guide,
+        ),
     )
 
 
@@ -184,27 +232,37 @@ def create_concept_pitch_agent(
     scene: Scene,
     required_character_count: int = 0,
     model: Optional[str] = None,
+    script_style_guide: Optional[str] = None,
 ) -> AssistantAgent:
     return AssistantAgent(
         name="ConceptPitchAgent",
         model_client=make_model_client(model),
-        system_message=build_concept_pitch_system_message(characters, scene, required_character_count),
+        system_message=build_concept_pitch_system_message(
+            characters, scene, required_character_count,
+            script_style_guide=script_style_guide,
+        ),
     )
 
 
-def create_character_voice_agent(model: Optional[str] = None) -> AssistantAgent:
+def create_character_voice_agent(
+    model: Optional[str] = None,
+    script_style_guide: Optional[str] = None,
+) -> AssistantAgent:
     return AssistantAgent(
         name="CharacterVoiceAgent",
         model_client=make_model_client(model),
-        system_message=build_character_voice_system_message(),
+        system_message=build_character_voice_system_message(script_style_guide=script_style_guide),
     )
 
 
-def create_narrative_arch_agent(model: Optional[str] = None) -> AssistantAgent:
+def create_narrative_arch_agent(
+    model: Optional[str] = None,
+    script_style_guide: Optional[str] = None,
+) -> AssistantAgent:
     return AssistantAgent(
         name="NarrativeArchAgent",
         model_client=make_model_client(model),
-        system_message=build_narrative_arch_system_message(),
+        system_message=build_narrative_arch_system_message(script_style_guide=script_style_guide),
     )
 
 

@@ -21,6 +21,8 @@ director_agent_prompt = """{char_info}{scene_info}{action_info}
 
 3. **走位设计（以演出效果为唯一标准）**:
    - 根据演出需要决定角色站位，依次命名为 Position 1、Position 2...
+   - **同一个片段/镜头的 `current position` 中，不同角色绝对不能使用同一个 Position 编号。**如果两人同框或对话，也必须分别占用不同 Position（例如 A=Position 1，B=Position 2），不能都写 Position 1。
+   - `initial position` 同样必须一人一位；只有同一个角色在不同片段延续站位时，才可以继续使用同一个 Position。
    - 在顶层 `position_descriptions` 字段中，结合上方「可用区域」的名称，用自然语言描述每个位置的戏剧意图
    - 例："Position 1": "神坛区域 - 严肃私密对话，角色面对神坛低声交谈"
    - **区域内的锚点坐标是场景物体的位置（非角色站立点），具体角色坐标由摄影指导流程自动计算，编剧无需也不应指定坐标**
@@ -150,6 +152,7 @@ director_agent_prompt = """{char_info}{scene_info}{action_info}
 - `motion_detail` 动作细节英文描述，由导演模型生成
 - **`current position` 是每个片段（对白、旁白、移动）的强制必填字段，绝对不能省略。**
   每个片段必须列出场景内所有在场角色当前所在的 Position 编号。
+  同一片段内不同角色的 Position 编号必须互不相同，禁止多个角色共享同一个 Position。
   移动片段的 `current position` 记录的是移动*前*的位置。
 - `position_descriptions` 必须包含剧本中所有使用到的 Position N 编号
 - 只使用可用动作库中的动作名称

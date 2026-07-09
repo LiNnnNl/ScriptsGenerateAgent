@@ -7,9 +7,9 @@
 - **是什么**：多 Agent 驱动的剧本生成系统。用户给定场景/角色/创作灵感/幕数，经多个 LLM Agent 协作（创意会议 → 分场大纲 → 导演起草 → 文学审查 → 摄影指导），产出供下游 Unity 使用的结构化资产：剧本 JSON、镜头脚本、角色档案、站位与坐标。
 - **两种模式**：正常生成（AI 从头脑风暴创作）/ 直接生成 `direct_mode`（用户粘剧本，只结构化不创作）。
 - **核心流程**：`backend/src/autogen_pipeline.py: run_autogen_pipeline` 编排全程，经 NDJSON 流回传；摄影后处理在 `backend/src/cinematography/`（逐幕三阶段，算出角色坐标）。
-- 技术栈：Flask 后端 + 原生 JS 前端（无框架）。
-- 后端入口：`backend/app.py`，跑 `python3 backend/app.py`，服务在 `:5001`，debug 热重载。
-- 前端：`frontend/`（`index.html` + `js/{api,config,main,ui}.js` + `css/style.css`），无构建步骤，刷新即生效。
+- 技术栈：Flask API 后端 + 原生 JS 静态前端（无框架）。
+- 后端入口：`backend/app.py`，跑 `uv run python backend/app.py`，只提供 `/api/*`，服务在 `:5001`，debug 热重载。
+- 前端：`frontend/`（`index.html` + `js/{api,config,main,ui}.js` + `css/style.css`），无构建步骤；本地用静态服务打开，例如在 `frontend/` 下跑 `python3 -m http.server 8080`。
 - git：分支 `autogen_agents`，远程 `LiNnnNl/ScriptsGenerateAgent`。
 
 > **完整架构 / 数据流 / 模块职责 / 多场景改造计划见 [`PROJECT_OVERVIEW.md`](./PROJECT_OVERVIEW.md)**（给人看的详细概述）。改了架构后两份文档都要同步更新。

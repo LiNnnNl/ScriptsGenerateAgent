@@ -4,8 +4,8 @@ echo   ScriptAgent Backend Server
 echo ========================================
 echo.
 echo Starting Flask API server...
-echo Backend will run on http://localhost:5000
+echo Backend API will run on http://localhost:5001
 echo.
-cd backend
-python app.py
+cd /d "%~dp0"
+uv run python backend/app.py
 pause

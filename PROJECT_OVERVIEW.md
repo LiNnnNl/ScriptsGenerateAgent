@@ -21,8 +21,8 @@
 
 ## 2. 技术栈与运行
 
-- **后端**：Python + Flask；多 Agent 基于 AutoGen（`RoundRobinGroupChat` / `AssistantAgent`）。入口 `backend/app.py`，跑 `python3 backend/app.py`，服务在 `:5001`，debug 热重载。
-- **前端**：原生 HTML/JS/CSS，**无框架、无构建步骤**，刷新即生效。`frontend/index.html` + `frontend/js/{config,api,main,ui}.js` + `frontend/css/style.css`。
+- **后端**：Python + Flask；多 Agent 基于 AutoGen（`RoundRobinGroupChat` / `AssistantAgent`）。入口 `backend/app.py`，跑 `uv run python backend/app.py`，只提供 `/api/*`，服务在 `:5001`，debug 热重载。
+- **前端**：原生 HTML/JS/CSS，**无框架、无构建步骤**，作为独立静态站点运行。`frontend/index.html` + `frontend/js/{config,api,main,ui}.js` + `frontend/css/style.css`；本地推荐 `python3 -m http.server 8080`。
 - **LLM 调用**：通过 OpenAI 兼容接口（`backend/src/autogen_agents.py` 的 `make_model_client`，主模型 + 额度耗尽后的 `make_fallback_model_client` 备用模型）。
 - **Git**：分支 `autogen_agents`，远程 `LiNnnNl/ScriptsGenerateAgent`。
 
@@ -41,7 +41,7 @@
 ```
 ScriptsGenerateAgent/
 ├── backend/
-│   ├── app.py                      # Flask 入口 + 所有 HTTP 路由
+│   ├── app.py                      # Flask API 入口 + 所有 /api 路由
 │   ├── requirements.txt
 │   ├── resources/                  # 资源库（部分为不可再生的权威数据）
 │   │   ├── scenes_resource.json        # 场景列表 + valid_positions（逻辑槽，旧版）
@@ -84,7 +84,7 @@ ScriptsGenerateAgent/
 
 ## 4. 端到端数据流（一次生成）
 
-前端发起 → 后端 `run_autogen_pipeline` 编排 → 通过 NDJSON 流式回传日志/产物。
+静态前端发起 API 请求 → 后端 `run_autogen_pipeline` 编排 → 通过 NDJSON 流式回传日志/产物。
 
 ### 4.1 前端侧（`frontend/js/main.js`）
 
@@ -181,6 +181,7 @@ ScriptsGenerateAgent/
 
 | 方法 | 路径 | 作用 |
 |------|------|------|
+| GET | `/api/health` | 部署探活 |
 | GET | `/api/scenes` `/api/scenes/<style_tag>` | 场景列表 |
 | GET | `/api/characters` `/api/characters/<style_tag>` | 角色列表 |
 | POST | `/api/characters` | 新增角色 |

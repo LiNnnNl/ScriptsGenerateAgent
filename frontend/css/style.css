@@ -294,6 +294,88 @@ body {
     color: var(--black);
 }
 
+.script-style-section,
+.script-tone-section {
+    margin-bottom: 18px;
+}
+
+.script-style-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 14px;
+    margin-bottom: 10px;
+}
+
+.script-style-title {
+    color: var(--gold);
+    font-weight: 700;
+    letter-spacing: 1px;
+}
+
+.script-style-note {
+    color: rgba(224, 224, 224, 0.55);
+    font-size: 0.85em;
+}
+
+.script-style-options,
+.script-tone-options {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.script-tone-options {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.script-tone-section {
+    padding-top: 4px;
+}
+
+.script-style-option,
+.script-tone-option {
+    min-height: 64px;
+    padding: 10px 8px;
+    border: 1px solid rgba(212, 175, 55, 0.28);
+    background: rgba(31, 31, 31, 0.82);
+    color: var(--text-light);
+    cursor: pointer;
+    transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+    font-family: inherit;
+    text-align: left;
+}
+
+.script-style-option:hover,
+.script-tone-option:hover {
+    border-color: rgba(212, 175, 55, 0.7);
+    transform: translateY(-1px);
+}
+
+.script-style-option.selected,
+.script-tone-option.selected {
+    border-color: var(--gold);
+    background: rgba(212, 175, 55, 0.14);
+    box-shadow: inset 0 0 0 1px rgba(212, 175, 55, 0.35);
+}
+
+.script-style-name,
+.script-style-desc {
+    display: block;
+    line-height: 1.25;
+}
+
+.script-style-name {
+    font-size: 0.95em;
+    font-weight: 700;
+}
+
+.script-style-desc {
+    margin-top: 5px;
+    color: rgba(224, 224, 224, 0.58);
+    font-size: 0.78em;
+}
+
 /* 选择框 */
 .select-box {
     width: 100%;
@@ -325,6 +407,19 @@ body {
     flex-direction: column;
     gap: 8px;
 }
+.scene-pool-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 12px;
+    color: rgba(224, 224, 224, 0.68);
+    font-size: 0.9em;
+    cursor: pointer;
+    user-select: none;
+}
+.scene-pool-toggle input {
+    accent-color: var(--gold);
+}
 .scene-pool-item {
     display: flex;
     align-items: center;
@@ -343,6 +438,19 @@ body {
 .scene-pool-checkbox { accent-color: var(--gold); width: 16px; height: 16px; }
 .scene-pool-name { font-family: 'Cinzel', serif; color: var(--text-light); }
 .scene-pool-note { font-size: 0.8em; color: var(--accent); margin-left: auto; }
+.scene-pool-empty {
+    border: 1px dashed rgba(212, 175, 55, 0.28);
+    color: rgba(224, 224, 224, 0.5);
+    padding: 12px 14px;
+    font-size: 0.9em;
+}
+.scene-pool-error {
+    border: 1px solid rgba(244, 67, 54, 0.35);
+    background: rgba(244, 67, 54, 0.08);
+    color: #ff8a80;
+    padding: 12px 14px;
+    font-size: 0.9em;
+}
 
 /* 每幕 → 场景 分配 */
 .act-scene-map { margin-top: 16px; }
@@ -644,6 +752,8 @@ body {
     padding: 40px 0;
     display: flex;
     justify-content: center;
+    gap: 18px;
+    flex-wrap: wrap;
 }
 
 .generate-btn {
@@ -1137,6 +1247,13 @@ body {
     margin-top: 12px;
     padding-top: 12px;
     border-top: 1px solid rgba(212, 175, 55, 0.15);
+}
+
+.cast-editor-note {
+    margin: 8px 0 10px;
+    color: rgba(224, 224, 224, 0.55);
+    font-size: 0.75rem;
+    line-height: 1.5;
 }
 
 .cast-confirm-btn {
@@ -2133,40 +2250,51 @@ select.cast-input optgroup {
     letter-spacing: 0.3px;
 }
 
-/* ── 直接生成模式开关 ── */
-.direct-mode-section {
-    margin-top: 12px;
+.director-word-btn {
+    background: linear-gradient(135deg, #5d7890, #a8c6d8, #f0f7fb);
+    border-color: #d8eef7;
+    box-shadow: 0 10px 36px rgba(168, 198, 216, 0.28);
 }
-.direct-mode-toggle {
+
+.director-word-btn:hover {
+    box-shadow: 0 15px 54px rgba(168, 198, 216, 0.42);
+}
+
+.direct-generate-btn {
+    background: linear-gradient(135deg, #8b6235, #d8a04f, #ffe1a3);
+    border-color: #ffe1a3;
+    box-shadow: 0 10px 36px rgba(216, 160, 79, 0.3);
+}
+
+.direct-generate-btn:hover {
+    box-shadow: 0 15px 54px rgba(216, 160, 79, 0.45);
+}
+
+.idea-file-section {
     display: flex;
     align-items: center;
-    gap: 8px;
-    cursor: pointer;
-    user-select: none;
+    gap: 12px;
+    margin-top: 10px;
+    flex-wrap: wrap;
 }
-.direct-mode-toggle input {
-    width: 16px;
-    height: 16px;
-    accent-color: var(--gold);
-    cursor: pointer;
-    flex-shrink: 0;
-}
-.direct-mode-label {
-    font-size: 0.85em;
-    color: var(--text-light);
-    opacity: 0.85;
-}
-.direct-mode-hint {
-    margin: 8px 0 0;
-    padding: 10px 14px;
+
+.idea-file-btn {
+    border: 1px solid rgba(212, 175, 55, 0.45);
     background: rgba(212, 175, 55, 0.08);
-    border-left: 3px solid var(--gold);
-    font-size: 0.8em;
-    line-height: 1.6;
-    color: rgba(224, 224, 224, 0.75);
-}
-.direct-mode-hint strong {
     color: var(--gold-light);
+    border-radius: 4px;
+    padding: 8px 12px;
+    cursor: pointer;
+    font-family: 'Roboto Mono', monospace;
+}
+
+.idea-file-btn:hover {
+    background: rgba(212, 175, 55, 0.15);
+}
+
+.idea-file-hint {
+    color: rgba(224, 224, 224, 0.62);
+    font-size: 0.78em;
 }
 
 /* ── 版本命名行 ── */
@@ -2332,4 +2460,24 @@ select.cast-input optgroup {
 .history-action-btn:hover {
     background: rgba(212,175,55,0.12);
     border-color: var(--gold);
+}
+
+@media (max-width: 900px) {
+    .script-style-options,
+    .script-tone-options {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 520px) {
+    .script-style-head {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .script-style-options,
+    .script-tone-options {
+        grid-template-columns: 1fr;
+    }
 }

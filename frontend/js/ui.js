@@ -154,17 +154,25 @@ const UI = {
     // 渲染场景池（多选复选框）：有锚点（regions 非空）才可勾选，无锚点禁用并标注
     renderScenes(scenes) {
         const list = document.getElementById('scenePoolList');
-        list.innerHTML = scenes.map(scene => {
+        const visibleScenes = (scenes || []).filter(scene => {
+            const hasAnchor = scene.regions && scene.regions.length > 0;
+            return hasAnchor || APP_STATE.showUnavailableScenes;
+        });
+        list.innerHTML = visibleScenes.map(scene => {
             const hasAnchor = scene.regions && scene.regions.length > 0;
             const disabledAttr = hasAnchor ? '' : 'disabled';
+            const checkedAttr = APP_STATE.scenePool.includes(scene.id) ? 'checked' : '';
             const note = hasAnchor ? '' : '<span class="scene-pool-note">暂无坐标锚点，不可选</span>';
             return `
             <label class="scene-pool-item ${hasAnchor ? '' : 'is-disabled'}">
-                <input type="checkbox" class="scene-pool-checkbox" value="${scene.id}" ${disabledAttr}>
+                <input type="checkbox" class="scene-pool-checkbox" value="${scene.id}" ${disabledAttr} ${checkedAttr}>
                 <span class="scene-pool-name">${scene.name}</span>
                 ${note}
             </label>`;
         }).join('');
+        if (visibleScenes.length === 0) {
+            list.innerHTML = '<div class="scene-pool-empty">暂无可用场景</div>';
+        }
     },
 
     // 渲染「每幕 → 场景」分配下拉（仅多场景时显示）；选项=场景池内场景
@@ -252,25 +260,27 @@ const UI = {
 
         list.innerHTML = characters.map((c, i) => {
             const imgURL = this._charImageURL(c.gameobject_name);
+            const traitsText = this._charTraitsText(c);
             return `
             <div class="cast-card" data-index="${i}">
                 <div class="cast-card-display">
-                    <div class="cast-card-name">${c.name}</div>
+                    <div class="cast-card-name">${this._esc(c.name || '')}</div>
                     <div class="cast-card-meta">
-                        <span>${c.gender || ''}${c.ip ? ' · ' + c.ip : ''}</span>
-                        <span>${c.personality_traits || ''}</span>
-                        <span class="cast-card-bg">${(c.background || '').slice(0, 80)}${(c.background || '').length > 80 ? '…' : ''}</span>
+                        <span>${this._esc(c.gender || '')}${c.ip ? ' · ' + this._esc(c.ip) : ''}</span>
+                        <span>${this._esc(traitsText)}</span>
+                        <span class="cast-card-bg">${this._esc((c.background || '').slice(0, 80))}${(c.background || '').length > 80 ? '…' : ''}</span>
                     </div>
-                    ${imgURL ? `<img class="cast-card-img" src="${imgURL}" alt="${c.name}" onerror="this.style.display='none'">` : ''}
-                    <button class="cast-replace-btn" data-index="${i}">替换角色</button>
+                    ${imgURL ? `<img class="cast-card-img" src="${imgURL}" alt="${this._attr(c.name || '')}" onerror="this.style.display='none'">` : ''}
+                    <button class="cast-replace-btn" data-index="${i}">编辑角色 / 更换模型</button>
                 </div>
                 <div class="cast-editor" style="display:none">
                     <div class="cast-mode-toggle">
-                        <button class="mode-btn active" data-editor-mode="library" data-index="${i}">从角色库选</button>
-                        <button class="mode-btn" data-editor-mode="custom" data-index="${i}">自定义输入</button>
+                        <button class="mode-btn active" data-editor-mode="library" data-index="${i}">更换模型</button>
+                        <button class="mode-btn" data-editor-mode="custom" data-index="${i}">编辑设定</button>
                     </div>
                     <div class="cast-library-panel">
                         ${this._buildCharDropdown('', i, 'cast-select editor-select')}
+                        <p class="cast-editor-note">从角色库选择时只替换模型，不改角色姓名、性别和背景。</p>
                         <div class="cast-char-preview" style="display:none"></div>
                     </div>
                     <div class="cast-custom-panel" style="display:none">
@@ -278,48 +288,34 @@ const UI = {
                             <div class="cast-field-row">
                                 <div class="cast-field cast-field-name">
                                     <label class="cast-field-label">姓名</label>
-                                    <input type="text" class="cast-input editor-name" data-index="${i}" placeholder="角色名称">
+                                    <input type="text" class="cast-input editor-name" data-index="${i}" value="${this._attr(c.name || '')}" placeholder="角色名称">
                                 </div>
                                 <div class="cast-field cast-field-gender">
                                     <label class="cast-field-label">性别</label>
                                     <select class="cast-input editor-gender" data-index="${i}">
-                                        <option value="未知">未知</option>
-                                        <option value="男">男</option>
-                                        <option value="女">女</option>
+                                        <option value="未知"${(c.gender || '未知') === '未知' ? ' selected' : ''}>未知</option>
+                                        <option value="男"${c.gender === '男' ? ' selected' : ''}>男</option>
+                                        <option value="女"${c.gender === '女' ? ' selected' : ''}>女</option>
                                     </select>
                                 </div>
                             </div>
                             <div class="cast-field-row">
                                 <div class="cast-field">
                                     <label class="cast-field-label">IP / 来源</label>
-                                    <input type="text" class="cast-input editor-ip" data-index="${i}" placeholder="如：原创">
+                                    <input type="text" class="cast-input editor-ip" data-index="${i}" value="${this._attr(c.ip || '')}" placeholder="如：原创">
                                 </div>
                                 <div class="cast-field">
-                                    <label class="cast-field-label">制作方</label>
-                                    <input type="text" class="cast-input editor-manufacturer" data-index="${i}" placeholder="如：用户创建">
+                                    <label class="cast-field-label">性格特征</label>
+                                    <input type="text" class="cast-input editor-personality" data-index="${i}" value="${this._attr(traitsText)}" placeholder="如：沉稳, 理性, 话少">
                                 </div>
-                            </div>
-                            <div class="cast-field-row">
-                                <div class="cast-field">
-                                    <label class="cast-field-label">阵营</label>
-                                    <input type="text" class="cast-input editor-faction" data-index="${i}" placeholder="如：未知">
-                                </div>
-                                <div class="cast-field">
-                                    <label class="cast-field-label">职位 / 定位</label>
-                                    <input type="text" class="cast-input editor-role" data-index="${i}" placeholder="如：主角">
-                                </div>
-                            </div>
-                            <div class="cast-field">
-                                <label class="cast-field-label">性格特征</label>
-                                <input type="text" class="cast-input editor-personality" data-index="${i}" placeholder="如：沉稳, 理性, 话少">
                             </div>
                             <div class="cast-field">
                                 <label class="cast-field-label">背景故事</label>
-                                <textarea class="cast-input editor-background" data-index="${i}" rows="3" placeholder="角色背景故事..."></textarea>
+                                <textarea class="cast-input editor-background" data-index="${i}" rows="3" placeholder="角色背景故事...">${this._esc(c.background || '')}</textarea>
                             </div>
                         </div>
                     </div>
-                    <button class="cast-confirm-btn" data-index="${i}">✓ 确认替换</button>
+                    <button class="cast-confirm-btn" data-index="${i}">✓ 保存修改</button>
                 </div>
             </div>
         `;
@@ -378,61 +374,32 @@ const UI = {
             btn.addEventListener('click', () => {
                 const i = parseInt(btn.dataset.index);
                 const card = container.querySelector(`.cast-card[data-index="${i}"]`);
-                const isLibrary = card.querySelector('.cast-library-panel').style.display !== 'none';
+                const currentChar = APP_STATE.generatedCharacters[i] || {};
+                const newChar = Object.assign({}, currentChar);
 
-                let newChar;
-                if (isLibrary) {
-                    const name = card.querySelector('.editor-select').value;
-                    if (!name) { alert('请先选择角色'); return; }
-                    const char = APP_STATE.characters.find(c => c.name === name);
-                    if (!char) { alert('角色不存在'); return; }
-                    newChar = Object.assign({}, char);
-                } else {
-                    const name = card.querySelector('.editor-name').value.trim();
-                    if (!name) { alert('请填写角色名称'); return; }
-                    newChar = {
-                        name,
-                        gender: card.querySelector('.editor-gender').value || '未知',
-                        ip: card.querySelector('.editor-ip').value.trim() || '原创',
-                        manufacturer: card.querySelector('.editor-manufacturer').value.trim() || '用户创建',
-                        Faction: card.querySelector('.editor-faction').value.trim() || '未知',
-                        role_position: card.querySelector('.editor-role').value.trim() || '未知',
-                        personality_traits: card.querySelector('.editor-personality').value.trim() || '',
-                        background: card.querySelector('.editor-background').value.trim() || '',
-                        important_relationships: []
-                    };
+                const selectedModelName = card.querySelector('.editor-select').value;
+                if (selectedModelName) {
+                    const modelChar = APP_STATE.characters.find(c => c.name === selectedModelName);
+                    if (!modelChar) { alert('模型角色不存在'); return; }
+                    newChar.gameobject_name = modelChar.gameobject_name || '';
+                    if (modelChar.appearance) newChar.appearance = modelChar.appearance;
+                    if (modelChar.acting_style && !newChar.acting_style) newChar.acting_style = modelChar.acting_style;
                 }
+
+                const editedName = card.querySelector('.editor-name').value.trim();
+                if (!editedName) { alert('请填写角色名称'); return; }
+                const editedTraits = card.querySelector('.editor-personality').value.trim();
+                newChar.name = editedName;
+                newChar.gender = card.querySelector('.editor-gender').value || '未知';
+                newChar.ip = card.querySelector('.editor-ip').value.trim() || newChar.ip || '原创';
+                newChar.personality_traits = editedTraits;
+                newChar.traits = editedTraits ? editedTraits.split(/[,，、]/).map(s => s.trim()).filter(Boolean) : [];
+                newChar.background = card.querySelector('.editor-background').value.trim() || '';
+                if (!newChar.important_relationships) newChar.important_relationships = [];
 
                 // 更新状态
                 APP_STATE.generatedCharacters[i] = newChar;
-
-                // 更新卡片显示内容
-                const display = card.querySelector('.cast-card-display');
-                display.querySelector('.cast-card-name').textContent = newChar.name;
-                const spans = display.querySelectorAll('.cast-card-meta span');
-                spans[0].textContent = `${newChar.gender || ''} · ${newChar.ip || ''}`;
-                spans[1].textContent = newChar.personality_traits || '';
-                spans[2].textContent = (newChar.background || '').slice(0, 80) + ((newChar.background || '').length > 80 ? '…' : '');
-
-                // 更新图片
-                const newImgURL = this._charImageURL(newChar.gameobject_name);
-                let existingImg = display.querySelector('.cast-card-img');
-                if (newImgURL) {
-                    if (!existingImg) {
-                        existingImg = document.createElement('img');
-                        existingImg.className = 'cast-card-img';
-                        existingImg.setAttribute('onerror', "this.style.display='none'");
-                        display.insertBefore(existingImg, display.querySelector('.cast-replace-btn'));
-                    }
-                    existingImg.src = newImgURL;
-                    existingImg.alt = newChar.name;
-                    existingImg.style.display = '';
-                } else if (existingImg) {
-                    existingImg.style.display = 'none';
-                }
-
-                // 收起编辑器
-                card.querySelector('.cast-editor').style.display = 'none';
+                this.renderCastPreview(APP_STATE.generatedCharacters);
             });
         });
     },
@@ -453,6 +420,12 @@ const UI = {
         if (char.Faction && char.Faction !== '未知') parts.push(`阵营：${char.Faction}`);
         if (char.ip && char.ip !== '自定义') parts.push(`IP《${char.ip}》`);
         return parts.join(' · ');
+    },
+
+    _charTraitsText(char) {
+        if (!char) return '';
+        if (Array.isArray(char.traits) && char.traits.length) return char.traits.join(', ');
+        return char.personality_traits || char.personality || '';
     },
 
     // 构建角色库选择器的 options HTML（按性别分组）
@@ -1455,6 +1428,10 @@ const UI = {
         return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     },
 
+    _attr(str) {
+        return this._esc(str).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    },
+
     // 启用/禁用步骤
     enableStep(stepId) {
         document.getElementById(stepId).classList.remove('disabled');
@@ -1471,6 +1448,26 @@ const UI = {
 
     disableGenerateBtn() {
         document.getElementById('generateBtn').disabled = true;
+    },
+
+    enableDirectGenerateBtn() {
+        const btn = document.getElementById('directGenerateBtn');
+        if (btn) btn.disabled = false;
+    },
+
+    disableDirectGenerateBtn() {
+        const btn = document.getElementById('directGenerateBtn');
+        if (btn) btn.disabled = true;
+    },
+
+    enableDirectorWordBtn() {
+        const btn = document.getElementById('directorWordBtn');
+        if (btn) btn.disabled = false;
+    },
+
+    disableDirectorWordBtn() {
+        const btn = document.getElementById('directorWordBtn');
+        if (btn) btn.disabled = true;
     },
 
     // 显示/隐藏版本命名行
