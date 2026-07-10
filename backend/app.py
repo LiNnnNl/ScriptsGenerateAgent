@@ -60,7 +60,19 @@ class _ScriptPrefixMiddleware:
     def __call__(self, environ, start_response):
         path_info = environ.get("PATH_INFO", "")
         if path_info == "/script":
-            environ["PATH_INFO"] = "/"
+            query_string = environ.get("QUERY_STRING", "")
+            location = "/script/"
+            if query_string:
+                location = f"{location}?{query_string}"
+            start_response(
+                "308 Permanent Redirect",
+                [
+                    ("Location", location),
+                    ("Content-Type", "text/plain; charset=utf-8"),
+                    ("Content-Length", "0"),
+                ],
+            )
+            return [b""]
         elif path_info.startswith("/script/"):
             environ["PATH_INFO"] = path_info[len("/script"):]
         return self.wsgi_app(environ, start_response)
