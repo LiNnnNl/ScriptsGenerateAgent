@@ -370,5 +370,29 @@
       { "id": "Position 3", "camera_group": "A", "description": "舞台前侧，适合主讲、展示、公开宣告或面向观众的关键表达", "is_sittable": false },
       { "id": "Position 4", "camera_group": "B", "description": "评委席，适合评审、提问、裁定、旁观或与舞台角色形成台上台下关系", "is_sittable": true }
     ]
+  },
+  {
+    "id": "OfficeConferenceRoom",
+    "name": "Office Conference Room",
+    "style_tag": "Modern_Realism",
+    "description": "现代办公室中的玻璃会议室，由会议桌讨论区与演示屏展示区组成，适合提案汇报、内部复盘、客户会谈与多角色博弈场景。",
+    "camera_groups": [
+      {
+        "id": "A",
+        "name": "会议桌讨论区",
+        "position_ids": ["Position 1", "Position 2"]
+      },
+      {
+        "id": "B",
+        "name": "演示屏展示区",
+        "position_ids": ["Position 3", "Position 4"]
+      }
+    ],
+    "valid_positions": [
+      { "id": "Position 1", "camera_group": "A", "description": "会议桌左侧主位，适合主持讨论、发起提案或对关键议题施压", "is_sittable": true },
+      { "id": "Position 2", "camera_group": "A", "description": "会议桌右侧对位，适合回应质询、交换观点或形成平衡对峙", "is_sittable": true },
+      { "id": "Position 3", "camera_group": "B", "description": "演示屏前方，适合站立汇报、展示数据或面对多人公开发言", "is_sittable": false },
+      { "id": "Position 4", "camera_group": "B", "description": "玻璃门入口附近，适合进场打断、旁听等待或临时加入会议", "is_sittable": false }
+    ]
   }
 ]
