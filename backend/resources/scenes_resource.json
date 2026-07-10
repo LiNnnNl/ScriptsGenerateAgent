@@ -370,5 +370,12 @@
       { "id": "Position 3", "camera_group": "A", "description": "舞台前侧，适合主讲、展示、公开宣告或面向观众的关键表达", "is_sittable": false },
       { "id": "Position 4", "camera_group": "B", "description": "评委席，适合评审、提问、裁定、旁观或与舞台角色形成台上台下关系", "is_sittable": true }
     ]
+  },
+  {
+    "id": "Office Conference Room",
+    "name": "办公会议室",
+    "style_tag": "Modern_Realism",
+    "description": "由开放式办公区、会议长桌、等候走廊与靠窗通道组合而成，空间兼具团队协作、正式讨论与短暂停留的功能。适合进行办公交流、会议推进和角色进入会议前后的过渡剧情。",
+    "valid_positions": []
   }
 ]
