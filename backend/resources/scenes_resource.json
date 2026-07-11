@@ -304,7 +304,7 @@
   },
   {
     "id": "LotusTown",
-    "name": "LotusTown",
+    "name": "莲花古镇",
     "style_tag": "Fantasy_3D",
     "description": "莲花小镇，由河边走廊、神坛、雕塑广场、神秘的角落和树屋组成，空间开阔与隐秘并存。",
     "camera_groups": [
@@ -372,27 +372,17 @@
     ]
   },
   {
-    "id": "OfficeConferenceRoom",
-    "name": "Office Conference Room",
+    "id": "Office Conference Room",
+    "name": "办公会议室",
     "style_tag": "Modern_Realism",
-    "description": "现代办公室中的玻璃会议室，由会议桌讨论区与演示屏展示区组成，适合提案汇报、内部复盘、客户会谈与多角色博弈场景。",
-    "camera_groups": [
-      {
-        "id": "A",
-        "name": "会议桌讨论区",
-        "position_ids": ["Position 1", "Position 2"]
-      },
-      {
-        "id": "B",
-        "name": "演示屏展示区",
-        "position_ids": ["Position 3", "Position 4"]
-      }
-    ],
-    "valid_positions": [
-      { "id": "Position 1", "camera_group": "A", "description": "会议桌左侧主位，适合主持讨论、发起提案或对关键议题施压", "is_sittable": true },
-      { "id": "Position 2", "camera_group": "A", "description": "会议桌右侧对位，适合回应质询、交换观点或形成平衡对峙", "is_sittable": true },
-      { "id": "Position 3", "camera_group": "B", "description": "演示屏前方，适合站立汇报、展示数据或面对多人公开发言", "is_sittable": false },
-      { "id": "Position 4", "camera_group": "B", "description": "玻璃门入口附近，适合进场打断、旁听等待或临时加入会议", "is_sittable": false }
-    ]
+    "description": "由开放式办公区、会议长桌、等候走廊与靠窗通道组合而成，空间兼具团队协作、正式讨论与短暂停留的功能。适合进行办公交流、会议推进和角色进入会议前后的过渡剧情。",
+    "valid_positions": []
+  },
+  {
+    "id": "Bedroom",
+    "name": "卧室",
+    "style_tag": "Modern_Realism",
+    "description": "卧眠主区，包含床架、床垫、毛毯、床头柜及台灯、闹钟、留言板等生活物品，空间相对开阔。适合站立或坐于床边的休闲对话，也可作为叙事性场景的主要站位区域。",
+    "valid_positions": []
   }
 ]
