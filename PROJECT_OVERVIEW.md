@@ -104,10 +104,12 @@ ScriptsGenerateAgent/
 3. **构建角色**：有 `custom_characters` 则 `build_custom_characters`，否则交给 AI 自由创作。
 4. **创意阶段**（direct_mode 整体跳过）：
    - **创意会议**：`RoundRobinGroupChat`（ConceptPitch / CharacterVoice / NarrativeArch 三顾问轮流发言，最多 6 条消息或出现 `[AGREE]` 提前终止）。
-   - **分场规划**：`TreatmentAgent` 把会议纪要转成分场大纲（数组长度恰好 = `act_count`）。
-   - **剧本起草**：`DirectorAgent` 输出剧本 JSON 初稿（shot 结构不合规时最多重试 `MAX_SHOT_STRUCT_RETRIES=2` 次）。
+   - **创意摘要**：`MeetingSummaryAgent` 将会议原文压缩为角色、冲突、幕目标、保留项和场景/风格约束；后续阶段不再接收会议全文。
+   - **分场规划**：`TreatmentAgent` 把创意摘要转成分场大纲（数组长度恰好 = `act_count`）。
+   - **剧本起草**：`DirectorAgent` 输出剧本 JSON 初稿（shot 结构不合规时最多重试 `MAX_SHOT_STRUCT_RETRIES=2` 次）；完整请求网络重试耗尽时，自动按幕请求单个 JSON 并按顺序合并。
    - 文学审查 / 对白补写（`CriticAgent` / `DialogueAgent`）。
    - direct_mode 分支：`DirectorAgent_Direct` 经 `_build_direct_draft` 把用户剧本结构化。
+   - 导演 Word 模式：识别到超过 12 个 `S01` 式镜号时，`ShotPlanAgent` 先规划镜号到幕的连续归属，再按 6-8 镜头批量补全；每批经 NDJSON 回传预览，后端按镜号顺序合并。
 5. **时长估算**：按对白字数 + 行数估算影片秒数。
 6. **位置兜底**：`_extract_position_files` 从剧本直接抽 position_plan/detail（无 LLM，摄影未开启时的兜底；摄影默认开启故通常被覆盖）。
 7. **摄影指导**（默认启用，`run_cinematography_pipeline`，详见 §5）：逐幕跑三阶段，产出 camera_script 与含坐标的 position_plan/detail，并回填镜头字段重写剧本。

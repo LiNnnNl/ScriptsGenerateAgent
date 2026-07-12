@@ -28,6 +28,7 @@ class AutoGenStreamBridge:
     def __init__(self):
         self._queue: queue.Queue = queue.Queue()
         self._SENTINEL = object()  # 用于标记流结束
+        self.last_error_details: dict | None = None
 
     def run_in_thread(self, coroutine) -> threading.Thread:
         """
@@ -46,6 +47,14 @@ class AutoGenStreamBridge:
                     'message': f'Pipeline 内部错误: {str(e)}'
                 })
             finally:
+                # Async OpenAI clients may schedule close callbacks when a
+                # pipeline fails. Drain them before closing this thread's loop.
+                pending = [task for task in asyncio.all_tasks(loop) if not task.done()]
+                for task in pending:
+                    task.cancel()
+                if pending:
+                    loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
+                loop.run_until_complete(loop.shutdown_asyncgens())
                 loop.close()
                 self._queue.put(self._SENTINEL)
 
@@ -66,7 +75,13 @@ class AutoGenStreamBridge:
         阻塞等待队列中的事件，直到收到 SENTINEL 信号结束。
         """
         while True:
-            item = self._queue.get()
+            try:
+                item = self._queue.get(timeout=15)
+            except queue.Empty:
+                # Keep Cloudflare and browsers from treating a long model wait
+                # as an idle, closed streaming response.
+                yield '{"type":"heartbeat"}\n'
+                continue
             if item is self._SENTINEL:
                 break
             yield item

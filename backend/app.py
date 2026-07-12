@@ -506,7 +506,11 @@ def generate_script():
         )
         yield from bridge.flask_generator()
 
-    return Response(stream_with_context(generate()), mimetype='application/x-ndjson')
+    return Response(
+        stream_with_context(generate()),
+        mimetype='application/x-ndjson',
+        headers={'Cache-Control': 'no-cache, no-transform', 'X-Accel-Buffering': 'no'},
+    )
 
 
 @app.route('/api/generate_director_word', methods=['POST'])
@@ -520,7 +524,11 @@ def generate_director_word():
         )
         yield from bridge.flask_generator()
 
-    return Response(stream_with_context(generate()), mimetype='application/x-ndjson')
+    return Response(
+        stream_with_context(generate()),
+        mimetype='application/x-ndjson',
+        headers={'Cache-Control': 'no-cache, no-transform', 'X-Accel-Buffering': 'no'},
+    )
 
 
 @app.route('/api/script_content/<filename>', methods=['GET'])

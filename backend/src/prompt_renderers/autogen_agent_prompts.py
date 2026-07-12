@@ -12,6 +12,8 @@ from ..prompt_files.director_agent import director_agent_prompt
 from ..prompt_files.director_agent_direct import director_agent_direct_prompt
 from ..prompt_files.director_agent_word import director_agent_word_prompt
 from ..prompt_files.fixed_dialogues import fixed_dialogues_prompt
+from ..prompt_files.meeting_summary_agent import meeting_summary_agent_prompt
+from ..prompt_files.shot_plan_agent import shot_plan_agent_prompt
 from ..prompt_files.narrative_arch_agent import narrative_arch_agent_prompt
 from ..prompt_files.stash.position_agent_autogen_stash import position_agent_autogen_prompt
 from ..prompt_files.stash.synopsis_agent_stash import synopsis_agent_prompt
@@ -259,6 +261,17 @@ def build_treatment_system_message(act_count: int = 3, script_style_guide: Optio
         act_count=act_count,
         video_style_guide=script_style_guide or build_script_style_context(),
     )
+
+
+def build_meeting_summary_system_message(script_style_guide: Optional[str] = None) -> str:
+    return render_prompt(
+        meeting_summary_agent_prompt,
+        video_style_guide=script_style_guide or build_script_style_context(),
+    )
+
+
+def build_shot_plan_system_message() -> str:
+    return shot_plan_agent_prompt
 
 
 def build_title_system_message() -> str:

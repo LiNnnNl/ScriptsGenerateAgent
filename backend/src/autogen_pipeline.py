@@ -19,8 +19,8 @@ from typing import Any, Dict, List, Optional
 logger = logging.getLogger(__name__)
 
 # 网络错误关键词（用于区分连接抖动 vs 业务错误）
-_NETWORK_ERR_KEYWORDS = ("connection", "timeout", "network", "remotedisconnected", "connect error")
-_STAGE_MAX_RETRIES = 2       # 前置阶段 Agent 最大重试次数
+_NETWORK_ERR_KEYWORDS = ("connection", "timeout", "timed out", "network", "remotedisconnected", "connect error")
+_STAGE_MAX_RETRIES = 3       # 前置阶段 Agent 最大重试次数
 _STAGE_RETRY_BASE_DELAY = 3  # 秒，每次翻倍
 
 from autogen_agentchat.messages import TextMessage, ToolCallExecutionEvent, ModelClientStreamingChunkEvent
@@ -34,6 +34,7 @@ from .autogen_agents import (
     create_concept_agent,
     create_synopsis_agent,
     create_character_bios_agent,
+    create_meeting_summary_agent,
     create_treatment_agent,
     create_title_agent,
     create_director_agent,
@@ -44,6 +45,7 @@ from .autogen_agents import (
     create_character_voice_agent,
     create_narrative_arch_agent,
     is_quota_error,
+    make_model_client,
     make_fallback_model_client,
 )
 from .prompt_renderers.title_generation import build_title_generation_user_prompt
@@ -85,8 +87,74 @@ def _emit_stage_log(
     })
 
 
+def _repair_json_string_escapes(text: str) -> str:
+    """Repair only malformed JSON string escapes without changing semantic content."""
+    repaired: list[str] = []
+    in_string = False
+    escaped = False
+    length = len(text)
+
+    for index, char in enumerate(text):
+        if not in_string:
+            repaired.append(char)
+            if char == '"':
+                in_string = True
+            continue
+
+        if escaped:
+            repaired.append(char)
+            escaped = False
+            continue
+        if char == "\\":
+            repaired.append(char)
+            escaped = True
+            continue
+        if char == '"':
+            next_index = index + 1
+            while next_index < length and text[next_index].isspace():
+                next_index += 1
+            next_char = text[next_index] if next_index < length else ""
+            # A closing quote is followed by a JSON delimiter. Any other quote
+            # inside a string is dialogue/content and must be escaped.
+            if next_char in {",", "]", "}", ":"} or not next_char:
+                repaired.append(char)
+                in_string = False
+            else:
+                repaired.append('\\"')
+            continue
+        if char == "\n":
+            repaired.append("\\n")
+            continue
+        if char == "\r":
+            repaired.append("\\r")
+            continue
+        if char == "\t":
+            repaired.append("\\t")
+            continue
+        repaired.append(char)
+    return "".join(repaired)
+
+
+def _load_json_with_safe_repair(json_str: str) -> Optional[Any]:
+    """Parse JSON, then retry a narrowly-scoped syntax repair for LLM output."""
+    try:
+        return json.loads(json_str)
+    except json.JSONDecodeError as original_error:
+        repaired = _repair_json_string_escapes(json_str)
+        if repaired == json_str:
+            logger.debug("JSON parsing failed without a safe repair candidate: %s", original_error)
+            return None
+        try:
+            parsed = json.loads(repaired)
+        except json.JSONDecodeError as repair_error:
+            logger.debug("JSON parsing failed after safe repair: %s", repair_error)
+            return None
+        logger.info("Recovered malformed LLM JSON by escaping string content.")
+        return parsed
+
+
 def _extract_json_from_text(text: str) -> Optional[list]:
-    """从 Agent 输出文本中提取 JSON 数组"""
+    """从 Agent 输出文本中提取 JSON 数组，并保守修复常见字符串转义错误。"""
     # 尝试提取 markdown 代码块
     match = re.search(r'```json\s*([\s\S]*?)\s*```', text, re.DOTALL)
     if match:
@@ -111,7 +179,7 @@ def _extract_json_from_text(text: str) -> Optional[list]:
         end = max(end_candidates)
         json_str = json_str[start : end + 1]
 
-        result = json.loads(json_str)
+        result = _load_json_with_safe_repair(json_str)
         return result if isinstance(result, list) else None
     except json.JSONDecodeError:
         return None
@@ -126,7 +194,7 @@ def _extract_json_object_from_text(text: str) -> Optional[dict]:
         end = json_str.rfind('}')
         if start == -1 or end == -1:
             return None
-        parsed = json.loads(json_str[start:end + 1])
+        parsed = _load_json_with_safe_repair(json_str[start:end + 1])
         return parsed if isinstance(parsed, dict) else None
     except json.JSONDecodeError:
         return None
@@ -272,6 +340,18 @@ async def _run_director_agent(
     label: str = "DirectorAgent",
 ) -> Optional[list]:
     """运行 DirectorAgent，处理 streaming 事件，返回解析后的 JSON 列表。连接错误时指数退避重试；额度耗尽时换用备用模型。"""
+    system_chars = sum(
+        len(str(getattr(message, "content", "")))
+        for message in getattr(director, "_system_messages", [])
+    )
+    model_args = getattr(getattr(director, "_model_client", None), "_create_args", {})
+    max_output_tokens = model_args.get("max_tokens", 8000) if isinstance(model_args, dict) else 8000
+    request_metrics = {
+        "system_prompt_chars": system_chars,
+        "dynamic_prompt_chars": len(prompt),
+        "total_input_chars": system_chars + len(prompt),
+        "max_output_tokens": max_output_tokens,
+    }
     delay = _STAGE_RETRY_BASE_DELAY
     _quota_switched = False
     for attempt in range(_STAGE_MAX_RETRIES + 1):
@@ -298,7 +378,7 @@ async def _run_director_agent(
                     logger.info("[%s] 原始输出（前500字）: %s", label, raw_content[:500])
                     _emit_stage_log(
                         bridge, 'info', 'direct' if '直接' in label else 'draft', 'director_response',
-                        f'📥 [{label}] 已收到模型输出，正在提取 JSON...'
+                        f'📥 [{label}] 已收到模型输出（{len(raw_content)} 字符），正在提取 JSON...'
                     )
                     if thinking_started:
                         bridge.put_event({'type': 'thinking_done'})
@@ -308,14 +388,25 @@ async def _run_director_agent(
             if not raw_content:
                 _emit_stage_log(
                     bridge, 'warning', 'direct' if '直接' in label else 'draft', 'director_empty',
-                    f'⚠️ [{label}] 模型未返回内容'
+                    f'⚠️ [{label}] 模型未返回内容。请求规模：系统 {system_chars} 字符，动态输入 {len(prompt)} 字符，输出上限 {max_output_tokens} tokens。'
                 )
                 return None
             parsed = _extract_json_from_text(raw_content)
             if parsed is None:
+                code_block = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', raw_content, re.DOTALL | re.IGNORECASE)
+                json_candidate = code_block.group(1) if code_block else raw_content
+                bridge.last_error_details = {
+                    "agent": label,
+                    "error_type": "InvalidOrTruncatedJson",
+                    "response_chars": len(raw_content),
+                    "response_ends_with_array": json_candidate.rstrip().endswith("]"),
+                    "response_is_markdown_code_block": bool(code_block),
+                    "max_output_tokens": max_output_tokens,
+                }
                 _emit_stage_log(
                     bridge, 'warning', 'direct' if '直接' in label else 'draft', 'director_parse_failed',
-                    f'⚠️ [{label}] 未能从模型输出中提取合法 JSON'
+                    f'⚠️ [{label}] 未能从模型输出中提取合法 JSON。已收到 {len(raw_content)} 字符，'
+                    f'输出是否以数组结束：{raw_content.rstrip().endswith("]")}；可能是 JSON 被截断或夹带非 JSON 内容。'
                 )
             else:
                 _emit_stage_log(
@@ -339,11 +430,96 @@ async def _run_director_agent(
                                label, delay, attempt + 1, _STAGE_MAX_RETRIES, e)
                 bridge.put_event({'type': 'thinking_chunk', 'agent': label,
                                   'text': f'\n⚠️ 连接错误，{delay:.0f}s 后重试（{attempt + 1}/{_STAGE_MAX_RETRIES}）...\n'})
+                # Do not reuse the HTTP client that just lost its upstream
+                # connection. A fresh client avoids carrying a broken pool into
+                # the next DirectorAgent attempt.
+                try:
+                    await director._model_client.close()
+                except Exception as close_error:
+                    logger.debug("[%s] Closing failed model client failed: %s", label, close_error)
+                director._model_client = make_model_client()
                 await asyncio.sleep(delay)
                 delay *= 2
+            elif is_network:
+                error_details = {
+                    "agent": label,
+                    "error_type": type(e).__name__,
+                    "error_message": str(e),
+                    "attempts": _STAGE_MAX_RETRIES + 1,
+                    **request_metrics,
+                }
+                bridge.last_error_details = error_details
+                logger.error("[%s] 网络重试耗尽，详情=%s", label, error_details)
+                _emit_stage_log(
+                    bridge, 'error', 'direct' if '直接' in label else 'draft', 'director_network_exhausted',
+                    f'❌ [{label}] 连接重试已耗尽。系统 {system_chars} 字符 + 动态输入 {len(prompt)} 字符，'
+                    f'输出上限 {max_output_tokens} tokens；异常 {type(e).__name__}: {e}。'
+                    '远端在返回响应前断开，无法从本次请求直接判定是输入还是预期输出过大。'
+                )
+                return None
             else:
                 raise
     return None
+
+
+async def _run_director_per_act_fallback(
+    base_prompt: str,
+    bridge: "AutoGenStreamBridge",
+    characters: List[Character],
+    scene: Scene,
+    resource_loader: ResourceLoader,
+    required_character_count: int,
+    act_count: int,
+    user_constraints: List[str],
+    act_scene_map: Optional[Dict[int, Scene]],
+    script_style_guide: Optional[str],
+) -> Optional[list]:
+    """Generate one act per request when the full-script request cannot stay connected."""
+    scenes: list = []
+    for act_index in range(act_count):
+        act_scene = (act_scene_map or {}).get(act_index, scene)
+        per_act_director = create_director_agent(
+            characters,
+            act_scene,
+            resource_loader,
+            required_character_count,
+            act_count=1,
+            user_constraints=user_constraints,
+            act_scene_map={0: act_scene} if act_scene_map else None,
+            script_style_guide=script_style_guide,
+        )
+        label = f"DirectorAgent（单幕降级，第{act_index + 1}/{act_count}幕）"
+        _emit_stage_log(
+            bridge, 'warning', 'draft', 'per_act_fallback',
+            f'⚠️ [剧本起草期] 完整剧本请求失败，改为单幕生成：第 {act_index + 1}/{act_count} 幕。'
+        )
+        per_act_prompt = (
+            f"{base_prompt}\n\n"
+            f"## 单幕生成约束\n"
+            f"现在只生成第 {act_index + 1} 幕，场景为 {act_scene.name}。"
+            "输出 JSON 数组且只能包含 1 个 scene_obj；不要生成或复述其他幕。"
+        )
+        per_act_script = await _run_director_agent(per_act_director, per_act_prompt, bridge, label)
+        if not per_act_script or len(per_act_script) != 1:
+            details = dict(getattr(bridge, "last_error_details", None) or {})
+            details.update({
+                'act': act_index + 1,
+                'expected_scene_count': 1,
+                'received_scene_count': len(per_act_script) if per_act_script else 0,
+                'fallback': 'per_act_json',
+            })
+            bridge.put_event({
+                'type': 'error',
+                'message': f'[DirectorAgent] 单幕降级在第 {act_index + 1} 幕仍未生成有效 JSON。',
+                'details': details,
+            })
+            return None
+        scenes.extend(per_act_script)
+        _emit_stage_log(
+            bridge, 'success', 'draft', 'per_act_complete',
+            f'✅ [剧本起草期] 第 {act_index + 1}/{act_count} 幕单独生成完成。'
+        )
+    return scenes
 
 
 def _direct_collect_scene_characters(scene_obj: Dict, beats: List[Dict], fallback_names: List[str]) -> List[str]:
@@ -927,6 +1103,7 @@ async def run_autogen_pipeline(
     _emit_stage_log(bridge, 'info', 'setup', 'init', '🤖 初始化多 Agent 系统...')
 
     treatment = create_treatment_agent(act_count=act_count, script_style_guide=script_style_guide)
+    meeting_summary_agent = create_meeting_summary_agent(script_style_guide=script_style_guide)
     director = create_director_agent(
         characters, scene, resource_loader, required_character_count, act_count,
         user_constraints=user_constraints,
@@ -950,6 +1127,7 @@ async def run_autogen_pipeline(
     # 阶段化上下文（内存态，不落盘）
     stage_context: Dict[str, Any] = {
         "meeting_minutes": "",
+        "meeting_summary": {},
         "treatment": {},
     }
 
@@ -1028,13 +1206,36 @@ async def run_autogen_pipeline(
         ) if meeting_messages else f"创作方向：{plot_outline or '自由创作'}"
         stage_context["meeting_minutes"] = meeting_transcript
 
+        _emit_stage_log(bridge, 'info', 'meeting_summary', 'start',
+                        '📝 [创意摘要期] 正在提炼会议共识，后续阶段将只使用摘要...')
+        summary_prompt = (
+            f"创作构思：{plot_outline or '（AI 自由创作）'}\n"
+            f"需要生成的幕数：{act_count}\n\n"
+            f"以下是创意会议原文，请压缩为执行简报：\n{meeting_transcript}"
+        )
+        meeting_summary = await _run_stage_agent_json_object(meeting_summary_agent, summary_prompt)
+        if meeting_summary:
+            stage_context["meeting_summary"] = meeting_summary
+            _emit_output(bridge, 'MeetingSummaryAgent', meeting_summary, fmt='stage')
+            _emit_stage_log(bridge, 'success', 'meeting_summary', 'done',
+                            '✅ [创意摘要期] 已生成精简执行简报')
+        else:
+            # Never put the full meeting transcript back into later prompts.
+            stage_context["meeting_summary"] = {
+                "core_premise": (plot_outline or '保持角色动机一致并逐步升级冲突。')[:1200],
+                "director_brief": "根据创作构思生成连贯剧本，并遵守场景与角色约束。",
+            }
+            _emit_stage_log(bridge, 'warning', 'meeting_summary', 'fallback',
+                            '⚠️ [创意摘要期] 摘要生成失败，已使用简短创作构思继续')
+
         # ════════════════════════════════════════════════
-        # 阶段一后半：TreatmentAgent 将会议记录转化为分场大纲
+        # 阶段一后半：TreatmentAgent 将会议摘要转化为分场大纲
         # ════════════════════════════════════════════════
         _emit_stage_log(bridge, 'info', 'treatment', 'start',
-                        '🗂️ [分场规划期] TreatmentAgent 根据会议记录生成分场大纲...')
+                        '🗂️ [分场规划期] TreatmentAgent 根据创意摘要生成分场大纲...')
+        meeting_summary_text = json.dumps(stage_context["meeting_summary"], ensure_ascii=False, indent=2)
         treatment_prompt = (
-            f"以下是创意会议的讨论记录，请据此生成分场大纲：\n\n{meeting_transcript}\n\n"
+            f"以下是创意会议的执行摘要，请据此生成分场大纲：\n\n{meeting_summary_text}\n\n"
             f"指定角色约束：{json.dumps(custom_characters_input, ensure_ascii=False)}\n"
             f"幕数要求：恰好生成 {act_count} 个节拍（beat），JSON 数组长度严格为 {act_count}。\n" \
             + (f"{duration_hint}\n" if duration_hint else "")
@@ -1065,11 +1266,11 @@ async def run_autogen_pipeline(
             )
         base_user_prompt = (
             f"创作想法：{plot_outline or '（AI 自由创作）'}{fixed_dlg_section}\n\n"
-            f"## 创意会议纪要\n{stage_context.get('meeting_minutes', '（无）')}\n\n"
+            f"## 创意会议执行摘要\n{meeting_summary_text}\n\n"
             f"## 分场大纲\n{treatment_summary}\n\n" \
             + (f"{duration_hint}\n" if duration_hint else "")
             + (f"{dialogue_target_hint}\n" if dialogue_target_hint else "")
-            + "请根据以上创意会议纪要和分场大纲生成剧本，直接输出 JSON 格式，不要有其他说明文字。"
+            + "请根据以上创意会议执行摘要和分场大纲生成剧本，直接输出 JSON 格式，不要有其他说明文字。"
         )
 
         draft_script = None
@@ -1081,8 +1282,24 @@ async def run_autogen_pipeline(
             draft_script = await _run_director_agent(director, current_prompt, bridge, label)
 
             if draft_script is None:
-                bridge.put_event({'type': 'error', 'message': '[DirectorAgent] 未能生成有效的 JSON 剧本'})
-                return
+                _emit_stage_log(
+                    bridge, 'warning', 'draft', 'per_act_fallback_start',
+                    '⚠️ [剧本起草期] 完整剧本请求未成功，开始按幕生成 JSON 并合并。'
+                )
+                draft_script = await _run_director_per_act_fallback(
+                    current_prompt,
+                    bridge,
+                    characters,
+                    scene,
+                    resource_loader,
+                    required_character_count,
+                    act_count,
+                    user_constraints,
+                    act_scene_map if multi_scene else None,
+                    script_style_guide,
+                )
+                if draft_script is None:
+                    return
 
             logger.info("[DirectorAgent] 生成完成，场景数=%d（尝试%d）", len(draft_script), shot_attempt + 1)
             _emit_output(bridge, label, draft_script)

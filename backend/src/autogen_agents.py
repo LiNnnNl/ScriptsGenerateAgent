@@ -8,6 +8,7 @@ DirectorAgent 的提示词逻辑从 director_ai.py 的 _build_context_prompt 迁
 import os
 import re
 from typing import Dict, List, Optional
+import httpx
 from autogen_agentchat.agents import AssistantAgent
 from autogen_ext.models.openai import OpenAIChatCompletionClient
 from .resource_loader import ResourceLoader, Character, Scene
@@ -42,6 +43,7 @@ def make_model_client(model: Optional[str] = None) -> OpenAIChatCompletionClient
     api_key = os.getenv("API_KEY")
     base_url = os.getenv("BASE_URL", "https://api.deepseek.com")
     model_name = model or os.getenv("MODEL", "doubao-seed-2-0-lite-260215")
+    max_tokens = max(1, int(os.getenv("MODEL_MAX_TOKENS", "8000")))
 
     if not api_key:
         raise ValueError("需要提供 API_KEY，请在 .env 文件中设置")
@@ -54,10 +56,14 @@ def make_model_client(model: Optional[str] = None) -> OpenAIChatCompletionClient
         model=model_name,
         api_key=api_key,
         base_url=base_url,
-        max_tokens=8000,
+        max_tokens=max_tokens,
         temperature=0.7,
         timeout=300,
-        max_retries=3,
+        # Avoid proxy first-byte timeouts for long-running model responses.
+        http_client=httpx.AsyncClient(trust_env=False),
+        # Pipeline-level retries can report progress to the browser and recreate
+        # a failed connection. Keep the SDK from retrying invisibly in place.
+        max_retries=0,
         model_info={
             "vision": False,
             "function_calling": function_calling,
@@ -76,6 +82,7 @@ def make_fallback_model_client() -> OpenAIChatCompletionClient:
 from .prompt_renderers.autogen_agent_prompts import (
     build_character_bios_system_message,
     build_character_voice_system_message,
+    build_meeting_summary_system_message,
     build_concept_pitch_system_message,
     build_concept_system_message,
     build_critic_system_message,
@@ -84,6 +91,7 @@ from .prompt_renderers.autogen_agent_prompts import (
     build_director_word_system_message,
     build_narrative_arch_system_message,
     build_position_agent_system_message,
+    build_shot_plan_system_message,
     build_synopsis_system_message,
     build_title_system_message,
     build_treatment_system_message,
@@ -199,6 +207,25 @@ def create_treatment_agent(
         name="TreatmentAgent",
         model_client=make_model_client(model),
         system_message=build_treatment_system_message(act_count, script_style_guide=script_style_guide),
+    )
+
+
+def create_meeting_summary_agent(
+    model: Optional[str] = None,
+    script_style_guide: Optional[str] = None,
+) -> AssistantAgent:
+    return AssistantAgent(
+        name="MeetingSummaryAgent",
+        model_client=make_model_client(model),
+        system_message=build_meeting_summary_system_message(script_style_guide=script_style_guide),
+    )
+
+
+def create_shot_plan_agent(model: Optional[str] = None) -> AssistantAgent:
+    return AssistantAgent(
+        name="ShotPlanAgent",
+        model_client=make_model_client(model),
+        system_message=build_shot_plan_system_message(),
     )
 
 

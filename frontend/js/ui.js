@@ -61,6 +61,7 @@ const UI = {
             validation: '技术验证期',
             position_mapping: '位置映射期',
             position_generation: '坐标生成期',
+            director_word: '导演 Word 模式',
             output: '输出阶段'
         };
         const stageLabel = labels[meta.stage] || meta.stage;

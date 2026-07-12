@@ -292,6 +292,20 @@ function handleStreamData(data) {
     } else if (data.type === 'thinking_done') {
         UI.endThinkingStream();
         UI.addLog('thinking', '✅ 思考完成，开始生成剧本...');
+    } else if (data.type === 'partial_result') {
+        const act = data.act || '?';
+        const batch = data.batch || '?';
+        const batchTotal = data.batch_total || '?';
+        UI.addLog(
+            'success',
+            `✅ 第 ${act} 幕，第 ${batch}/${batchTotal} 批完成，已处理 ${data.completed_shots || 0}/${data.total_shots || 0} 镜。`,
+            { stage: 'director_word', phase: 'partial_result' }
+        );
+        UI.addOutputBlock({
+            format: 'script',
+            agent: `第 ${act} 幕 · 第 ${batch}/${batchTotal} 批预览`,
+            data: data.latest_scenes || data.scenes || [],
+        });
     } else if (data.type === 'success') {
         UI.addLog('success', '✅ 剧本生成成功！');
         UI.addLog('success', `📁 剧本文件: ${data.filename}`);

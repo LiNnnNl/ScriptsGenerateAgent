@@ -101,6 +101,7 @@ director_agent_word_prompt = """{char_info}{scene_info}{action_info}
 - JSON 数组长度必须等于幕数要求
 - 每个片段必须包含非空 `shot_description`
 - `current position` 是强制必填字段，每个片段必须列出场景内所有在场角色当前所在的 Position 编号
+- **同一片段内不同角色的 Position 编号必须互不相同，禁止共用站位；`initial position` 也必须一人一位。**
 - `position_descriptions` 必须包含剧本中所有使用到的 Position N 编号
 - 不要输出技术说明，不要输出 Markdown，不要输出 JSON 以外的任何文字
 """
