@@ -11,7 +11,10 @@ from collections import OrderedDict, defaultdict
 from itertools import combinations
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 _THIS_FILE = Path(__file__).resolve()
+load_dotenv(_THIS_FILE.parents[2] / ".env")
 for _candidate_root in (_THIS_FILE.parent, *_THIS_FILE.parents):
     if (_candidate_root / "position_detail_converter.py").exists():
         if str(_candidate_root) not in sys.path:
@@ -108,7 +111,8 @@ class PositionAgent:
         self.layout_map = OrderedDict((layout["layout"], copy.deepcopy(layout)) for layout in self.layouts)
         self.max_layout_people = max((layout["max_people"] for layout in self.layouts), default=1)
 
-        self.api_key = (api_key if api_key is not None else os.environ.get("DEEPSEEK_API_KEY", "")).strip()
+        env_api_key = os.environ.get("API_KEY") or os.environ.get("DEEPSEEK_API_KEY", "")
+        self.api_key = (api_key if api_key is not None else env_api_key).strip()
         self.api_url = (api_url or self.API_URL).strip()
         self.model = (model or self.MODEL).strip()
         self.output_dir = Path(output_dir) if output_dir else Path("Assets") / "Json"
@@ -126,7 +130,7 @@ class PositionAgent:
 
     def call_llm(self, prompt):
         if not self.api_key:
-            raise RuntimeError("DEEPSEEK_API_KEY environment variable is required.")
+            raise RuntimeError("API_KEY must be set in backend/.env.")
 
         # Try to extract system_prompt from the prompt JSON.
         # Each stage now embeds its system prompt in the JSON under "system_prompt".
@@ -3233,8 +3237,8 @@ def main(argv=None):
     parser.add_argument("--position-lib", default=_default_json_path("PositionLib.json"), help="Path to position_lib_json.")
     parser.add_argument(
         "--api-key",
-        default=os.environ.get("DEEPSEEK_API_KEY", ""),
-        help="DeepSeek API key. You can also hardcode a default value here for local testing.",
+        default=os.environ.get("API_KEY") or os.environ.get("DEEPSEEK_API_KEY", ""),
+        help="Optional override. By default API_KEY is loaded from backend/.env.",
     )
     parser.add_argument(
         "--api-url",

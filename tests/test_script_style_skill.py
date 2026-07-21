@@ -10,6 +10,24 @@ if str(BACKEND) not in sys.path:
 
 
 class ScriptStyleSkillTest(unittest.TestCase):
+    def test_all_four_styles_have_actionable_and_distinct_guidance(self):
+        from src.script_style_skill import ScriptStyleSkill
+
+        skill = ScriptStyleSkill()
+        styles = skill.available_styles()
+
+        self.assertEqual(4, len(styles))
+        expected_rules = {
+            "douyin_short": "开篇第一个节拍",
+            "vertical_drama": "幕尾钩子",
+            "film": "人物弧光通过选择及其后果呈现",
+            "standup": "铺垫—升级—兑现—回扣",
+        }
+        for style_id, expected in expected_rules.items():
+            context = skill.render_context("", requested_style_id=style_id)
+            self.assertIn("#### 执行规则", context)
+            self.assertIn(expected, context)
+
     def test_detects_explicit_standup_style(self):
         from src.script_style_skill import ScriptStyleSkill
 
@@ -27,7 +45,8 @@ class ScriptStyleSkillTest(unittest.TestCase):
         self.assertIn("ScriptStyleSkill 剧本风格规则", context)
         self.assertIn("剧本风格已由导演在流程入口统一识别并锁定", context)
         self.assertIn("未明确指定", context)
-        self.assertIn("不得自动把故事收束为善恶有报", context)
+        self.assertIn("不为追求“完整”擅自添加大团圆", context)
+        self.assertIn("用户明确剧情与硬约束 > 用户选择的剧本风格 > 剧情倾向", context)
         self.assertNotIn("get_script_style_rules", context)
 
     def test_button_style_overrides_idea_detection(self):

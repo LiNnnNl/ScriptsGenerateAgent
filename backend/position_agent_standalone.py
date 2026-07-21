@@ -20,7 +20,22 @@ import sys
 import urllib.error
 import urllib.request
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Set
+
+from dotenv import load_dotenv
+
+
+load_dotenv(Path(__file__).resolve().with_name(".env"))
+
+
+def get_api_key_from_env() -> str:
+    """Return the configured model key, preferring the project's API_KEY name."""
+    return (
+        os.environ.get("API_KEY")
+        or os.environ.get("DEEPSEEK_API_KEY")
+        or ""
+    ).strip()
 
 
 def log(message: str) -> None:
@@ -273,9 +288,12 @@ class PositionAgentRunner:
     def resolve_api_key(self) -> str:
         api_key = (self.config.deepseek_api_key or "").strip()
         if not api_key:
-            api_key = (os.environ.get("DEEPSEEK_API_KEY") or "").strip()
+            api_key = get_api_key_from_env()
         if not api_key:
-            raise RuntimeError("DeepSeek API key is empty. Fill the CLI argument or set DEEPSEEK_API_KEY.")
+            raise RuntimeError(
+                "API key is empty. Set API_KEY in backend/.env "
+                "(or DEEPSEEK_API_KEY for legacy setups)."
+            )
         return api_key
 
     def resolve_agent_paths(self) -> AgentPaths:
@@ -879,7 +897,11 @@ def build_argument_parser() -> argparse.ArgumentParser:
         description="Standalone Python PositionAgent pipeline.",
         formatter_class=argparse.RawTextHelpFormatter,
     )
-    parser.add_argument("--deepseek-api-key", default="sk-0638eec01b5f4064830d1594d1ab3857", help="If empty, DEEPSEEK_API_KEY will be used.")
+    parser.add_argument(
+        "--deepseek-api-key",
+        default=None,
+        help="Optional override. By default API_KEY is loaded from backend/.env.",
+    )
     parser.add_argument("--api-url", default="https://api.deepseek.com/chat/completions")
     parser.add_argument("--model", default="deepseek-chat")
     parser.add_argument("--temperature", type=float, default=0.2)
