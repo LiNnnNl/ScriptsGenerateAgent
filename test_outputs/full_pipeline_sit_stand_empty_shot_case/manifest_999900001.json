@@ -1,0 +1,23 @@
+{
+  "session_id": "999900001",
+  "title": "舱门回声",
+  "scene_id": "SpaceStation",
+  "files": {
+    "script": "script_999900001.json",
+    "camera_script": "camera_script_999900001.json",
+    "actors_profile": "actors_profile_999900001.json",
+    "position_plan": "position_plan_999900001.json",
+    "position_detail": "position_detail_999900001.json"
+  },
+  "coverage": [
+    "empty_shot_duration_5s",
+    "sit_down_action",
+    "seated_dialogue",
+    "stand_up_action",
+    "standing_talking_action",
+    "camera_script",
+    "actors_profile",
+    "position_plan",
+    "position_detail"
+  ]
+}

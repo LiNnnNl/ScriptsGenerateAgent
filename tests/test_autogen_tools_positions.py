@@ -28,8 +28,8 @@ class AutogenToolsPositionTest(unittest.TestCase):
                     "what": "两人在天台对话",
                 },
                 "initial position": [
-                    {"character": "林静", "position": "Position 1"},
-                    {"character": "陈屿", "position": "Position 1"},
+                    {"character": "林静", "position": "Position 1", "state": "standing"},
+                    {"character": "陈屿", "position": "Position 1", "state": "standing"},
                 ],
                 "scene": [
                     {
@@ -61,6 +61,19 @@ class AutogenToolsPositionTest(unittest.TestCase):
 
         self.assertFalse(result["valid"])
         self.assertTrue(any("多个角色共用同一站位" in item for item in result["errors"]))
+
+    def test_schema_rejects_missing_initial_state_and_shared_current_position(self):
+        from src.schema import validate_script_position_structure, validate_script_shot_structure
+
+        script = self._script_with_shared_positions()
+        script[0]["initial position"][0].pop("state")
+        result = validate_script_position_structure(script)
+        messages = [message for item in result["errors"] for message in item["errors"]]
+
+        self.assertFalse(result["valid"])
+        self.assertTrue(any("state" in message for message in messages))
+        self.assertTrue(any("current position" in message and "互不相同" in message for message in messages))
+        self.assertFalse(validate_script_shot_structure(script)["valid"])
 
     def test_auto_fix_spreads_shared_positions(self):
         from src.autogen_tools import auto_fix_script, validate_script_constraints

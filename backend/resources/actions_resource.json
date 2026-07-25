@@ -144,6 +144,22 @@
         "file": "Animation\\f05@embar_01.fbx"
     },
     {
+        "trigger": "Sit Down",
+        "description": "从站立状态坐下，身体重心下降并落座，适合角色准备坐在椅子、控制台前或低位平台上。（时长 2.5 秒）",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "ImportedAnimations\\Sit Down.fbx"
+    },
+    {
+        "trigger": "Stand Up",
+        "description": "从坐姿起身站立，身体重心上移并恢复站姿，适合角色结束坐姿对话或准备行动。（时长 2.5 秒）",
+        "compatible_states": [
+            "sitting"
+        ],
+        "file": "ImportedAnimations\\Stand Up.fbx"
+    },
+    {
         "trigger": "Standing Arguing 1",
         "description": "激烈争论，手势频繁，手臂大幅挥动。适合辩论、对抗。（时长 20.8 秒）",
         "compatible_states": [

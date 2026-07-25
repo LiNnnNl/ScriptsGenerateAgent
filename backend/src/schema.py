@@ -1,5 +1,8 @@
 """
-Pydantic schema — shot 字段校验 + position plan 字段校验 + camera_script 字段校验
+Pydantic schema — 剧本站位/shot 字段校验 + position plan 字段校验 + camera_script 字段校验
+
+剧本站位：
+  validate_script_position_structure  强制 initial position.state，且同一数组内不同人物站位唯一
 
 shot 两阶段：
   validate_script_shot_structure  初稿后调用，只查字段是否存在（不校验值）
@@ -16,6 +19,7 @@ from __future__ import annotations
 
 from typing import Any, List, Literal, Optional, Union
 from pydantic import BaseModel, field_validator, model_validator
+from .scene_segments import is_empty_shot
 
 
 VALID_SHOT_BLEND = {
@@ -100,12 +104,158 @@ class SceneBeat(BaseModel):
         return v
 
 
+class InitialPositionEntry(BaseModel):
+    character: str
+    position: str
+    state: str
+
+    @field_validator("character", "position", "state")
+    @classmethod
+    def check_non_empty(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("不得为空")
+        return v
+
+
+class CurrentPositionEntry(BaseModel):
+    character: str
+    position: str
+
+    @field_validator("character", "position")
+    @classmethod
+    def check_non_empty(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("不得为空")
+        return v
+
+
+def _check_unique_character_positions(entries: Any, label: str) -> list[str]:
+    """Reject one Position occupied by two or more distinct characters."""
+    if not isinstance(entries, list):
+        return [f"{label} 必须是数组"]
+
+    occupants: dict[str, list[str]] = {}
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        character = str(entry.get("character") or "").strip()
+        position = str(entry.get("position") or "").strip()
+        if character and position:
+            characters = occupants.setdefault(position, [])
+            if character not in characters:
+                characters.append(character)
+
+    errors = []
+    for position, characters in occupants.items():
+        if len(characters) > 1:
+            errors.append(
+                f"{label} 中不同人物的 position 必须互不相同；"
+                f"{position} 被 {', '.join(characters)} 共用"
+            )
+    return errors
+
+
+def validate_script_position_structure(script: list[dict]) -> dict:
+    """Validate initial states and per-shot character-position uniqueness."""
+    all_errors = []
+    if not isinstance(script, list):
+        return {
+            "valid": False,
+            "errors": [{
+                "scene": -1,
+                "beat": -1,
+                "speaker": "position schema",
+                "errors": ["剧本必须是数组"],
+            }],
+        }
+
+    for si, scene_obj in enumerate(script):
+        if not isinstance(scene_obj, dict):
+            continue
+
+        initial_errors = []
+        initial_positions = scene_obj.get("initial position")
+        if initial_positions is None:
+            initial_errors.append("缺少 initial position 字段")
+        elif not isinstance(initial_positions, list):
+            initial_errors.append("initial position 必须是数组")
+        else:
+            for ii, entry in enumerate(initial_positions):
+                try:
+                    InitialPositionEntry.model_validate(entry)
+                except Exception as exc:
+                    if hasattr(exc, "errors"):
+                        for error in exc.errors():
+                            field = " -> ".join(str(part) for part in error["loc"])
+                            initial_errors.append(
+                                f"initial position[{ii}].{field}: {error['msg']}"
+                            )
+                    else:
+                        initial_errors.append(f"initial position[{ii}]: {exc}")
+            initial_errors.extend(
+                _check_unique_character_positions(initial_positions, "initial position")
+            )
+
+        if initial_errors:
+            all_errors.append({
+                "scene": si,
+                "beat": -1,
+                "speaker": "initial position",
+                "errors": initial_errors,
+            })
+
+        for bi, beat in enumerate(scene_obj.get("scene", []) or []):
+            if not isinstance(beat, dict):
+                continue
+            current_positions = beat.get("current position")
+            if current_positions is None:
+                continue  # 必填性由 JSON spec 校验；此处专注内容与唯一性。
+
+            current_errors = []
+            if not isinstance(current_positions, list):
+                current_errors.append("current position 必须是数组")
+            else:
+                for pi, entry in enumerate(current_positions):
+                    try:
+                        CurrentPositionEntry.model_validate(entry)
+                    except Exception as exc:
+                        if hasattr(exc, "errors"):
+                            for error in exc.errors():
+                                field = " -> ".join(str(part) for part in error["loc"])
+                                current_errors.append(
+                                    f"current position[{pi}].{field}: {error['msg']}"
+                                )
+                        else:
+                            current_errors.append(f"current position[{pi}]: {exc}")
+                current_errors.extend(
+                    _check_unique_character_positions(current_positions, "current position")
+                )
+
+            if current_errors:
+                all_errors.append({
+                    "scene": si,
+                    "beat": bi,
+                    "speaker": beat.get("speaker", str(beat.get("move", ""))),
+                    "errors": current_errors,
+                })
+
+    return {"valid": len(all_errors) == 0, "errors": all_errors}
+
+
 # ─────────────────────────────────────────────
 # 阶段一：结构校验（初稿后，只查字段是否存在）
 # ─────────────────────────────────────────────
 
 def _check_beat_structure(beat: dict) -> list[str]:
     shot = beat.get("shot", "")
+    if is_empty_shot(beat):
+        errors = []
+        if shot != "scene":
+            errors.append("空镜的 shot 必须为 'scene'")
+        missing = {"shot", "shot_blend", "camera", "duration", "actions"} - beat.keys()
+        if missing:
+            errors.append(f"空镜缺少字段: {', '.join(sorted(missing))}")
+        return errors
     if not shot:
         return ["shot 字段缺失或为空"]
     if shot not in ("character", "scene"):
@@ -118,9 +268,9 @@ def _check_beat_structure(beat: dict) -> list[str]:
 
 def validate_script_shot_structure(script: list[dict]) -> dict:
     """
-    初稿后调用。只校验 shot 字段存在性与类型合法性，不校验具体值。
+    初稿后调用。校验站位结构，以及 shot 字段存在性与类型合法性。
     """
-    all_errors = []
+    all_errors = list(validate_script_position_structure(script)["errors"])
     for si, scene_obj in enumerate(script):
         for bi, beat in enumerate(scene_obj.get("scene", [])):
             errs = _check_beat_structure(beat)
@@ -140,6 +290,17 @@ def validate_script_shot_structure(script: list[dict]) -> dict:
 def _check_beat_content(beat: dict) -> list[str]:
     shot = beat.get("shot", "")
     errors: list[str] = []
+    if is_empty_shot(beat):
+        if shot != "scene":
+            errors.append("空镜的 shot 必须为 'scene'")
+        if not beat.get("duration"):
+            errors.append("空镜的 duration 不得为空")
+        if beat.get("actions"):
+            errors.append("空镜的 actions 必须为空数组")
+        if "shot_type" in beat or "Follow" in beat:
+            errors.append("空镜不得包含人物镜头字段 shot_type/Follow")
+        if errors:
+            return errors
     if not shot:
         return ["shot 字段缺失或为空"]
 
@@ -165,7 +326,7 @@ def validate_script_shots(script: list[dict]) -> dict:
     """
     摄影管线完成后调用。校验所有 beat 的 shot 字段值是否合法。
     """
-    all_errors = []
+    all_errors = list(validate_script_position_structure(script)["errors"])
     for si, scene_obj in enumerate(script):
         for bi, beat in enumerate(scene_obj.get("scene", [])):
             errs = _check_beat_content(beat)

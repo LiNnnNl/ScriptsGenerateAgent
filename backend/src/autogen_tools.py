@@ -9,7 +9,8 @@ import json
 import re
 from typing import Any
 from .resource_loader import ResourceLoader, Scene
-from .json_generator import ScriptJSONGenerator
+from .json_generator import ScriptJSONGenerator, normalize_initial_position_states
+from .scene_segments import is_empty_shot, protect_empty_shot
 
 
 def _is_abstract_position(pos_id: str) -> bool:
@@ -325,6 +326,7 @@ def auto_fix_script(script: list, scene: Scene, resource_loader: ResourceLoader)
     - 缺失 actions 字段 → []
     - 无效 action_id → 替换为同 state 下动作库第一个有效动作
     - 缺失 current position → 从上一片段继承（初始位置兜底）
+    - 缺失 initial position.state → 首个动作执行前状态兜底，否则 standing
     - 同一 initial/current position 中多个角色共用同一站位 → 后出现的角色改到未占用 Position
 
     Returns:
@@ -334,6 +336,7 @@ def auto_fix_script(script: list, scene: Scene, resource_loader: ResourceLoader)
     result = copy.deepcopy(script)
 
     for scene_obj in result:
+        scene_obj["initial position"] = normalize_initial_position_states(scene_obj)
         # 用 initial position 初始化位置追踪表
         last_positions: dict = {}
         for entry in scene_obj.get("initial position", []):
@@ -350,13 +353,17 @@ def auto_fix_script(script: list, scene: Scene, resource_loader: ResourceLoader)
 
         for seg in scene_obj.get("scene", []):
             is_move = "move" in seg
+            empty_shot = is_empty_shot(seg)
+
+            if empty_shot:
+                protect_empty_shot(seg, ensure_camera=True)
 
             # ── shot_type ──
-            if not seg.get("shot_type"):
+            if not empty_shot and not seg.get("shot_type"):
                 seg["shot_type"] = "全景" if is_move else "中近景"
 
             # ── Follow ──
-            if "Follow" not in seg or seg["Follow"] is None:
+            if not empty_shot and ("Follow" not in seg or seg["Follow"] is None):
                 seg["Follow"] = 0
 
             # ── shot_blend ──
@@ -448,16 +455,17 @@ def make_validation_tools(resource_loader: ResourceLoader, scene: Scene):
             _validate_constraints,
             description=(
                 "验证剧本 JSON 的技术约束：点位 ID 有效性、动作 ID 有效性、"
-                "动作状态兼容性、同一对白片段的 camera_group 一致性。"
+                "动作状态兼容性、同镜头不同人物站位唯一性、"
+                "同一对白片段的 camera_group 一致性。"
                 "输入为剧本 JSON 字符串，输出为验证结果 JSON 字符串。"
             )
         ),
         FunctionTool(
             _validate_spec,
             description=(
-                "验证剧本 JSON 结构是否符合 scene_json_spec 规范（字段完整性检查）。"
+                "验证剧本 JSON 结构是否符合 scene_json_spec 规范（字段完整性、"
+                "initial position.state、人物站位唯一性检查）。"
                 "输入为剧本 JSON 字符串，输出为验证结果 JSON 字符串。"
             )
         ),
     ]
-

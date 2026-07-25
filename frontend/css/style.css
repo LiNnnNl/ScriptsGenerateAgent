@@ -952,6 +952,13 @@ body {
     flex-wrap: wrap;
     border-bottom: 1px dashed rgba(255,255,255,0.06);
 }
+.ob-beat.ob-empty-shot .ob-speaker {
+    color: #80cbc4;
+}
+.ob-beat.ob-empty-shot .ob-content {
+    color: rgba(128,203,196,0.85);
+    font-style: italic;
+}
 .ob-beat.ob-move {
     color: #78909c;
     font-style: italic;
@@ -1443,6 +1450,11 @@ body {
     padding: 14px 16px;
 }
 
+.sv-beat-empty-shot {
+    border-color: rgba(128,203,196,0.22);
+    background: rgba(128,203,196,0.045);
+}
+
 .sv-speaker {
     font-family: 'Cinzel', serif;
     font-size: 0.85rem;
@@ -1469,6 +1481,31 @@ body {
 
 .sv-content:focus {
     border-color: rgba(212,175,55,0.5);
+}
+
+.sv-empty-shot-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.sv-duration-input {
+    width: 72px;
+    height: 26px;
+    background: rgba(0,0,0,0.28);
+    border: 1px solid rgba(128,203,196,0.3);
+    border-radius: 3px;
+    color: rgba(178,235,242,0.9);
+    font-family: 'Roboto Mono', monospace;
+    font-size: 0.72rem;
+    padding: 3px 7px;
+    outline: none;
+    box-sizing: border-box;
+}
+
+.sv-duration-input:focus {
+    border-color: rgba(128,203,196,0.65);
 }
 
 .sv-meta {
@@ -1608,8 +1645,16 @@ body {
 .sv-del-scene:hover,
 .sv-del-beat:hover { color: #e07070; }
 
-/* 添加对话 / 添加幕按钮 */
+/* 添加对话 / 空镜 / 添加幕按钮 */
+.sv-add-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+}
+
 .sv-add-beat,
+.sv-add-empty-shot,
 .sv-add-scene {
     background: none;
     border: 1px dashed rgba(212,175,55,0.25);
@@ -1620,11 +1665,12 @@ body {
     letter-spacing: 1px;
     padding: 5px 14px;
     cursor: pointer;
-    margin-top: 10px;
+    margin-top: 0;
     transition: all 0.2s;
     display: block;
 }
 .sv-add-beat:hover,
+.sv-add-empty-shot:hover,
 .sv-add-scene:hover {
     border-color: var(--gold);
     color: var(--gold);

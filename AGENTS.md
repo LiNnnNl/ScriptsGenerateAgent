@@ -25,6 +25,7 @@
 - **位置系统权威数据源**：`backend/resources/cinematography/scene_info/*.json` 的 anchors/scene_markers 是**带真实 x/y/z 坐标的物品锚点**，为唯一权威。`scenes_resource.json` 的 `valid_positions`（Position 1~N）是**无坐标的逻辑槽**，旧版，仅作导演点位菜单 + 同框约束 + 校验。
 - **坐标全部由摄影算**：角色站位 x/y/z 由摄影 Stage2（`CinematographyPositionStage`，分组→规划 region+neartarget→`CoordinateSkill` 用锚点坐标 + `LayoutLib.json` 按人数选站位方式）计算得出。Position N 本身不带坐标。
 - **direct_mode（直接生成）**：用户粘已写好的剧本时，跳过头脑风暴/对白补写，由 `DirectorAgent_Direct` 做"结构化不创作"——对白逐字保留、保留每个镜头、按用户「位置」分配 Position N。实现在 `autogen_pipeline.py` 的 `_build_direct_draft` 与 `autogen_agents.py` 的 `build_director_system_message(..., direct_mode=True)`。
+- **空镜协议**：`speaker` 与 `content` 同时为空（且不是 move）的片段为空镜；`shot` 固定为 `scene`、默认 `duration="5s"`、`actions=[]`，不得含 `shot_type`/`Follow`。统一识别与保护逻辑在 `backend/src/scene_segments.py`；文学/对白审查忽略空镜，摄影 Stage 1 只补环境描述、Stage 2 不把它作为人物分组证据、Stage 3 不参与人物镜头分配。
 - 1 幕 = 输出 JSON 数组的 1 个 scene_obj（`autogen_pipeline.py` 数组长度严格 = act_count）；当前全流程只加载一个 scene。
 
 ## auto-mode / 改动风险三级约定

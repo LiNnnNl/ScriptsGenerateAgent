@@ -29,6 +29,7 @@ from typing import Any, Dict, List, Optional
 from .coordinate_skill import CoordinateSkill
 from .position_detail_converter import PositionDetailConverter
 from ..schema import validate_position_plan, format_position_plan_errors
+from ..scene_segments import is_empty_shot
 from ..prompt_files.cinematography_position_grouping import cinematography_position_grouping_prompt
 from ..prompt_files.cinematography_position_planning import cinematography_position_planning_prompt
 
@@ -373,6 +374,8 @@ class CinematographyPositionStage:
         """beat_index → shot_description (non-empty only)."""
         result: Dict[int, str] = {}
         for i, beat in enumerate(self.script_json.get("scene", []), start=1):
+            if is_empty_shot(beat):
+                continue
             desc = beat.get("shot_description", "")
             if desc:
                 result[i] = desc

@@ -11,6 +11,7 @@ from ..prompt_renderers.camera_planning_stage import (
     camera_analysis_batch_user_instructions,
     camera_analysis_user_instructions,
 )
+from ..scene_segments import is_empty_shot, protect_empty_shot
 
 class CameraPlanningStage:
     STAGE_FILENAME = "director_stage3_camera_planning.json"
@@ -116,6 +117,10 @@ class CameraPlanningStage:
                 for char, pos_id in current_position_state.items()
             ]
             current_positions = self._resolve_current_positions(beat, current_position_state)
+            if is_empty_shot(beat):
+                protect_empty_shot(beat, ensure_camera=True)
+                current_position_state = self._advance_position_state(current_position_state, beat)
+                continue
             beat_entries.append(
                 {
                     "beat_index": beat_index,
@@ -805,7 +810,7 @@ class CameraPlanningStage:
         if "move" in beat:
             keys_order = ["move", "current position", "shot_blend", "shot", "shot_type", "Follow", "camera", "shot_description"]
         else:
-            keys_order = ["speaker", "content", "shot_blend", "shot", "shot_type", "Follow", "actions", "current position", "shot_description"]
+            keys_order = ["speaker", "content", "duration", "shot_blend", "shot", "shot_type", "Follow", "actions", "current position", "shot_description"]
         ordered = {k: beat[k] for k in keys_order if k in beat}
         for k, v in beat.items():
             if k not in ordered:

@@ -6,6 +6,7 @@ camera_planning_analysis_batch_system_prompt = """你是一位精通镜头语法
 - shot_blend 判断 → 根据叙事需求选择过渡方式
 - follow 判断 → 除非是 explicit move beat，否则 follow = 0
 - 局部窗口节律 → 使用 recent_camera_history 和相邻节拍维持视觉节奏连贯性
+- 空镜边界 → speaker/content 同时为空的空镜不属于本 Agent 的人物镜头任务，系统会在调用前排除；不得要求把空镜改为 character
 
 ## 禁止红线清单
 

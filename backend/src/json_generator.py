@@ -5,6 +5,33 @@ JSON生成器模块
 
 from typing import List, Dict, Optional
 from .resource_loader import Character, Scene
+from .scene_segments import is_empty_shot, protect_empty_shot
+
+
+def normalize_initial_position_states(scene_obj: Dict) -> List[Dict]:
+    """Ensure every initial-position entry has the character's starting pose."""
+    inferred_states = {}
+    for segment in scene_obj.get("scene", []) or []:
+        if not isinstance(segment, dict):
+            continue
+        for action in segment.get("actions", []) or []:
+            if not isinstance(action, dict):
+                continue
+            character = str(action.get("character") or "").strip()
+            state = str(action.get("state") or "").strip()
+            if character and state and character not in inferred_states:
+                inferred_states[character] = state
+
+    normalized = []
+    for item in scene_obj.get("initial position", []) or []:
+        if not isinstance(item, dict):
+            continue
+        entry = dict(item)
+        character = str(entry.get("character") or "").strip()
+        if not str(entry.get("state") or "").strip():
+            entry["state"] = inferred_states.get(character, "standing")
+        normalized.append(entry)
+    return normalized
 
 
 class ScriptJSONGenerator:
@@ -66,10 +93,13 @@ class ScriptJSONGenerator:
                 # 强制保证字段顺序：scene information → initial position → scene
                 ordered = {
                     "scene information": scene_info_default,
-                    "initial position": scene_obj.get(
-                        "initial position",
-                        [{"character": char.name, "position": ""} for char in self.characters]
-                    ),
+                    "initial position": normalize_initial_position_states({
+                        **scene_obj,
+                        "initial position": scene_obj.get(
+                            "initial position",
+                            [{"character": char.name, "position": ""} for char in self.characters]
+                        ),
+                    }),
                     "scene": normalized_beats,
                 }
                 result.append(ordered)
@@ -100,7 +130,11 @@ class ScriptJSONGenerator:
             {
                 "scene information": scene_info,
                 "initial position": [
-                    {"character": char.name, "position": self.character_positions.get(char.name, "")}
+                    {
+                        "character": char.name,
+                        "position": self.character_positions.get(char.name, ""),
+                        "state": self.character_states.get(char.name, "standing"),
+                    }
                     for char in self.characters
                 ],
                 "scene": final_scene
@@ -113,10 +147,14 @@ class ScriptJSONGenerator:
         # Camera-only fields are written to camera_script; strip them from the main script.
         # Also strip current_position (underscore) — it's an internal processing artifact;
         # the canonical field is "current position" (with space).
-        for field in ("shot", "shot_type", "shot_blend", "Follow", "camera", "current_position"):
+        camera_fields = ("shot", "shot_type", "shot_blend", "Follow", "camera")
+        fields_to_strip = ("current_position",) if preserve_shot_fields else camera_fields + ("current_position",)
+        for field in fields_to_strip:
             seg.pop(field, None)
         for action in seg.get("actions", []):
             action.setdefault("motion_detail", "")
+        if is_empty_shot(seg):
+            protect_empty_shot(seg, ensure_camera=preserve_shot_fields)
         # 情绪分类（规则化，非LLM）
         emotion_info = self.classify_segment(seg, prev)
         seg["emotion"] = emotion_info["emotion"]
@@ -195,6 +233,11 @@ class ScriptJSONGenerator:
 
         return {"emotion": emotion, "confidence": round(confidence, 2), "reason": reason,
                 "intensity": intensity}
+
+    @staticmethod
+    def _is_empty_shot(seg: Dict) -> bool:
+        """空镜：保留 speaker/content 字段，但二者都为空。"""
+        return is_empty_shot(seg)
 
     def _build_title(self, title: str) -> Dict:
         """生成 title 字段模板"""
@@ -299,10 +342,10 @@ class ScriptJSONGenerator:
             action_id = action.get("action")
             
             # 如果是坐下动作，更新状态
-            if action_id == "Interact_Sit_Down":
+            if action_id in ("Interact_Sit_Down", "Sit Down"):
                 self.character_states[char_name] = "sitting"
             # 如果是站起动作，更新状态
-            elif action_id == "Interact_Stand_Up":
+            elif action_id in ("Interact_Stand_Up", "Stand Up"):
                 self.character_states[char_name] = "standing"
         
         # 构建基础结构
@@ -372,6 +415,29 @@ class ScriptJSONGenerator:
                 if "what" not in info:
                     errors.append(f"场景{idx}: 缺少'what'字段")
 
+            # initial position：每个角色必须声明初始姿态，且不得共用站位
+            initial_positions = scene_obj.get("initial position")
+            if not isinstance(initial_positions, list):
+                errors.append(f"场景{idx}: 'initial position'字段必须是数组")
+            else:
+                initial_occupants = {}
+                for pos_idx, entry in enumerate(initial_positions):
+                    if not isinstance(entry, dict):
+                        errors.append(f"场景{idx} initial position[{pos_idx}]: 必须是对象")
+                        continue
+                    if not str(entry.get("state") or "").strip():
+                        errors.append(f"场景{idx} initial position[{pos_idx}]: 缺少非空'state'字段")
+                    character = str(entry.get("character") or "").strip()
+                    position = str(entry.get("position") or "").strip()
+                    if character and position:
+                        initial_occupants.setdefault(position, set()).add(character)
+                for position, characters in initial_occupants.items():
+                    if len(characters) > 1:
+                        errors.append(
+                            f"场景{idx}: initial position 中不同人物不得共用 {position} "
+                            f"（{', '.join(sorted(characters))}）"
+                        )
+
             # 检查scene数组
             if "scene" not in scene_obj:
                 errors.append(f"场景{idx}: 缺少'scene'字段")
@@ -380,6 +446,21 @@ class ScriptJSONGenerator:
             else:
                 # 检查每个场景片段
                 for seg_idx, segment in enumerate(scene_obj["scene"]):
+                    current_occupants = {}
+                    for entry in segment.get("current position", []) or []:
+                        if not isinstance(entry, dict):
+                            continue
+                        character = str(entry.get("character") or "").strip()
+                        position = str(entry.get("position") or "").strip()
+                        if character and position:
+                            current_occupants.setdefault(position, set()).add(character)
+                    for position, characters in current_occupants.items():
+                        if len(characters) > 1:
+                            errors.append(
+                                f"场景{idx}片段{seg_idx}: current position 中不同人物不得共用 "
+                                f"{position}（{', '.join(sorted(characters))}）"
+                            )
+
                     # ── emotion 字段验证 ──
                     # 有 speaker 且有 content 的才是真正台词行（移动行跳过）
                     is_dialogue = segment.get("speaker") and segment.get("content")
@@ -414,6 +495,11 @@ class ScriptJSONGenerator:
                             errors.append(f"场景{idx}片段{seg_idx}: 缺少'speaker'字段")
                         if "content" not in segment:
                             errors.append(f"场景{idx}片段{seg_idx}: 缺少'content'字段")
+                        empty_shot = is_empty_shot(segment)
+                        if empty_shot and not segment.get("duration"):
+                            errors.append(f"场景{idx}片段{seg_idx}: 空镜缺少'duration'字段")
+                        if empty_shot and segment.get("shot") not in (None, "scene"):
+                            errors.append(f"场景{idx}片段{seg_idx}: 空镜的'shot'必须为'scene'")
                         if "shot" not in segment:
                             warnings.append(f"场景{idx}片段{seg_idx}: 缺少'shot'字段")
                         if "actions" not in segment:
@@ -426,4 +512,3 @@ class ScriptJSONGenerator:
             "errors": errors,
             "warnings": warnings
         }
-

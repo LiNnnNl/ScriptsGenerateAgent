@@ -24,6 +24,7 @@ class DirectModeTests(unittest.TestCase):
         self.assertEqual(["陈屿", "林静"], normalized["scene information"]["who"])
         self.assertEqual("太空站", normalized["scene information"]["where"])
         self.assertEqual(2, len(normalized["initial position"]))
+        self.assertTrue(all(item["state"] == "standing" for item in normalized["initial position"]))
         self.assertIn("Position 1", normalized["position_descriptions"])
         self.assertIn("Position 2", normalized["position_descriptions"])
 
@@ -105,9 +106,9 @@ class DirectModeTests(unittest.TestCase):
         self.assertTrue(normalized.pop("_direct_position_repair_applied"))
         self.assertEqual(
             [
-                {"character": "陈屿", "position": "Position 1"},
-                {"character": "林静", "position": "Position 2"},
-                {"character": "老赵", "position": "Position 3"},
+                {"character": "陈屿", "position": "Position 1", "state": "standing"},
+                {"character": "林静", "position": "Position 2", "state": "standing"},
+                {"character": "老赵", "position": "Position 3", "state": "standing"},
             ],
             normalized["initial position"],
         )
@@ -148,6 +149,37 @@ class DirectModeTests(unittest.TestCase):
                 {"character": "林静", "position": "Position 2"},
             ],
             normalized["scene"][0]["current position"],
+        )
+
+    def test_initial_state_is_preserved_or_inferred_from_first_action(self):
+        normalized = _normalize_direct_scene(
+            {
+                "scene information": {"who": ["尚博勒", "贤者"]},
+                "initial position": [
+                    {"character": "尚博勒", "position": "Position 15", "state": "sitting"},
+                    {"character": "贤者", "position": "Position 16"},
+                ],
+                "scene": [
+                    {
+                        "speaker": "贤者",
+                        "content": "躲什么？",
+                        "actions": [
+                            {"character": "贤者", "state": "standing", "action": "Sit Down"}
+                        ],
+                    }
+                ],
+            },
+            fallback_names=[],
+            scene_name="LotusTown",
+            what_snippet="测试初始姿态",
+        )
+
+        self.assertEqual(
+            [
+                {"character": "尚博勒", "position": "Position 15", "state": "sitting"},
+                {"character": "贤者", "position": "Position 16", "state": "standing"},
+            ],
+            normalized["initial position"],
         )
 
 
