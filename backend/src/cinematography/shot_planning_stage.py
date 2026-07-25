@@ -15,6 +15,7 @@ from ..prompt_renderers.shot_planning_stage import (
     shot_combined_user_instructions,
     shot_description_user_instructions,
 )
+from ..scene_segments import is_empty_shot, protect_empty_shot
 
 class ShotPlanningStage:
     STAGE_FILENAME = "director_stage1_shot_planning.json"
@@ -156,9 +157,11 @@ class ShotPlanningStage:
                     description_raw,
                     request["current_positions"],
                     fallback_description,
+                    empty_shot=is_empty_shot(request["beat"]),
                 )
 
                 request["beat"]["shot_description"] = shot_description
+                protect_empty_shot(request["beat"], ensure_camera=True)
                 self.analysis_results.append(
                     {
                         "beat_index": request["beat_index"],
@@ -415,12 +418,27 @@ class ShotPlanningStage:
                 "move": self._normalize_moves(beat.get("move")),
                 "current_position": current_positions,
                 "existing_shot_description": self._stringify(beat.get("shot_description")),
+                "is_empty_shot": is_empty_shot(beat),
+                "duration": beat.get("duration") if is_empty_shot(beat) else None,
             },
             "next_line": self._summarize_neighbor_beat(next_beat),
             "context_window_after": self._summarize_context_window(scene, beat_index, before=False),
         }
 
     def _normalize_line_analysis(self, raw_output, line_payload, fallback):
+        if line_payload["current_line"].get("is_empty_shot"):
+            return {
+                "focus_character": "",
+                "interaction_type": "idle",
+                "present_characters": [],
+                "main_interaction_characters": [],
+                "character_states": [],
+                "group_structure": "isolated",
+                "transition_type": "none",
+                "entering_characters": [],
+                "exiting_characters": [],
+                "upcoming_active_characters": [],
+            }
         present_characters = [item["character"] for item in line_payload["current_line"]["current_position"]]
         candidate = raw_output if isinstance(raw_output, dict) else {}
         focus_character = self._coerce_character_name(candidate.get("focus_character"), present_characters, fallback["focus_character"])
@@ -517,12 +535,12 @@ class ShotPlanningStage:
             "upcoming_active_characters": upcoming_active,
         }
 
-    def _normalize_shot_description(self, raw_output, current_positions, fallback):
+    def _normalize_shot_description(self, raw_output, current_positions, fallback, empty_shot=False):
         candidate = ""
         if isinstance(raw_output, dict):
             candidate = raw_output.get("shot_description") or raw_output.get("description") or ""
         candidate = self._clean_description(candidate)
-        if not self._is_valid_shot_description(candidate, current_positions):
+        if not self._is_valid_shot_description(candidate, current_positions, empty_shot=empty_shot):
             candidate = self._clean_description(fallback)
         return candidate
 
@@ -546,11 +564,13 @@ class ShotPlanningStage:
             result[beat_index] = item
         return result
 
-    def _is_valid_shot_description(self, text, current_positions):
+    def _is_valid_shot_description(self, text, current_positions, empty_shot=False):
         if not text or "\n" in text:
             return False
         if self._count_sentences(text) < 1 or self._count_sentences(text) > 2:
             return False
+        if empty_shot:
+            return True
         present_characters = [item["character"] for item in current_positions if item.get("character")]
         if any(character not in text for character in present_characters):
             return False
@@ -559,6 +579,19 @@ class ShotPlanningStage:
         return any(keyword in lowered or keyword in text for keyword in spatial_keywords)
 
     def _fallback_line_analysis(self, beat, line_payload):
+        if is_empty_shot(beat):
+            return {
+                "focus_character": "",
+                "interaction_type": "idle",
+                "present_characters": [],
+                "main_interaction_characters": [],
+                "character_states": [],
+                "group_structure": "isolated",
+                "transition_type": "none",
+                "entering_characters": [],
+                "exiting_characters": [],
+                "upcoming_active_characters": [],
+            }
         current_positions = line_payload["current_line"]["current_position"]
         present_characters = [item["character"] for item in current_positions]
         speaker = self._stringify(beat.get("speaker"))
@@ -710,6 +743,9 @@ class ShotPlanningStage:
         }
 
     def _fallback_shot_description(self, line_payload, line_analysis):
+        if line_payload["current_line"].get("is_empty_shot"):
+            existing = line_payload["current_line"].get("existing_shot_description")
+            return existing or "The frame holds on the surrounding environment with no character as its subject."
         states = line_analysis["character_states"]
         if not states:
             return "The frame stays centered on the empty space with no visible characters."

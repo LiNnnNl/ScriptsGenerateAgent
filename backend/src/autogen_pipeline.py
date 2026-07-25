@@ -53,7 +53,8 @@ from .autogen_tools import validate_script_constraints, validate_json_spec, auto
 from .resource_loader import ResourceLoader, Character, Scene
 from .script_style_skill import ScriptStyleSkill
 from .script_tone_skill import ScriptToneSkill
-from .json_generator import ScriptJSONGenerator
+from .json_generator import ScriptJSONGenerator, normalize_initial_position_states
+from .scene_segments import is_empty_shot, protect_empty_shot, protect_empty_shots
 from .cinematography import run_cinematography_pipeline
 from .schema import (
     validate_script_shot_structure,
@@ -232,6 +233,8 @@ def _filter_script_for_review(script: list) -> str:
         for seg in scene_obj.get("scene", []):
             if "move" in seg:
                 continue  # 移动片段不需要审查
+            if is_empty_shot(seg):
+                continue  # 空镜不是对白，文学/对白 Agent 不得改写
             filtered_scene["scene"].append({
                 "speaker": seg.get("speaker", ""),
                 "content": seg.get("content", ""),
@@ -607,9 +610,18 @@ def _direct_positions_are_collapsed(scene_obj: Dict, who: List[str]) -> bool:
 
 def _spread_direct_collapsed_positions(scene_obj: Dict, who: List[str], scene_name: str) -> None:
     """Spread collapsed Position 1/1/1 style assignments into stable per-character slots."""
+    state_by_character = {
+        str(item.get("character") or "").strip(): str(item.get("state") or "").strip()
+        for item in scene_obj.get("initial position", []) or []
+        if isinstance(item, dict) and str(item.get("character") or "").strip()
+    }
     slot_by_character = {name: f"Position {index}" for index, name in enumerate(who, start=1)}
     scene_obj["initial position"] = [
-        {"character": name, "position": slot_by_character[name]}
+        {
+            "character": name,
+            "position": slot_by_character[name],
+            "state": state_by_character.get(name) or "standing",
+        }
         for name in who
     ]
 
@@ -690,11 +702,14 @@ def _normalize_direct_scene(scene_obj: Dict, fallback_names: List[str], scene_na
     normalized_beats: List[Dict] = []
     for beat in beats:
         has_move = "move" in beat
+        empty_shot = is_empty_shot(beat)
         if has_move and isinstance(beat.get("move"), dict):
             beat["move"] = [beat["move"]]
 
         if not beat.get("shot"):
-            beat["shot"] = "scene" if has_move else "character"
+            beat["shot"] = "scene" if has_move or empty_shot else "character"
+        if empty_shot:
+            protect_empty_shot(beat, ensure_camera=True)
         if not beat.get("shot_blend"):
             beat["shot_blend"] = "Cut"
         if beat["shot"] == "scene":
@@ -728,6 +743,7 @@ def _normalize_direct_scene(scene_obj: Dict, fallback_names: List[str], scene_na
                 current_positions[move["character"]] = move["destination"]
 
     scene_obj["scene"] = normalized_beats
+    scene_obj["initial position"] = normalize_initial_position_states(scene_obj)
     if _direct_positions_are_collapsed(scene_obj, who):
         _spread_direct_collapsed_positions(scene_obj, who, scene_name)
         scene_obj["_direct_position_repair_applied"] = True
@@ -1144,6 +1160,7 @@ async def run_autogen_pipeline(
             script_style_guide=script_style_guide,
         )
         draft_script = await _build_direct_draft(creative_idea, characters, scene, bridge, direct_director)
+        protect_empty_shots(draft_script, ensure_camera=True)
     else:
         # ════════════════════════════════════════════════
         # 阶段一：创意会议（ConceptPitch / CharacterVoice / NarrativeArch 轮流发言）
@@ -1301,6 +1318,8 @@ async def run_autogen_pipeline(
                 if draft_script is None:
                     return
 
+            protect_empty_shots(draft_script, ensure_camera=True)
+
             logger.info("[DirectorAgent] 生成完成，场景数=%d（尝试%d）", len(draft_script), shot_attempt + 1)
             _emit_output(bridge, label, draft_script)
 
@@ -1393,6 +1412,7 @@ async def run_autogen_pipeline(
                 + "\n".join(revision_parts)
                 + "\n\n重要：\n"
                 "- 每个角色动作的 `motion_detail` 字段必须保留原有内容，不得将其置为空字符串。\n"
+                "- 空镜（speaker/content 同时为空）必须原样保留；shot 固定为 `scene`，不得补台词、人物动作或人物镜头字段。\n"
                 + ("".join(f"- 用户约束：{c}（不得违背）\n" for c in user_constraints) if user_constraints else "")
                 + ("".join(f"- 固定对白（不得修改）：{d['speaker']}：{d['content']}\n" for d in fixed_dialogues) if fixed_dialogues else "")
                 + (f"- 目标对白行数：至少 {target_dialogue_lines} 行，当前不足请扩充。\n" if target_dialogue_lines else "")
@@ -1431,6 +1451,7 @@ async def run_autogen_pipeline(
                 bridge.put_event({'type': 'thinking_done'})
 
             if revised_script:
+                protect_empty_shots(revised_script, ensure_camera=True)
                 draft_script = revised_script
                 _emit_stage_log(
                     bridge, 'success', 'review', 'revise_result',
@@ -1487,6 +1508,7 @@ async def run_autogen_pipeline(
         _emit_stage_log(bridge, 'info', 'validation', 'autofix', '🔧 [技术验证期] 执行自动修复...')
 
         draft_script = auto_fix_script(draft_script, scene, resource_loader)
+        protect_empty_shots(draft_script, ensure_camera=True)
 
         # 修复后二次验证，确认结果
         constraints_result = validate_script_constraints(draft_script, scene, resource_loader)
@@ -1544,6 +1566,7 @@ async def run_autogen_pipeline(
                 f"当前剧本对白行数不足。当前共 {actual_lines} 行，目标至少 {target_dialogue_lines} 行。\n"
                 f"请在不修改已有对白的前提下，"
                 f"在每个幕中**增加自然的对白**，让对话更丰富、更符合现实主义风格。\n"
+                f"已有空镜必须原样保留，禁止为空镜补写 speaker/content 或改成人物镜头。\n"
                 f"新增的对白必须：\n"
                 f"1. 口语化、有停顿感、有角色个人特征\n"
                 f"2. 推动情节或揭示人物关系\n"
@@ -1564,6 +1587,7 @@ async def run_autogen_pipeline(
                 _emit_stage_log(bridge, 'warning', 'dialogue_fill', 'error',
                                 f'⚠️ [对白补写] 补写请求失败，保留原始剧本: {_e}')
             if filled_script:
+                protect_empty_shots(filled_script, ensure_camera=True)
                 # 补写结果仍需经过 generator 规范化（补充 emotion 字段等）
                 final_json = generator.generate_final_json(filled_script, plot_summary, act_scene_ids=act_scene_ids)
                 new_lines = sum(
@@ -1583,8 +1607,20 @@ async def run_autogen_pipeline(
 
     # 计算剧本估算时长（基于对白长度）
     def _calc_duration(script_json: list) -> dict:
+        def _parse_duration_secs(value) -> float:
+            if isinstance(value, (int, float)):
+                return max(0.0, float(value))
+            text = str(value or "").strip().lower()
+            m = re.match(r'^(\d+(?:\.\d+)?)\s*(分钟|min|mins?|分|秒(?:钟)?|seconds?|sec|s)?$', text)
+            if not m:
+                return 5.0
+            amount = float(m.group(1))
+            unit = m.group(2) or "s"
+            return amount * 60 if unit in ("分钟", "min", "mins", "分") else amount
+
         total_chars = 0
         total_lines = 0
+        empty_shot_secs = 0.0
         for scene in script_json:
             for line in scene.get('scene', []):
                 speaker = line.get('speaker', '') or ''
@@ -1592,15 +1628,18 @@ async def run_autogen_pipeline(
                 if speaker and content:
                     total_lines += 1
                     total_chars += len(content)
+                elif 'speaker' in line and 'content' in line and not str(speaker).strip() and not str(content).strip():
+                    empty_shot_secs += _parse_duration_secs(line.get('duration', '5s'))
         # 按每字5字符/秒估算，附加场景/动作描述用时
         dialogue_secs = total_chars / 5
         # 场景切换、动作描述额外时间（按行数*3秒估算）
         scene_secs = total_lines * 3
-        estimated_secs = dialogue_secs + scene_secs
+        estimated_secs = dialogue_secs + scene_secs + empty_shot_secs
         return {
             'estimated_duration_seconds': round(estimated_secs),
             'dialogue_lines': total_lines,
             'dialogue_chars': total_chars,
+            'empty_shot_seconds': round(empty_shot_secs),
         }
 
     duration_info = _calc_duration(final_json)
@@ -1636,6 +1675,7 @@ async def run_autogen_pipeline(
             )
             if cine_result.get("ok"):
                 draft_script = cine_result["enriched_script"]
+                protect_empty_shots(draft_script, ensure_camera=True)
                 camera_script_filename = cine_result.get("camera_script_filename")
                 position_plan_filename = cine_result.get("position_plan_filename")
                 position_detail_filename = cine_result.get("position_detail_filename")

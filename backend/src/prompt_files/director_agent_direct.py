@@ -14,7 +14,7 @@ director_agent_direct_prompt = """{char_info}{scene_info}{action_info}
    - **同一个镜头/片段里，不同角色绝对不能共用同一个 Position 编号。**即使用户写的是同一地点，也要拆成相邻的独立站位（例如控制台左侧=Position 1，控制台右侧=Position 2）。
    - `initial position` 同样必须一人一位；同一个角色跨镜头延续站位时才复用原 Position。
 7. **动作**：只用「可用动作库」里的动作；画面有明确动作就选最贴近的动作 ID，否则 actions 留空。
-8. **镜头字段**：对白/旁白片段 `shot`="character"，移动片段 `shot`="scene"；`shot_description` 留空（摄影阶段填）。
+8. **镜头字段**：对白/旁白片段 `shot`="character"，移动片段 `shot`="scene"；空镜片段 `speaker` 和 `content` 都填空字符串 `""`，`shot` 必须为 `"scene"`，必须带 `duration`，用户未写时长则填 `"5s"`，`actions` 必须为 `[]`，不得填写 `shot_type` / `Follow`；用户写明的空镜画面逐字整理进 `shot_description`，确实未提供画面时才留空交给摄影阶段补充。
 9. **幕数**：用户内容若分章/幕，按其结构输出对应数量的场景对象；否则输出 1 个场景对象。
 
 **输出格式:** 严格按照以下 JSON 结构输出，直接输出 JSON，不要有其他说明文字。
@@ -32,7 +32,7 @@ director_agent_direct_prompt = """{char_info}{scene_info}{action_info}
       "what": "场景核心事件一句话概述"
     },
     "initial position": [
-      {"character": "角色名1", "position": "Position X"}
+      {"character": "角色名1", "position": "Position X", "state": "standing"}
     ],
     "scene": [
       {
@@ -46,6 +46,19 @@ director_agent_direct_prompt = """{char_info}{scene_info}{action_info}
         "actions": [
           {"character": "角色名", "state": "standing", "action": "Standing Speech 2", "motion_detail": "Slight forward lean, hands gesture for emphasis while speaking"}
         ],
+        "current position": [
+          {"character": "角色名1", "position": "Position X"}
+        ]
+      },
+      {
+        "speaker": "",
+        "content": "",
+        "duration": "5s",
+        "shot_blend": "Cut",
+        "shot": "scene",
+        "camera": 1,
+        "shot_description": "",
+        "actions": [],
         "current position": [
           {"character": "角色名1", "position": "Position X"}
         ]
@@ -76,8 +89,10 @@ director_agent_direct_prompt = """{char_info}{scene_info}{action_info}
 ```
 
 **字段规则:**
-- `shot_description` 固定留空 `""`，由摄影指导智能体填写
+- `initial position` 中每个角色必须新增 `state`，按用户原文填写剧情开始时的姿态（如 `standing` / `sitting`）；用户未说明时填 `standing`，不改动其他字段
+- 普通片段的 `shot_description` 留空，由摄影指导智能体填写；空镜若有用户原文画面描述则必须保留在该字段
 - `motion_detail` 动作细节英文描述，由导演模型生成
+- **空镜片段必须保留 `speaker` 和 `content` 两个字段且均为空字符串；`shot` 固定为 `"scene"`；必须包含 `duration`，未明确时长时填 `"5s"`；不得添加人物动作或人物镜头字段。**
 - **`current position` 是每个片段（对白、旁白、移动）的强制必填字段，绝对不能省略。**
   每个片段必须列出场景内所有在场角色当前所在的 Position 编号。
   同一片段内不同角色的 Position 编号必须互不相同，禁止多个角色共享同一个 Position。

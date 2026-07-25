@@ -53,6 +53,7 @@ director_agent_word_prompt = """{char_info}{scene_info}{action_info}
 8. **镜头字段**:
    - 对白、旁白、叙事片段：`shot` 填 `"character"`
    - 移动或环境过场片段：`shot` 填 `"scene"`
+   - 空镜：`speaker` 与 `content` 同时填 `""`，`shot` 固定为 `"scene"`，`duration` 默认 `"5s"`，`actions` 固定为 `[]`，具体环境画面写入 `shot_description`，不得填写 `shot_type` / `Follow`
    - `shot_type` 必须从以下选项中选择：{shot_types_str}
    - `shot_blend` 从 `"Cut"` / `"Ease In Out"` / `"Ease In"` / `"Ease Out"` / `"Hard In"` / `"Hard Out"` / `"Linear"` / `"Custom"` 中选择
    - `Follow` 填 0 或 1
@@ -72,8 +73,8 @@ director_agent_word_prompt = """{char_info}{scene_info}{action_info}
       "what": "本幕核心事件一句话概述"
     },
     "initial position": [
-      {"character": "角色名1", "position": "Position 1"},
-      {"character": "角色名2", "position": "Position 2"}
+      {"character": "角色名1", "position": "Position 1", "state": "standing"},
+      {"character": "角色名2", "position": "Position 2", "state": "sitting"}
     ],
     "scene": [
       {
@@ -98,6 +99,7 @@ director_agent_word_prompt = """{char_info}{scene_info}{action_info}
 ```
 
 **字段规则:**
+- `initial position` 中每个角色必须新增 `state`，填写剧情开始时的姿态（如 `standing` / `sitting`）；其他字段保持不变
 - JSON 数组长度必须等于幕数要求
 - 每个片段必须包含非空 `shot_description`
 - `current position` 是强制必填字段，每个片段必须列出场景内所有在场角色当前所在的 Position 编号

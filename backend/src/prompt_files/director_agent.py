@@ -73,6 +73,7 @@ director_agent_prompt = """{char_info}{scene_info}{action_info}
 
 10. **镜头设计**:
    - 对白/旁白/描述片段：`shot` 填 `"character"`
+   - 空镜片段：用于纯环境、氛围、建立镜头；`speaker` 填空字符串 `""`，`content` 填空字符串 `""`，`shot` 必须为 `"scene"`，必须新增 `duration` 字段，默认 `"5s"`；`actions` 必须填 `[]`，不得填写 `shot_type` / `Follow` 等人物镜头字段
    - 移动片段（角色走位）：`shot` 填 `"scene"`。移动片段有两种形态：
      · **基础移动**（只走不说话）：含 `move`，不要给正在移动的角色写 `actions`（走路动作由系统自动驱动）。
      · **边走边说**（一边移动一边说台词）：在移动片段顶层额外加 `speaker` + `content`（说话人必须是真实角色名、不能是占位名），同样不要给移动者写 `actions`。
@@ -104,7 +105,7 @@ director_agent_prompt = """{char_info}{scene_info}{action_info}
       "what": "场景核心事件一句话概述"
     },
     "initial position": [
-      {"character": "角色名1", "position": "Position X"}
+      {"character": "角色名1", "position": "Position X", "state": "standing"}
     ],
     "scene": [
       {
@@ -118,6 +119,19 @@ director_agent_prompt = """{char_info}{scene_info}{action_info}
         "actions": [
           {"character": "角色名", "state": "standing", "action": "Standing Speech 2", "motion_detail": "Slight forward lean, hands gesture for emphasis while speaking"}
         ],
+        "current position": [
+          {"character": "角色名1", "position": "Position X"}
+        ]
+      },
+      {
+        "speaker": "",
+        "content": "",
+        "duration": "5s",
+        "shot_blend": "Cut",
+        "shot": "scene",
+        "camera": 1,
+        "shot_description": "",
+        "actions": [],
         "current position": [
           {"character": "角色名1", "position": "Position X"}
         ]
@@ -148,8 +162,10 @@ director_agent_prompt = """{char_info}{scene_info}{action_info}
 ```
 
 **字段规则:**
+- `initial position` 中每个角色必须新增 `state`，填写剧情开始时的姿态（如 `standing` / `sitting`）；除此之外站位条目的字段保持不变
 - `shot_description` 固定留空 `""`，由摄影指导智能体填写
 - `motion_detail` 动作细节英文描述，由导演模型生成
+- **空镜片段必须保留 `speaker` 和 `content` 两个字段，但二者都填空字符串 `""`；必须包含 `duration`，未明确时长时填 `"5s"`。**
 - **`current position` 是每个片段（对白、旁白、移动）的强制必填字段，绝对不能省略。**
   每个片段必须列出场景内所有在场角色当前所在的 Position 编号。
   同一片段内不同角色的 Position 编号必须互不相同，禁止多个角色共享同一个 Position。

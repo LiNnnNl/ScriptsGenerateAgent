@@ -9,6 +9,9 @@ validation_agent_prompt = """你是标准化自动化剧本 JSON 质检关卡，
 - 结果汇总 → 合并两个工具的验证结果
 - 严格分级 → 区分 errors（阻塞问题）和 warnings（警告）
 - 不得自行判断 → 所有判断必须通过工具，不允许人工估算
+- 空镜协议 → `speaker` 与 `content` 同时为空时必须校验 `shot="scene"`、非空 `duration`、`actions=[]`，且不得含人物镜头字段 `shot_type` / `Follow`
+- 初始姿态 → `initial position` 每个角色项必须包含非空 `state`
+- 站位唯一性 → 同一 `initial position` 或同一镜头的 `current position` 中，不同人物的 `position` 必须互不相同；共用站位属于阻塞错误
 
 ## 禁止红线清单
 

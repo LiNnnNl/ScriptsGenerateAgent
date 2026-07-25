@@ -1,0 +1,22 @@
+{
+  "where": "SpaceStation",
+  "groups": [
+    {
+      "position_id": "Position 1",
+      "group_id": "group_console_dialogue",
+      "region": "ControlConsoleArea",
+      "character": "林静",
+      "layout": "two_person",
+      "lookat": "center"
+    },
+    {
+      "position_id": "Position 2",
+      "group_id": "group_console_dialogue",
+      "region": "ControlConsoleArea",
+      "character": "陈屿",
+      "layout": "two_person",
+      "lookat": "center"
+    }
+  ],
+  "singles": []
+}

@@ -72,13 +72,21 @@ def export_script_to_word(script_data: list, output_path: Path) -> None:
             speaker = seg.get("speaker", "")
             content = seg.get("content", "")
             shot_desc = seg.get("shot_description", "")
+            is_empty_shot = "speaker" in seg and "content" in seg and not str(speaker).strip() and not str(content).strip()
 
-            if not speaker and not content:
+            if not speaker and not content and not is_empty_shot:
                 continue
 
             # 对话行
             p = doc.add_paragraph()
-            if speaker:
+            if is_empty_shot:
+                duration = seg.get("duration") or "5s"
+                empty_run = p.add_run(f"[空镜] {duration}")
+                empty_run.bold = True
+                empty_run.font.size = Pt(10.5)
+                empty_run.font.color.rgb = RGBColor(0x88, 0x88, 0x88)
+                _set_chinese_font(empty_run)
+            elif speaker:
                 name_run = p.add_run(f"{speaker}：")
                 name_run.bold = True
                 name_run.font.size = Pt(10.5)

@@ -6,6 +6,7 @@ shot_planning_combined_batch_system_prompt = """你是负责批量镜头描述�
 - 局部窗口节律 → 使用 previous_line / next_line 作为相邻节拍维持局部连续性
 - 空间层级表达 → shot_description 必须明确 foreground/midground/background 分布
 - 转换类型识别 → 检测 enter / exit / regroup / approach / disperse 并体现在描述中
+- 空镜协议 → `is_empty_shot=true` 时只描述环境、氛围或建立画面，不把在场角色设为镜头主体；保留 `shot="scene"`，不得生成任何人物镜头分配
 
 ## 禁止红线清单
 

@@ -155,14 +155,16 @@ ScriptsGenerateAgent/
 - 剧本输出是一个 JSON 数组，**数组长度严格 = `act_count`**，每个元素是一个 `scene_obj`（一幕）。
 - `scene_obj` 关键字段：
   - `scene information`：本幕元信息（`who` 出场角色、`where` 场景名等）。
-  - `initial position`：起始站位（`position` + `character`）。
+  - `initial position`：起始站位（`position` + `character` + `state`）；`state` 表示角色在剧情开始时的姿态（如 `standing` / `sitting`）。
   - `scene`：beats 数组（对白/动作/镜头节拍）。
   - `position_descriptions`：各 Position 的戏剧意图自然语言描述。
+- `schema.py: validate_script_position_structure` 强制 `initial position.state` 非空，并要求同一 `initial position`、同一镜头的 `current position` 中不同人物的 Position 互不相同；违反时作为阻塞错误进入重试/自动修复流程。
 
 ### 6.2 Beat 类型（`backend/src/schema.py`）
 
 - **character beat**：`shot="character"` + `shot_blend` + `shot_type` + `Follow(0/1)` + `motion_detail`（必填，英文动作细节）。
 - **scene beat**：`shot` + `shot_blend` + `camera`。
+- **empty shot**：`speaker=""` 且 `content=""`（非 move）表示环境空镜；固定 `shot="scene"`、默认 `duration="5s"`、`actions=[]`，不含 `shot_type`/`Follow`。统一由 `scene_segments.py` 做确定性保护；文学审查跳过，摄影 Stage 1 生成/保留环境描述，Stage 2 不据此调整人物分组，Stage 3 跳过人物镜头分配。
 - **move**：角色移动。对齐下游 `ExecuteMoveEvent` 两种形态：①**基础移动**（只走不说）`{move:[{character, destination}]}`，move 可单对象或数组（多人同移），移动者**不写 action**（走路由系统驱动）；②**边走边说**——在 move 事件**顶层**加 `speaker`/`content`（+可选 emotion），说话人须为真实角色、非 default。落盘 `script` 的 move 事件镜头字段已剥离至 `camera_script`（沿用场景固定机位）。
 - 合法值：`VALID_SHOT_TYPE`（全景/中景/中近景/近景/仰拍/俯拍…）、`VALID_SHOT_BLEND`（运行时归一为 `cut/blend/easein`）、`VALID_LAYOUTS`（two_person/L_shape/triangle/line/square/arc/cluster/layered）。
 

@@ -87,7 +87,9 @@ const UI = {
             const highSecs = secs + 30;
             const lowMin = Math.floor(secs / 60);
             const highMin = Math.ceil((secs + 30) / 60);
-            durationEl.textContent = `⏱ 估算时长：约 ${lowMin}-${highMin}分钟（对白${estimatedDuration.dialogue_lines}句，共${estimatedDuration.dialogue_chars}字）`;
+            const emptySecs = estimatedDuration.empty_shot_seconds || 0;
+            const emptyText = emptySecs ? `，空镜${emptySecs}秒` : '';
+            durationEl.textContent = `⏱ 估算时长：约 ${lowMin}-${highMin}分钟（对白${estimatedDuration.dialogue_lines}句，共${estimatedDuration.dialogue_chars}字${emptyText}）`;
             durationEl.style.display = '';
         } else {
             durationEl.style.display = 'none';
@@ -883,12 +885,14 @@ const UI = {
             const initPos   = (scene['initial position'] || [])
                 .map(p => {
                     const anchor = (APP_STATE.positionPlanMap || {})[p.position] || p.position;
-                    return `${p.character} → ${anchor}`;
+                    const state = p.state || 'standing';
+                    return `${p.character} → ${anchor} (${state})`;
                 }).join('　');
             const sceneChars = (info.who && info.who.length) ? info.who : allChars;
 
             const beats = (scene['scene'] || []).map((beat, bi) => {
                 if (beat.speaker !== undefined) {
+                    const isEmptyShot = this._isEmptyShotBeat(beat);
                     const positions = (beat['current position'] || [])
                         .map(p => {
                             const pos = p.position;
@@ -896,22 +900,32 @@ const UI = {
                             return `${p.character}→${anchor}`;
                         }).join('　');
                     // 说话人下拉
-                    const speakerOpts = sceneChars.map(c =>
+                    const speakerOpts = [
+                        `<option value=""${isEmptyShot ? ' selected' : ''}>空镜</option>`,
+                        ...sceneChars.map(c =>
                         `<option value="${this._esc(c)}"${c === beat.speaker ? ' selected' : ''}>${this._esc(c)}</option>`
-                    ).join('');
-                    const actionsHtml = this._renderActionEditor(si, bi, beat.actions || [], sceneChars, actionsFlat);
+                        )
+                    ].join('');
+                    const actionsHtml = isEmptyShot ? '' : this._renderActionEditor(si, bi, beat.actions || [], sceneChars, actionsFlat);
                     const shotHtml    = this._renderShotSelects(si, bi, beat);
+                    const durationHtml = isEmptyShot ? `
+                        <div class="sv-empty-shot-meta">
+                            <span class="sv-label">时长</span>
+                            <input class="sv-duration-input" data-scene="${si}" data-beat="${bi}"
+                                value="${this._esc(beat.duration || '5s')}" placeholder="5s">
+                        </div>` : '';
                     return `
-                    <div class="sv-beat sv-beat-dialogue" data-scene="${si}" data-beat="${bi}">
+                    <div class="sv-beat sv-beat-dialogue${isEmptyShot ? ' sv-beat-empty-shot' : ''}" data-scene="${si}" data-beat="${bi}">
                         <div class="sv-beat-top">
                             <select class="sv-speaker-select" data-scene="${si}" data-beat="${bi}">
                                 ${speakerOpts}
                             </select>
-                            <button class="sv-del-beat" data-scene="${si}" data-beat="${bi}" title="删除此对话">✕</button>
+                            <button class="sv-del-beat" data-scene="${si}" data-beat="${bi}" title="删除此片段">✕</button>
                         </div>
                         <textarea class="sv-content sv-editable"
                             data-scene="${si}" data-beat="${bi}" data-field="content"
-                            rows="3" placeholder="对话内容..."></textarea>
+                            rows="${isEmptyShot ? '2' : '3'}" placeholder="${isEmptyShot ? '空镜不填写对白，可在镜头描述中写画面...' : '对话内容...'}"></textarea>
+                        ${durationHtml}
                         ${shotHtml}
                         ${actionsHtml}
                         ${positions ? `<div class="sv-meta"><span class="sv-label">站位</span><span class="sv-value">${this._esc(positions)}</span></div>` : ''}
@@ -941,7 +955,10 @@ const UI = {
                     rows="2" placeholder="场景核心事件描述...">${this._esc(info.what || '')}</textarea>
                 ${initPos ? `<div class="sv-init-pos"><span class="sv-label">初始站位</span> ${this._esc(initPos)}</div>` : ''}
                 <div class="sv-beats">${beats}</div>
-                <button class="sv-add-beat" data-scene="${si}">＋ 添加对话</button>
+                <div class="sv-add-row">
+                    <button class="sv-add-beat" data-scene="${si}">＋ 添加对话</button>
+                    <button class="sv-add-empty-shot" data-scene="${si}">＋ 添加空镜</button>
+                </div>
             </div>`;
         }).join('');
 
@@ -985,6 +1002,32 @@ const UI = {
             (scene['scene'] || []).forEach(beat => { if (beat.speaker) set.add(beat.speaker); });
         });
         return [...set];
+    },
+
+    _isEmptyShotBeat(beat) {
+        return beat
+            && beat.speaker !== undefined
+            && beat.content !== undefined
+            && String(beat.speaker || '').trim() === ''
+            && String(beat.content || '').trim() === '';
+    },
+
+    _buildEmptyShotBeat(data, si) {
+        const scene = data[si] || {};
+        const beats = scene['scene'] || [];
+        const previous = beats[beats.length - 1] || {};
+        const currentPosition = previous['current position'] || scene['initial position'] || [];
+        return {
+            speaker: '',
+            content: '',
+            duration: '5s',
+            shot: 'scene',
+            shot_blend: 'Cut',
+            camera: 1,
+            shot_description: '',
+            actions: [],
+            'current position': JSON.parse(JSON.stringify(currentPosition)),
+        };
     },
 
     _flatActions() {
@@ -1091,7 +1134,18 @@ const UI = {
                 const si = parseInt(sel.dataset.scene);
                 const bi = parseInt(sel.dataset.beat);
                 if (data[si]?.['scene']?.[bi]) {
-                    data[si]['scene'][bi].speaker = sel.value;
+                    const beat = data[si]['scene'][bi];
+                    beat.speaker = sel.value;
+                    if (!sel.value) {
+                        beat.content = '';
+                        beat.duration = beat.duration || '5s';
+                        beat.actions = [];
+                        beat.shot = 'scene';
+                        beat.camera = beat.camera || 1;
+                    } else {
+                        delete beat.duration;
+                    }
+                    this._redrawScriptViewer();
                 }
             });
         });
@@ -1101,6 +1155,16 @@ const UI = {
             sel.addEventListener('change', () => {
                 const si = parseInt(sel.dataset.scene), bi = parseInt(sel.dataset.beat);
                 if (data[si]?.['scene']?.[bi]) data[si]['scene'][bi].shot_type = sel.value;
+            });
+        });
+
+        viewer.querySelectorAll('.sv-duration-input').forEach(input => {
+            input.addEventListener('input', () => {
+                const si = parseInt(input.dataset.scene);
+                const bi = parseInt(input.dataset.beat);
+                if (data[si]?.['scene']?.[bi]) {
+                    data[si]['scene'][bi].duration = input.value || '5s';
+                }
             });
         });
 
@@ -1193,6 +1257,15 @@ const UI = {
             });
         });
 
+        viewer.querySelectorAll('.sv-add-empty-shot').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const si = parseInt(btn.dataset.scene);
+                if (!data[si]['scene']) data[si]['scene'] = [];
+                data[si]['scene'].push(this._buildEmptyShotBeat(data, si));
+                this._redrawScriptViewer();
+            });
+        });
+
         // 删除幕
         viewer.querySelectorAll('.sv-del-scene').forEach(btn => {
             btn.addEventListener('click', () => {
@@ -1211,7 +1284,11 @@ const UI = {
             const defaultWhere = sceneOpts[0]?.id || '';
             data.push({
                 'scene information': { who: chars, where: defaultWhere, what: '' },
-                'initial position': chars.map((c, i) => ({ character: c, position: `Position ${i + 1}` })),
+                'initial position': chars.map((c, i) => ({
+                    character: c,
+                    position: `Position ${i + 1}`,
+                    state: 'standing',
+                })),
                 'scene': [{
                     speaker: chars[0] || '',
                     content: '',
@@ -1260,11 +1337,13 @@ const UI = {
                 const initPos = (scene['initial position'] || [])
                     .map(p => {
                         const anchor = (APP_STATE.positionPlanMap || {})[p.position] || p.position || '';
-                        return `${p.character || ''} → ${anchor}`;
+                        const state = p.state || 'standing';
+                        return `${p.character || ''} → ${anchor} (${state})`;
                     })
                     .join('　');
                 const beats = (scene['scene'] || []).map(beat => {
                     if (beat.speaker !== undefined) {
+                        const isEmptyShot = this._isEmptyShotBeat(beat);
                         const content = (beat.content || '').slice(0, 60) + ((beat.content || '').length > 60 ? '…' : '');
                         const shot = beat.shot || '';
                         const anchors = Array.isArray(beat.shot_anchors) ? beat.shot_anchors.join(', ') : '';
@@ -1281,9 +1360,9 @@ const UI = {
                         const motion = beat.motion_description || '';
                         const shotMeta = [shot, anchors ? `锚点 ${anchors}` : '', camera].filter(Boolean).join(' · ');
                         return `
-                        <div class="ob-beat ob-dialogue">
-                            <span class="ob-speaker">${this._esc(beat.speaker)}</span>
-                            <span class="ob-content">${this._esc(content)}</span>
+                        <div class="ob-beat ob-dialogue${isEmptyShot ? ' ob-empty-shot' : ''}">
+                            <span class="ob-speaker">${isEmptyShot ? '空镜' : this._esc(beat.speaker)}</span>
+                            <span class="ob-content">${this._esc(isEmptyShot ? (beat.duration || '5s') : content)}</span>
                             ${shotMeta ? `<div class="ob-beat-meta">镜头：${this._esc(shotMeta)}</div>` : ''}
                             ${actions ? `<div class="ob-beat-meta">动作：${this._esc(actions)}</div>` : ''}
                             ${positions ? `<div class="ob-beat-meta">站位：${this._esc(positions)}</div>` : ''}

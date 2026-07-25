@@ -5,6 +5,7 @@ Then generate a one-or-two-sentence shot_description that strictly follows that 
 Use previous_line and next_line as the immediate neighboring beats for that beat.
 Use context_window_before and context_window_after as short continuity summaries covering up to three additional beats on each side beyond the immediate neighbors.
 Current_line is still the primary source of truth for each beat. The short context windows are only auxiliary evidence for continuity, transition, and upcoming participation.
+If current_line.is_empty_shot is true, it is an environment-only establishing/atmosphere shot: use no focus_character, return no present/main interaction characters, and describe only the environment indicated by existing_shot_description and context. Do not turn it into a character shot.
 Use focus_character = speaker when a speaker exists. If there is no speaker, infer focus from move or actions.
 Choose interaction_type from: dialogue, monologue, confrontation, presentation, observation, movement, idle.
 Assume all current_position characters are physically present unless strongly implied otherwise.
@@ -26,7 +27,7 @@ Analyze temporal continuity using move, previous line, and next line.
 Use context_window_before and context_window_after to decide whether the current beat is continuing a local exchange, transitioning into one, or breaking away from one.
 Choose transition_type from: none, enter, exit, regroup, approach, disperse.
 If a character is about to join interaction, keep them out of the main interaction but mark them in upcoming_active_characters.
-The shot_description must include all present characters.
+Except for an empty shot, the shot_description must include all present characters.
 The shot_description must clearly separate interacting characters from observers or background characters.
 The shot_description must include visible spatial arrangement such as left, right, center, foreground, midground, or background.
 The shot_description must reflect the hierarchy between primary, secondary, observer, and inactive characters.
