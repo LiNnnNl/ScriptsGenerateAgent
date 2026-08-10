@@ -5,6 +5,13 @@ from collections import OrderedDict
 from pathlib import Path
 import time
 
+from ..prompt_renderers.camera_planning_stage import (
+    build_analysis_batch_system_prompt,
+    build_analysis_system_prompt,
+    camera_analysis_batch_user_instructions,
+    camera_analysis_user_instructions,
+)
+from ..scene_segments import is_empty_shot, protect_empty_shot
 
 class CameraPlanningStage:
     STAGE_FILENAME = "director_stage3_camera_planning.json"
@@ -110,6 +117,10 @@ class CameraPlanningStage:
                 for char, pos_id in current_position_state.items()
             ]
             current_positions = self._resolve_current_positions(beat, current_position_state)
+            if is_empty_shot(beat):
+                protect_empty_shot(beat, ensure_camera=True)
+                current_position_state = self._advance_position_state(current_position_state, beat)
+                continue
             beat_entries.append(
                 {
                     "beat_index": beat_index,
@@ -243,91 +254,15 @@ class CameraPlanningStage:
     # ------------------------------------------------------------------
 
     def _analysis_system_prompt(self) -> str:
-        dramatic_opening = (
-            "你是一位精通镜头语法的摄影指导。你不关心剧情，不关心对白，你只关心一件事："
-            "在这个镜头里，摄影机应该用什么焦段、什么角度、什么运动方式来捕捉这个时刻的视觉叙事。"
-            "你的方法论核心是摄影语义中心论：每个 shot_type（\"中景\"、\"近景\"）的语义都是**以 camera_subject 为中心**定义的。"
-            "你深知摄影指导的保守原则：在没有强烈叙事理由的情况下，保持镜头稳定比频繁切换更能让观众沉浸在故事中。"
-        )
-        core_task = (
-            "## 核心任务\n"
-            "- camera_subject 锁定 → speaker 存在时为 speaker，否则为 moving character\n"
-            "- shot_type 选择 → 从 camera_library 中选择匹配当前节拍的类型\n"
-            "- shot_blend 判断 → 根据叙事需求选择 Cut / Ease In Out / 等过渡方式\n"
-            "- follow 判断 → 除非是 explicit move beat，否则 follow = 0\n"
-            "- 局部窗口节律 → 使用相邻节拍的 shot 决策维持视觉节奏连贯性\n\n"
-        )
-        red_lines = (
-            "## 禁止红线清单\n\n"
-            "| # | 禁止内容 | 示例 | 违规后果 |\n"
-            "|---|----------|------|----------|\n"
-            "| 1 | 选择 camera_library 中不存在的 shot_type | \"大全景\" 不在 library 中 | Unity 镜头缺失 |\n"
-            "| 2 | 无明确移动理由却设置 follow = 1 | 普通对话节拍却设置 follow | 无根据的跟随 |\n"
-            "| 3 | 滥用低角/高角镜头 | 每个节拍都用\"仰拍镜头\" | 视角通胀 |\n"
-            "| 4 | 无双主体关系却使用\"肩后镜头\" | 只有一个人却用了\"肩后镜头\" | 镜头穿帮 |\n"
-            "| 5 | 无充分叙事理由却强制变化 shot_type | 刻意追求变化而非叙事需要 | 导演自负 |\n\n"
-        )
-        qa = (
-            "## 逐行质检逻辑\n\n"
-            "| # | 检查项 | 通过标准 | 若未通过 |\n"
-            "|---|--------|----------|----------|\n"
-            "| 1 | camera_subject 正确 | speaker 存在时为 speaker | 锁定正确主体 |\n"
-            "| 2 | shot_type 存在于 library | 所选 shot_type 是 library key | 替换为合法 type |\n"
-            "| 3 | follow 判断合理 | follow=1 仅在 explicit move 时 | 重审 follow 逻辑 |\n"
-            "| 4 | shot_blend 符合叙事节奏 | 快速切 vs 缓入缓出选择有叙事理由 | 补充 blend 决策 |\n\n\n"
-        )
-        return dramatic_opening + "\n\n" + core_task + red_lines + qa
+        return build_analysis_system_prompt()
 
     def _analysis_batch_system_prompt(self) -> str:
-        dramatic_opening = (
-            "你是一位精通镜头语法的摄影指导。你不关心剧情，不关心对白，你只关心一件事："
-            "在每一个节拍时刻，摄影机应该用什么镜头参数来捕捉这个时刻的视觉叙事。"
-            "你的方法论核心是摄影语义中心论，同时批处理模式下你还必须考虑局部窗口的视觉节奏连贯性。"
-            "你深知摄影指导的保守原则：在没有强烈叙事理由的情况下，保持镜头稳定比频繁切换更能让观众沉浸在故事中。"
-        )
-        core_task = (
-            "## 核心任务\n"
-            "- camera_subject 锁定 → speaker 存在时为 speaker，否则为 moving character\n"
-            "- shot_type 选择 → 从 camera_library 中选择匹配每个节拍的类型\n"
-            "- shot_blend 判断 → 根据叙事需求选择过渡方式\n"
-            "- follow 判断 → 除非是 explicit move beat，否则 follow = 0\n"
-            "- 局部窗口节律 → 使用 recent_camera_history 和相邻节拍维持视觉节奏连贯性\n\n"
-        )
-        red_lines = (
-            "## 禁止红线清单\n\n"
-            "| # | 禁止内容 | 示例 | 违规后果 |\n"
-            "|---|----------|------|----------|\n"
-            "| 1 | 选择 camera_library 中不存在的 shot_type | \"大全景\" 不在 library 中 | Unity 镜头缺失 |\n"
-            "| 2 | 无明确移动理由却设置 follow = 1 | 普通对话节拍却设置 follow | 无根据的跟随 |\n"
-            "| 3 | 滥用低角/高角镜头 | 每个节拍都用\"仰拍镜头\" | 视角通胀 |\n"
-            "| 4 | 无双主体关系却使用\"肩后镜头\" | 只有一个人却用了\"肩后镜头\" | 镜头穿帮 |\n"
-            "| 5 | 无充分叙事理由却强制变化 shot_type | 刻意追求变化而非叙事需要 | 导演自负 |\n\n"
-        )
-        return dramatic_opening + "\n\n" + core_task + red_lines
+        return build_analysis_batch_system_prompt()
 
     def _analysis_user_prompt_payload(self, line_payload, fallback):
         return {
             "task": "camera_shot_analysis",
-            "instructions": [
-                "shot is fixed by the system as 'character'. Do not plan any other shot category.",
-                "camera_subject is the default subject that every shot type refers to.",
-                "If speaker exists, camera_subject is the speaker. For example: 中景 means a medium shot of the speaker; 中近景 means a medium close-up of the speaker; 近景 means a close shot of the speaker; 第一人称镜头 means the speaker's POV; 仰拍镜头 means a low-angle shot of the speaker; 俯拍镜头 means a high-angle shot of the speaker.",
-                "If there is no speaker and the beat is a movement beat, camera_subject defaults to the moving character. In that case, the chosen shot type is still centered on that moving character.",
-                "Choose recommended_shot_type strictly from camera_library keys only.",
-                "When reading camera_library, pay attention to the shot name, framing scope, and primary usage only. Ignore any low-level transform rules.",
-                "Prefer a richer mix of valid shot types when the beat supports it, so the sequence does not become visually flat.",
-                "Use recent_camera_history as soft reference only. Repeating the same shot type is allowed when the scene rhythm or dramatic need clearly supports it.",
-                "For sustained conversations, consider relation shots, speaker-emphasis shots, and wider re-establishing shots when justified, but do not force variation if repetition is the better choice.",
-                "Choose recommended_shot_blend strictly from the provided valid values.",
-                "Prefer static framing. recommended_follow must be 0 unless the beat is an explicit move beat or a subject is clearly traveling through frame.",
-                "Movement beats usually use 全景 or 侧跟镜头. Dialogue beats usually stay in 中景 or 中近景 unless spatial relationships must stay visible.",
-                "Use 肩后镜头 only when the current blocking truly contains a two-person target relationship.",
-                "Use 仰拍镜头 or 俯拍镜头 sparingly and only when visual dominance or weakness is clearly supported by the current beat.",
-                "Use scene region context: corridor-like regions favor tighter framing, plaza-like regions favor wider framing.",
-                "Use shot_blend_guide to understand the intended transition feel of each blend type before choosing one.",
-                "If the fallback recommendation already fits the blocking, stay close to it.",
-                "Return only the requested JSON structure.",
-            ],
+            "instructions": camera_analysis_user_instructions,
             "line_context": line_payload,
             "camera_library": self._summarize_camera_lib(),
             "shot_blend_guide": copy.deepcopy(self.SHOT_BLEND_GUIDE),
@@ -348,29 +283,7 @@ class CameraPlanningStage:
         return {
             "task": "camera_shot_analysis_batch",
             "window_size": self.WINDOW_SIZE,
-            "instructions": [
-                "You will receive a local sequence window containing up to four beats.",
-                "Return one result for every beat in the same order and with the same beat_index.",
-                "Plan each beat independently, but use neighboring beats in the same window to maintain a coherent local shot rhythm.",
-                "shot is fixed by the system as 'character'. Do not plan any other shot category.",
-                "camera_subject is the default subject that every shot type refers to.",
-                "If speaker exists, camera_subject is the speaker. A medium shot means a medium shot of the speaker. A medium close-up means a medium close-up of the speaker. A close shot means a close shot of the speaker. A first-person shot means the speaker's POV. A low-angle shot means a low-angle shot of the speaker. A high-angle shot means a high-angle shot of the speaker.",
-                "If there is no speaker and the beat is a movement beat, camera_subject defaults to the moving character. In that case, the chosen shot type is still centered on that moving character.",
-                "Choose recommended_shot_type strictly from camera_library keys only.",
-                "When reading camera_library, pay attention to the shot name, framing scope, and primary usage only. Ignore any low-level transform rules.",
-                "Prefer a richer mix of valid shot types when the beats support it, so the sequence does not become visually flat.",
-                "Repetition is allowed when the local sequence rhythm or dramatic need clearly supports it.",
-                "For sustained conversations, consider relation shots, speaker-emphasis shots, and wider re-establishing shots when justified, but do not force variation if repetition is the better choice.",
-                "Choose recommended_shot_blend strictly from the provided valid values.",
-                "Prefer static framing. recommended_follow must be 0 unless the beat is an explicit move beat or a subject is clearly traveling through frame.",
-                "Movement beats usually use wider or tracking-oriented shots. Dialogue beats usually stay in medium or medium-close framing unless spatial relationships must stay visible.",
-                "Use over-the-shoulder only when the current blocking truly contains a two-person target relationship.",
-                "Use low-angle or high-angle shots sparingly and only when visual dominance or weakness is clearly supported by the current beat.",
-                "Use scene region context: corridor-like regions favor tighter framing, plaza-like regions favor wider framing.",
-                "Use shot_blend_guide to understand the intended transition feel of each blend type before choosing one.",
-                "If a fallback recommendation already fits the blocking, stay close to it.",
-                "Return only the requested JSON structure.",
-            ],
+            "instructions": camera_analysis_batch_user_instructions,
             "camera_library": self._summarize_camera_lib(),
             "shot_blend_guide": copy.deepcopy(self.SHOT_BLEND_GUIDE),
             "beats": [
@@ -897,7 +810,7 @@ class CameraPlanningStage:
         if "move" in beat:
             keys_order = ["move", "current position", "shot_blend", "shot", "shot_type", "Follow", "camera", "shot_description"]
         else:
-            keys_order = ["speaker", "content", "shot_blend", "shot", "shot_type", "Follow", "actions", "current position", "shot_description"]
+            keys_order = ["speaker", "content", "duration", "shot_blend", "shot", "shot_type", "Follow", "actions", "current position", "shot_description"]
         ordered = {k: beat[k] for k in keys_order if k in beat}
         for k, v in beat.items():
             if k not in ordered:

@@ -1,0 +1,109 @@
+[
+  {
+    "scene information": {
+      "who": [
+        "捷风",
+        "贤者"
+      ],
+      "where": "Space Station",
+      "what": "残血捷风团战结束冲回据点找奶，撞见本该守点的贤者摸鱼刷地球奶茶优惠券"
+    },
+    "initial position": [
+      {
+        "character": "贤者",
+        "position": "Position 1"
+      },
+      {
+        "character": "捷风",
+        "position": "Position 2"
+      }
+    ],
+    "scene": [
+      {
+        "speaker": "贤者",
+        "content": "满三十减二十...珍珠奶绿能送进太空站不？",
+        "actions": [
+          {
+            "character": "贤者",
+            "state": "standing",
+            "action": "Standing Texting",
+            "motion_detail": "Warm hologram light falls on face, slight smile, fingers tapping the projection"
+          }
+        ],
+        "current position": [
+          {
+            "character": "贤者",
+            "position": "Position 1"
+          },
+          {
+            "character": "捷风",
+            "position": "Position 2"
+          }
+        ],
+        "shot_description": "前景中心站着贤者，暖调全息光落在他脸上，手指正在投影界面上敲击，捷风在中景右侧位置静止站立。",
+        "emotion": "surprised",
+        "confidence": 0.6,
+        "reason": "text='满三十减二十...珍珠奶绿能送' excl=0 ques=1 threat=False sarcasm=False pos=False",
+        "event_index": 0
+      },
+      {
+        "move": [
+          {
+            "character": "捷风",
+            "destination": "Position 3"
+          }
+        ],
+        "current position": [
+          {
+            "character": "贤者",
+            "position": "Position 1"
+          },
+          {
+            "character": "捷风",
+            "position": "Position 2"
+          }
+        ],
+        "shot_description": "前景左侧的捷风正朝三号位置移动，向中景中心的贤者喊话，贤者仍站在全息投影前保持操作姿态。",
+        "speaker": "捷风",
+        "content": "贤者快奶我！我残血见底了！对面下波马上冲了！",
+        "emotion": "happy",
+        "confidence": 0.7,
+        "reason": "text='贤者快奶我！我残血见底了！对面' excl=3 ques=0 threat=False sarcasm=False pos=True",
+        "event_index": 1
+      },
+      {
+        "speaker": "捷风",
+        "content": "靠——你居然在这刷奶茶优惠券？！",
+        "actions": [
+          {
+            "character": "捷风",
+            "state": "standing",
+            "action": "Standing Surprise",
+            "motion_detail": "Body leans back slightly, arms outstretched, chest heaving from running, face full of disbelief"
+          },
+          {
+            "character": "贤者",
+            "state": "standing",
+            "action": "Standing Puzzled",
+            "motion_detail": "Looks up at捷风, fingers still hovering over the hologram"
+          }
+        ],
+        "current position": [
+          {
+            "character": "贤者",
+            "position": "Position 1"
+          },
+          {
+            "character": "捷风",
+            "position": "Position 3"
+          }
+        ],
+        "shot_description": "前景右侧站着捷风，身体后仰双臂张开，中景中心的贤者停在全息投影前，抬头看向捷风，手指仍悬在投影界面上。",
+        "emotion": "happy",
+        "confidence": 0.7,
+        "reason": "text='靠——你居然在这刷奶茶优惠券？' excl=1 ques=1 threat=False sarcasm=False pos=False",
+        "event_index": 2
+      }
+    ]
+  }
+]

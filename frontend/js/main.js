@@ -39,6 +39,10 @@ async function loadScenes() {
         }
     } catch (error) {
         console.error('加载场景失败:', error);
+        const list = document.getElementById('scenePoolList');
+        if (list) {
+            list.innerHTML = '<div class="scene-pool-error">场景池加载失败，请确认后端服务已启动。</div>';
+        }
         UI.showError('加载场景失败: ' + error.message);
     }
 }
@@ -59,19 +63,62 @@ async function loadCharacters() {
 // 检查表单完整性
 function checkFormComplete() {
     const castGenBtn = document.getElementById('castGenerateBtn');
-    if (APP_STATE.scenePool.length > 0) {
+    const hasScene = APP_STATE.scenePool.length > 0;
+    const hasIdea = !!document.getElementById('creativeIdea').value.trim();
+    if (hasScene) {
         UI.enableStep('step3');
         castGenBtn.disabled = false;
     } else {
         castGenBtn.disabled = true;
         UI.disableGenerateBtn();
+        UI.disableDirectGenerateBtn();
+    }
+    if (hasScene && hasIdea) {
+        UI.enableDirectGenerateBtn();
+        UI.enableDirectorWordBtn();
+    } else {
+        UI.disableDirectGenerateBtn();
+        UI.disableDirectorWordBtn();
     }
     // ACTION! 只在角色档案已生成后可用
-    if (APP_STATE.generatedCharacters) {
+    if (hasScene && APP_STATE.generatedCharacters) {
         UI.enableGenerateBtn();
     } else {
         UI.disableGenerateBtn();
     }
+}
+
+function getScriptStyleLabel(styleId = APP_STATE.scriptStyleId) {
+    const labels = {
+        douyin_short: '抖音短视频',
+        vertical_drama: '竖屏短剧',
+        film: '电影',
+        standup: '脱口秀'
+    };
+    return labels[styleId] || '未选择';
+}
+
+function selectScriptStyle(styleId) {
+    APP_STATE.scriptStyleId = APP_STATE.scriptStyleId === styleId ? '' : (styleId || '');
+    document.querySelectorAll('.script-style-option').forEach(btn => {
+        btn.classList.toggle('selected', btn.dataset.styleId === APP_STATE.scriptStyleId);
+    });
+}
+
+function getScriptToneLabel(toneId = APP_STATE.scriptToneId) {
+    const labels = {
+        warm: '温情',
+        melancholy: '伤感',
+        comedy: '喜剧'
+    };
+    return labels[toneId] || '未选择';
+}
+
+function selectScriptTone(toneId) {
+    APP_STATE.scriptToneId = APP_STATE.scriptToneId === toneId ? '' : (toneId || '');
+    document.querySelectorAll('.script-tone-option').forEach(btn => {
+        btn.classList.toggle('selected', btn.dataset.toneId === APP_STATE.scriptToneId);
+    });
 }
 
 // 生成角色档案
@@ -117,13 +164,11 @@ async function generateCast() {
 
 
 // 生成剧本
-async function generateScript() {
-    const generateBtn = document.getElementById('generateBtn');
+async function generateScript(directMode = false) {
+    const generateBtn = document.getElementById(directMode ? 'directGenerateBtn' : 'generateBtn');
 
-    // 直接模式：必须在输入框提供剧本内容
-    const directMode = !!(document.getElementById('directModeToggle') || {}).checked;
     if (directMode && !document.getElementById('creativeIdea').value.trim()) {
-        alert('已开启「直接生成」：请先在创作灵感输入框中粘贴你的剧本（JSON 或纯文本）。');
+        alert('请先在创作灵感输入框中粘贴你的完整剧本（JSON、Markdown 分镜表或纯文本）。');
         return;
     }
 
@@ -142,6 +187,13 @@ async function generateScript() {
         .map(id => APP_STATE.scenes.find(s => s.id === id)?.name || id)
         .join(' / ');
     UI.addLog('info', `场景: ${poolNames || APP_STATE.selectedScene}`);
+    UI.addLog('info', APP_STATE.scriptStyleId
+        ? `剧本风格: ${getScriptStyleLabel()}（按钮锁定）`
+        : '剧本风格: 未选择（Agent 将从 idea 自动识别）'
+    );
+    if (APP_STATE.scriptToneId) {
+        UI.addLog('info', `剧情倾向: ${getScriptToneLabel()}（按钮锁定）`);
+    }
 
     let succeeded = false;
     try {
@@ -153,9 +205,11 @@ async function generateScript() {
             scene_pool: APP_STATE.scenePool,
             act_scenes: APP_STATE.actScenes,
             creative_idea: document.getElementById('creativeIdea').value.trim(),
+            script_style_id: APP_STATE.scriptStyleId || 'auto',
+            script_tone_id: APP_STATE.scriptToneId || '',
             required_character_count: APP_STATE.requiredCharacterCount,
             act_count: APP_STATE.actCount,
-            direct_mode: !!(document.getElementById('directModeToggle') || {}).checked
+            direct_mode: directMode
         }, (data) => {
             if (data.type === 'success') succeeded = true;
             handleStreamData(data);
@@ -166,6 +220,60 @@ async function generateScript() {
         UI.showError('生成失败: ' + error.message);
     } finally {
         if (!succeeded) generateBtn.disabled = false;
+    }
+}
+
+// 只调用导演 Agent 生成 Word 分镜
+async function generateDirectorWord() {
+    const btn = document.getElementById('directorWordBtn');
+    const idea = document.getElementById('creativeIdea').value.trim();
+
+    if (!APP_STATE.selectedScene || APP_STATE.scenePool.length === 0) {
+        alert('请先选择至少一个场景。');
+        return;
+    }
+    if (!idea) {
+        alert('请先输入剧本构想，或导入一个文本类构想文档。');
+        return;
+    }
+
+    btn.disabled = true;
+    UI.hideResults();
+    UI.clearLog();
+    document.getElementById('logPanel').style.display = 'block';
+    UI.addLog('info', '📄 导演 Word 模式：只调用 DirectorAgent 生成可读分镜...');
+    UI.addLog('info', APP_STATE.scriptStyleId
+        ? `剧本风格: ${getScriptStyleLabel()}（按钮锁定）`
+        : '剧本风格: 未选择（Agent 将从 idea 自动识别）'
+    );
+    if (APP_STATE.scriptToneId) {
+        UI.addLog('info', `剧情倾向: ${getScriptToneLabel()}（按钮锁定）`);
+    }
+
+    let succeeded = false;
+    try {
+        await API.generateDirectorWord({
+            custom_characters: APP_STATE.generatedCharacters || [],
+            scene_id: APP_STATE.selectedScene,
+            scene_pool: APP_STATE.scenePool,
+            act_scenes: APP_STATE.actScenes,
+            creative_idea: idea,
+            script_style_id: APP_STATE.scriptStyleId || 'auto',
+            script_tone_id: APP_STATE.scriptToneId || '',
+            required_character_count: APP_STATE.requiredCharacterCount,
+            act_count: APP_STATE.actCount
+        }, (data) => {
+            if (data.type === 'success') succeeded = true;
+            handleStreamData(data);
+            if (data.type === 'success' && data.word_filename) {
+                UI.addLog('success', `📄 Word 分镜: ${data.word_filename}`);
+            }
+        });
+    } catch (error) {
+        UI.addLog('error', '❌ 导演 Word 生成失败: ' + error.message);
+        UI.showError('导演 Word 生成失败: ' + error.message);
+    } finally {
+        if (!succeeded) btn.disabled = false;
     }
 }
 
@@ -184,9 +292,35 @@ function handleStreamData(data) {
     } else if (data.type === 'thinking_done') {
         UI.endThinkingStream();
         UI.addLog('thinking', '✅ 思考完成，开始生成剧本...');
+    } else if (data.type === 'partial_result') {
+        const act = data.act || '?';
+        const batch = data.batch || '?';
+        const batchTotal = data.batch_total || '?';
+        UI.addLog(
+            'success',
+            `✅ 第 ${act} 幕，第 ${batch}/${batchTotal} 批完成，已处理 ${data.completed_shots || 0}/${data.total_shots || 0} 镜。`,
+            { stage: 'director_word', phase: 'partial_result' }
+        );
+        UI.addOutputBlock({
+            format: 'script',
+            agent: `第 ${act} 幕 · 第 ${batch}/${batchTotal} 批预览`,
+            data: data.latest_scenes || data.scenes || [],
+        });
     } else if (data.type === 'success') {
         UI.addLog('success', '✅ 剧本生成成功！');
         UI.addLog('success', `📁 剧本文件: ${data.filename}`);
+        if (data.mode === 'director_word') {
+            APP_STATE.currentSessionId = data.session_id || null;
+            APP_STATE.currentScriptTitle = data.title || null;
+            if (data.title) UI.addLog('success', `🎬 片名：《${data.title}》`);
+            UI.showSuccess(data.filename, null, null, [], null, null, null, null, data.title);
+            UI.showVersionLabelSection(false);
+            loadScriptEditor(data.filename);
+            loadHistory();
+            const btn = document.getElementById('directorWordBtn');
+            if (btn) btn.disabled = false;
+            return;
+        }
         if (data.actors_profile_filename) {
             UI.addLog('success', `👥 演员档案: ${data.actors_profile_filename}`);
         }
@@ -218,6 +352,11 @@ function handleStreamData(data) {
 
 // 设置事件监听
 function setupEventListeners() {
+    document.getElementById('showUnavailableScenes').addEventListener('change', (e) => {
+        APP_STATE.showUnavailableScenes = e.target.checked;
+        UI.renderScenes(APP_STATE.scenes);
+    });
+
     // 场景池多选（复选框）
     document.getElementById('scenePoolList').addEventListener('change', (e) => {
         const cb = e.target.closest('.scene-pool-checkbox');
@@ -282,11 +421,42 @@ function setupEventListeners() {
     // 创作想法输入
     document.getElementById('creativeIdea').addEventListener('input', checkFormComplete);
 
+    document.querySelectorAll('.script-style-option').forEach(btn => {
+        btn.addEventListener('click', () => selectScriptStyle(btn.dataset.styleId));
+    });
+    document.querySelectorAll('.script-tone-option').forEach(btn => {
+        btn.addEventListener('click', () => selectScriptTone(btn.dataset.toneId));
+    });
+
     // 生成角色按钮
     document.getElementById('castGenerateBtn').addEventListener('click', generateCast);
 
     // 生成按钮
-    document.getElementById('generateBtn').addEventListener('click', generateScript);
+    document.getElementById('generateBtn').addEventListener('click', () => generateScript(false));
+
+    // 直接生成按钮
+    document.getElementById('directGenerateBtn').addEventListener('click', () => generateScript(true));
+
+    // 导演 Word 模式按钮
+    document.getElementById('directorWordBtn').addEventListener('click', generateDirectorWord);
+
+    // 导入构想文档（文本类文件）
+    document.getElementById('ideaFileBtn').addEventListener('click', () => {
+        document.getElementById('ideaFileInput').click();
+    });
+    document.getElementById('ideaFileInput').addEventListener('change', (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+            document.getElementById('creativeIdea').value = String(reader.result || '');
+            UI.addLog('info', `📄 已导入构想文档：${file.name}`);
+            checkFormComplete();
+        };
+        reader.onerror = () => alert('读取文档失败，请确认文件是文本格式。');
+        reader.readAsText(file, 'utf-8');
+        e.target.value = '';
+    });
 
     // 下载按钮 - 角色档案（始终下载当前编辑后的内容）
     document.getElementById('downloadCastBtn').addEventListener('click', () => {
@@ -376,17 +546,6 @@ function setupEventListeners() {
         const v = parseInt(e.target.value) || 3;
         updateActCount(Math.max(1, Math.min(10, v)));
     });
-
-    // 直接模式开关：联动提示文案 + 输入框占位提示
-    const directToggle = document.getElementById('directModeToggle');
-    if (directToggle) {
-        directToggle.addEventListener('change', (e) => {
-            const on = e.target.checked;
-            APP_STATE.directMode = on;
-            const hint = document.getElementById('directModeHint');
-            if (hint) hint.style.display = on ? '' : 'none';
-        });
-    }
 
     // 下载 Word 版剧本
     document.getElementById('downloadWordBtn').addEventListener('click', () => {

@@ -1,0 +1,84 @@
+{
+  "run_id": "20260701_094500",
+  "base_url": "http://127.0.0.1:5001",
+  "started_at": "20260701_094500",
+  "elapsed_seconds": 103.72,
+  "results": [
+    {
+      "id": "01_douyin_short",
+      "name": "测试题1：抖音短视频风格",
+      "creative_idea": "瓦罗兰特中的捷风和奶妈为主角的抖音短视频剧本。",
+      "status": "error",
+      "started_at": "2026-07-01T09:45:00",
+      "elapsed_seconds": 102.41,
+      "title": null,
+      "session_id": null,
+      "estimated_duration": null,
+      "error": null,
+      "files": {},
+      "event_file": "01_douyin_short__events.ndjson",
+      "script_summary": {
+        "act_count": 0,
+        "beat_count": 0,
+        "acts": []
+      }
+    },
+    {
+      "id": "02_vertical_drama",
+      "name": "测试题2：竖屏短剧风格",
+      "creative_idea": "生成一个竖屏短剧风格剧本。",
+      "status": "error",
+      "started_at": "2026-07-01T09:45:00",
+      "elapsed_seconds": 102.26,
+      "title": null,
+      "session_id": null,
+      "estimated_duration": null,
+      "error": null,
+      "files": {},
+      "event_file": "02_vertical_drama__events.ndjson",
+      "script_summary": {
+        "act_count": 0,
+        "beat_count": 0,
+        "acts": []
+      }
+    },
+    {
+      "id": "03_movie_robot",
+      "name": "测试题3：电影风格",
+      "creative_idea": "生成一个机器人主题的，电影风格剧本。",
+      "status": "error",
+      "started_at": "2026-07-01T09:46:43",
+      "elapsed_seconds": 0.23,
+      "title": null,
+      "session_id": null,
+      "estimated_duration": null,
+      "error": "HTTP Error 502: Bad Gateway",
+      "files": {},
+      "event_file": "03_movie_robot__events.ndjson",
+      "script_summary": {
+        "act_count": 0,
+        "beat_count": 0,
+        "acts": []
+      }
+    },
+    {
+      "id": "04_talk_show",
+      "name": "测试题4：单人脱口秀风格",
+      "creative_idea": "生成一段吐槽研究生生活的单人脱口秀风格剧本。",
+      "status": "error",
+      "started_at": "2026-07-01T09:46:43",
+      "elapsed_seconds": 0.39,
+      "title": null,
+      "session_id": null,
+      "estimated_duration": null,
+      "error": "HTTP Error 502: Bad Gateway",
+      "files": {},
+      "event_file": "04_talk_show__events.ndjson",
+      "script_summary": {
+        "act_count": 0,
+        "beat_count": 0,
+        "acts": []
+      }
+    }
+  ]
+}

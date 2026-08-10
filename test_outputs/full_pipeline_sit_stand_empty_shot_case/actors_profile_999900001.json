@@ -1,0 +1,32 @@
+[
+  {
+    "name": "林静",
+    "age": null,
+    "gender": "女",
+    "gameobject_name": "F01_WithCamera",
+    "appearance": {
+      "height": "",
+      "body_type": "",
+      "hair": "",
+      "face": ""
+    },
+    "acting_style": "紧张克制，动作短促，视线集中在风险源上。",
+    "traits": ["冷静", "敏锐", "行动果断"],
+    "background": "空间站值守工程师，负责监控舱门与生命维持系统。"
+  },
+  {
+    "name": "陈屿",
+    "age": null,
+    "gender": "男",
+    "gameobject_name": "M01_WithCamera",
+    "appearance": {
+      "height": "",
+      "body_type": "",
+      "hair": "",
+      "face": ""
+    },
+    "acting_style": "语气低沉，分析时动作收敛，确认危险后迅速起身。",
+    "traits": ["谨慎", "理性", "反应快"],
+    "background": "空间站数据分析员，擅长从异常噪声中识别隐藏信号。"
+  }
+]

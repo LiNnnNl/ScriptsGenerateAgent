@@ -56,6 +56,10 @@
                     <div class="step-line"></div>
                 </div>
                 <p class="scene-pool-hint">可多选场景组成「场景池」，每一幕可使用不同场景；暂无坐标锚点的场景不可选。</p>
+                <label class="scene-pool-toggle">
+                    <input type="checkbox" id="showUnavailableScenes">
+                    <span>查看不可用场景</span>
+                </label>
                 <div class="scene-pool-list" id="scenePoolList"></div>
                 <div class="scene-info" id="sceneInfo" style="display: none;">
                     <div class="scene-info-scroll">
@@ -106,17 +110,54 @@
                     <span class="hint-icon">💡</span>
                     <span>输入主题、情节或氛围，AI 将据此创作；留空则完全自由发挥</span>
                 </div>
-                <div class="direct-mode-section">
-                    <label class="direct-mode-toggle">
-                        <input type="checkbox" id="directModeToggle">
-                        <span class="direct-mode-label">⚡ 直接生成（跳过头脑风暴与剧本创作，按我提供的剧本只补全必要字段）</span>
-                    </label>
-                    <p class="direct-mode-hint" id="directModeHint" style="display:none">
-                        已开启直接模式：请把<strong>完整剧本</strong>粘贴到上方输入框。支持
-                        <strong>Markdown 分镜表</strong>（镜头号/景别/画面内容/镜头运动/声音·台词/位置）、
-                        「角色名：对白」纯文本、或规范剧本 JSON。系统会用 LLM 把它<strong>结构化</strong>
-                        （对白原样保留、每个镜头都保留），再做字段补全与摄影镜头处理，<strong>不改写你的剧情与台词</strong>。
-                    </p>
+                <div class="script-style-section">
+                    <div class="script-style-head">
+                        <span class="script-style-title">剧本风格</span>
+                        <span class="script-style-note">未选择时 Agent 将自动识别并选择</span>
+                    </div>
+                    <div class="script-style-options" id="scriptStyleOptions">
+                        <button class="script-style-option" type="button" data-style-id="douyin_short">
+                            <span class="script-style-name">抖音短视频</span>
+                            <span class="script-style-desc">强钩子/快节奏</span>
+                        </button>
+                        <button class="script-style-option" type="button" data-style-id="vertical_drama">
+                            <span class="script-style-name">竖屏短剧</span>
+                            <span class="script-style-desc">强冲突/留钩</span>
+                        </button>
+                        <button class="script-style-option" type="button" data-style-id="film">
+                            <span class="script-style-name">电影</span>
+                            <span class="script-style-desc">完整叙事/留白</span>
+                        </button>
+                        <button class="script-style-option" type="button" data-style-id="standup">
+                            <span class="script-style-name">脱口秀</span>
+                            <span class="script-style-desc">观点/段子密度</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="script-tone-section">
+                    <div class="script-style-head">
+                        <span class="script-style-title">剧情倾向</span>
+                        <span class="script-style-note">可选；不选则按 idea 自然发展</span>
+                    </div>
+                    <div class="script-tone-options" id="scriptToneOptions">
+                        <button class="script-tone-option" type="button" data-tone-id="warm">
+                            <span class="script-style-name">温情</span>
+                            <span class="script-style-desc">修复/陪伴</span>
+                        </button>
+                        <button class="script-tone-option" type="button" data-tone-id="melancholy">
+                            <span class="script-style-name">伤感</span>
+                            <span class="script-style-desc">遗憾/余味</span>
+                        </button>
+                        <button class="script-tone-option" type="button" data-tone-id="comedy">
+                            <span class="script-style-name">喜剧</span>
+                            <span class="script-style-desc">反差/包袱</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="idea-file-section">
+                    <button class="idea-file-btn" id="ideaFileBtn" type="button">📄 导入构想文档</button>
+                    <input type="file" id="ideaFileInput" accept=".txt,.md,.json,.csv" style="display:none">
+                    <span class="idea-file-hint">支持 txt / md / json / csv 文本文件，会填入上方输入框</span>
                 </div>
                 <div class="act-count-section">
                     <label class="count-label">剧本幕数：</label>
@@ -173,6 +214,16 @@
                     <span class="btn-icon">🎬</span>
                     <span class="btn-text">开拍！</span>
                     <span class="btn-subtitle">生成剧本</span>
+                </button>
+                <button class="generate-btn direct-generate-btn" id="directGenerateBtn" disabled>
+                    <span class="btn-icon">⚡</span>
+                    <span class="btn-text">直接生成</span>
+                    <span class="btn-subtitle">结构化已有剧本</span>
+                </button>
+                <button class="generate-btn director-word-btn" id="directorWordBtn" disabled>
+                    <span class="btn-icon">📄</span>
+                    <span class="btn-text">导演 Word</span>
+                    <span class="btn-subtitle">只调用导演生成分镜</span>
                 </button>
             </div>
 

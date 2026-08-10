@@ -1,0 +1,89 @@
+{
+  "scenes": [
+    {
+      "scene_index": 0,
+      "events": [
+        {
+          "event_index": 0,
+          "shot": "scene",
+          "target": "环境",
+          "target_position": "Position 1",
+          "shot_type": "全景",
+          "shot_blend": "cut",
+          "follow": 0,
+          "camera": 1,
+          "shot_description": "A wide establishing shot frames the cold blue control console, with the sealed hatch vibrating faintly in the background.",
+          "motion_enabled": false,
+          "motion_preset": "static_establishing",
+          "play_motion_on_activate": false,
+          "motion_start_delay": 0.0,
+          "motion_reset_on_replay": true
+        },
+        {
+          "event_index": 1,
+          "shot": "character",
+          "target": "陈屿",
+          "target_position": "Position 2",
+          "shot_type": "中景",
+          "shot_blend": "cut",
+          "follow": 0,
+          "camera": null,
+          "shot_description": "Medium shot on Chen Yu at the console as he lowers into a seated position, keeping his eyes locked on the data screen.",
+          "motion_enabled": true,
+          "motion_preset": "gentle_push",
+          "play_motion_on_activate": true,
+          "motion_start_delay": 0.0,
+          "motion_reset_on_replay": true
+        },
+        {
+          "event_index": 2,
+          "shot": "character",
+          "target": "陈屿",
+          "target_position": "Position 2",
+          "shot_type": "中近景",
+          "shot_blend": "cut",
+          "follow": 0,
+          "camera": null,
+          "shot_description": "Medium close shot holds on seated Chen Yu, his hand paused beside the screen while the blue interface lights his face.",
+          "motion_enabled": true,
+          "motion_preset": "dialogue_push",
+          "play_motion_on_activate": true,
+          "motion_start_delay": 0.0,
+          "motion_reset_on_replay": true
+        },
+        {
+          "event_index": 3,
+          "shot": "character",
+          "target": "陈屿",
+          "target_position": "Position 2",
+          "shot_type": "中景",
+          "shot_blend": "cut",
+          "follow": 0,
+          "camera": null,
+          "shot_description": "Medium shot follows Chen Yu as he rises from the console and turns his attention toward the hatch.",
+          "motion_enabled": true,
+          "motion_preset": "gentle_push",
+          "play_motion_on_activate": true,
+          "motion_start_delay": 0.0,
+          "motion_reset_on_replay": true
+        },
+        {
+          "event_index": 4,
+          "shot": "character",
+          "target": "林静",
+          "target_position": "Position 1",
+          "shot_type": "中景",
+          "shot_blend": "cut",
+          "follow": 0,
+          "camera": null,
+          "shot_description": "Medium shot on Lin Jing leaning over the other side of the console, gesturing urgently at the pulsing waveform.",
+          "motion_enabled": true,
+          "motion_preset": "dialogue_push",
+          "play_motion_on_activate": true,
+          "motion_start_delay": 0.0,
+          "motion_reset_on_replay": true
+        }
+      ]
+    }
+  ]
+}

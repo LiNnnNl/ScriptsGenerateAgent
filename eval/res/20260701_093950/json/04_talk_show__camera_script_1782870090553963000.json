@@ -1,0 +1,105 @@
+{
+  "scenes": [
+    {
+      "scene_index": 0,
+      "events": [
+        {
+          "event_index": 0,
+          "shot": "character",
+          "target": "雷欧 (M-01)",
+          "target_position": "Position 1",
+          "shot_type": "中近景",
+          "shot_blend": "cut",
+          "follow": 0,
+          "camera": null,
+          "shot_description": "雷欧 (M-01) stands centered in the foreground as the only visible subject.",
+          "motion_enabled": true,
+          "motion_preset": "dialogue_push",
+          "play_motion_on_activate": true,
+          "motion_start_delay": 0.0,
+          "motion_reset_on_replay": true
+        },
+        {
+          "event_index": 1,
+          "shot": "character",
+          "target": "雷欧 (M-01)",
+          "target_position": "Position 1",
+          "shot_type": "中近景",
+          "shot_blend": "cut",
+          "follow": 0,
+          "camera": null,
+          "shot_description": "雷欧 (M-01) stands centered in the foreground as the only visible subject.",
+          "motion_enabled": true,
+          "motion_preset": "dialogue_push",
+          "play_motion_on_activate": true,
+          "motion_start_delay": 0.0,
+          "motion_reset_on_replay": true
+        },
+        {
+          "event_index": 2,
+          "shot": "character",
+          "target": "雷欧 (M-01)",
+          "target_position": "Position 1",
+          "shot_type": "俯拍镜头",
+          "shot_blend": "cut",
+          "follow": 0,
+          "camera": null,
+          "shot_description": "雷欧 (M-01) stands centered in the foreground as the only visible subject.",
+          "motion_enabled": true,
+          "motion_preset": "pressure_push",
+          "play_motion_on_activate": true,
+          "motion_start_delay": 0.0,
+          "motion_reset_on_replay": true
+        },
+        {
+          "event_index": 3,
+          "shot": "character",
+          "target": "雷欧 (M-01)",
+          "target_position": "Position 1",
+          "shot_type": "近景",
+          "shot_blend": "cut",
+          "follow": 0,
+          "camera": null,
+          "shot_description": "雷欧 (M-01) stands centered in the foreground as the only visible subject.",
+          "motion_enabled": true,
+          "motion_preset": "emotion_push",
+          "play_motion_on_activate": true,
+          "motion_start_delay": 0.0,
+          "motion_reset_on_replay": true
+        },
+        {
+          "event_index": 4,
+          "shot": "character",
+          "target": "雷欧 (M-01)",
+          "target_position": "Position 1",
+          "shot_type": "仰拍镜头",
+          "shot_blend": "cut",
+          "follow": 0,
+          "camera": null,
+          "shot_description": "雷欧 (M-01) stands centered in the foreground as the only visible subject.",
+          "motion_enabled": true,
+          "motion_preset": "power_push",
+          "play_motion_on_activate": true,
+          "motion_start_delay": 0.0,
+          "motion_reset_on_replay": true
+        },
+        {
+          "event_index": 5,
+          "shot": "character",
+          "target": "雷欧 (M-01)",
+          "target_position": "Position 1",
+          "shot_type": "俯拍镜头",
+          "shot_blend": "cut",
+          "follow": 0,
+          "camera": null,
+          "shot_description": "雷欧 (M-01) stands centered in the foreground as the only visible subject.",
+          "motion_enabled": true,
+          "motion_preset": "pressure_push",
+          "play_motion_on_activate": true,
+          "motion_start_delay": 0.0,
+          "motion_reset_on_replay": true
+        }
+      ]
+    }
+  ]
+}

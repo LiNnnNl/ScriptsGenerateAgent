@@ -257,6 +257,8 @@ const LocalProjects = {
             scenePool: [...(APP_STATE.scenePool || [])],
             actScenes: [...(APP_STATE.actScenes || [])],
             actCount: APP_STATE.actCount,
+            scriptStyleId: APP_STATE.scriptStyleId || '',
+            scriptToneId: APP_STATE.scriptToneId || '',
             creativeIdea: document.getElementById('creativeIdea')?.value || ''
         };
     },

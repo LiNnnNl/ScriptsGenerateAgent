@@ -1,0 +1,70 @@
+{
+  "run_id": "20260701_093950",
+  "base_url": "http://127.0.0.1:5001",
+  "started_at": "20260701_093950",
+  "elapsed_seconds": 296.94,
+  "results": [
+    {
+      "id": "04_talk_show",
+      "name": "测试题4：单人脱口秀风格",
+      "creative_idea": "生成一段吐槽研究生生活的单人脱口秀风格剧本。",
+      "status": "success",
+      "started_at": "2026-07-01T09:39:50",
+      "elapsed_seconds": 296.85,
+      "title": "我在太空站改数据",
+      "session_id": "1782870090553963000",
+      "estimated_duration": {
+        "estimated_duration_seconds": 83,
+        "dialogue_lines": 6,
+        "dialogue_chars": 325
+      },
+      "error": null,
+      "files": {
+        "script": "04_talk_show__script_1782870090553963000.json",
+        "camera_script": "04_talk_show__camera_script_1782870090553963000.json",
+        "actors_profile": "04_talk_show__actors_profile_1782870090553963000.json",
+        "position_plan": "04_talk_show__position_plan_1782870090553963000.json",
+        "position_detail": "04_talk_show__position_detail_1782870090553963000.json"
+      },
+      "event_file": "04_talk_show__events.ndjson",
+      "script_summary": {
+        "act_count": 1,
+        "beat_count": 6,
+        "acts": [
+          {
+            "index": 1,
+            "where": "Space Station",
+            "what": "雷欧吐槽自己来太空站做机械观测，结果误打误撞过上了研究生熬课题改数据的苦逼生活",
+            "beat_count": 6,
+            "preview": [
+              {
+                "speaker": "雷欧 (M-01)",
+                "content": "你说离谱不离谱？我一个废土边缘长大的拾荒者，攒了半条命摸上来这太空站，就为了拆这里的战斗机器人，攒全结构蓝图。"
+              },
+              {
+                "speaker": "雷欧 (M-01)",
+                "content": "结果呢？上来三个月，机器人没拆两块，数据改了八十七版。那个AI导师天天发推送：雷欧啊，这个模型不对，那个数据偏差，再改改？"
+              },
+              {
+                "speaker": "雷欧 (M-01)",
+                "content": "上周我偷偷摸进下层实验区，刚拆开一个维修机器人的外壳，扳手还热着呢，AI导师的推送直接弹我视网膜上：课题中期报告，deadline今天午夜。"
+              },
+              {
+                "speaker": "雷欧 (M-01)",
+                "content": "我攥着扳手坐在零件堆里，凉风吹得后颈发麻，突然就反应过来了——"
+              },
+              {
+                "speaker": "雷欧 (M-01)",
+                "content": "我这哪里是什么M-01号人类观察对象？我分明是读了个全宇宙最贵的深空在职研究生！"
+              },
+              {
+                "speaker": "雷欧 (M-01)",
+                "content": "合着不管你在废土捡垃圾还是来太空拆机器人，只要搞研究，就逃不过改课题熬大夜给导师打白工。得了，不说了，AI导师又催我改第八十九版数据了。"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -6,6 +6,7 @@ echo.
 echo Starting HTTP server...
 echo Frontend will be available at http://localhost:8080
 echo.
+cd /d "%~dp0"
 cd frontend
 python -m http.server 8080
 pause

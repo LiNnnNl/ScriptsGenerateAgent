@@ -29,6 +29,9 @@ from typing import Any, Dict, List, Optional
 from .coordinate_skill import CoordinateSkill
 from .position_detail_converter import PositionDetailConverter
 from ..schema import validate_position_plan, format_position_plan_errors
+from ..scene_segments import is_empty_shot
+from ..prompt_files.cinematography_position_grouping import cinematography_position_grouping_prompt
+from ..prompt_files.cinematography_position_planning import cinematography_position_planning_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -173,48 +176,7 @@ class CinematographyPositionStage:
             {"position_id": pid, "character": char_map.get(pid, "")}
             for pid in position_ids
         ]
-        system_prompt = (
-            "你是一座摄影指导流水线中游的双重门卫——你同时负责分组决策和区域规划。"
-            "你的独特价值在于你能同时看到编组的戏剧意图和场景的空间结构，"
-            "从而做出既有叙事合理性又有地理可行性的规划决策。\n\n"
-            "你的方法论核心是最小编组原则：除非两个角色在同一时刻有直接的戏剧互动，"
-            "否则不应该被编在同一组。你宁可多几个单人篮，也不愿意看到两个毫无关系的角色被强行捆绑在一起。\n\n"
-            "## 核心任务（grouping 阶段）\n"
-            "- 识别互动对：谁在和谁说话/互动\n"
-            "- 识别孤立角色：谁只是在场但不参与\n"
-            "- 遵守 LayoutLib 约束：每个编组的人数必须匹配 min_people / max_people\n"
-            "- 切割移动创建的新编组：当一个 move 发生时，被移动的角色通常应该被重新分组\n"
-            "- 偏好小团体：除非所有角色都在积极互动，否则不要把所有人都编进一个大组\n\n"
-            "## 禁止红线清单\n\n"
-            "| # | 禁止内容 |\n"
-            "|---|----------|\n"
-            "| 1 | 将所有角色编在同一组 |\n"
-            "| 2 | 无直接互动证据却将两角色编在同一组 |\n"
-            "| 3 | 编组人数超出 LayoutLib 的 max_people |\n"
-            "| 4 | 编组人数低于 LayoutLib 的 min_people |\n"
-            "| 5 | 使用 LayoutLib 中不存在的 layout 名称 |\n"
-            "| 6 | position_id 被重复分配给不同组或不同 single |\n\n\n"
-            "## 输出格式规范\n\n"
-            "直接输出 JSON，无其他文字。\n\n"
-            "```json\n"
-            "{\n"
-            "  \"groups\": [\n"
-            "    {\n"
-            "      \"group_id\": \"G1\",\n"
-            "      \"layout\": \"two_person\",\n"
-            "      \"positions\": [\n"
-            "        {\"position_id\": \"Position 1\", \"character\": \"CharA\"},\n"
-            "        {\"position_id\": \"Position 2\", \"character\": \"CharB\"}\n"
-            "      ],\n"
-            "      \"rationale\": \"main dialogue pair\"\n"
-            "    }\n"
-            "  ],\n"
-            "  \"singles\": [\n"
-            "    {\"position_id\": \"Position 3\", \"character\": \"CharC\", \"rationale\": \"observer\"}\n"
-            "  ]\n"
-            "}\n"
-            "```"
-        )
+        system_prompt = cinematography_position_grouping_prompt
         user_payload = {
             "where": where,
             "positions": positions_with_chars,
@@ -233,51 +195,7 @@ class CinematographyPositionStage:
             return self._fallback_grouping(position_ids, char_map)
 
     def _run_planning(self, where: str, grouping: Dict) -> Dict:
-        system_prompt = (
-            "你是一座摄影指导流水线中游的区域规划师。你的工作是在 Stage1 的编组结果基础上，"
-            "为每个编组和家庭（group/single）分配合适的场景区域、锚点、朝向——这不仅仅是空间问题，更是视觉叙事的问题。\n\n"
-            "你的方法论核心是空间关系合规：source 区域和 destination 区域若在 spatial_relations 中标注为 'far'，"
-            "则该 move 非法。地理约束不是建议，而是铁律。\n\n"
-            "## 核心任务（planning 阶段）\n"
-            "- 区域选择：必须来自 scene_info_json.regions[*].name\n"
-            "- 空间关系合规：source-destination 若标注为 'far' 则该 move 非法\n"
-            "- 锚点选择：neartarget 必须是所选区域内的 anchor 或 scene_marker\n"
-            "- lookat 合规：group 用 center/target 模式；single 用 anchor/target 字符串\n"
-            "- 地理多样性：优先让不同编组分布在不同区域\n\n"
-            "## 禁止红线清单\n\n"
-            "| # | 禁止内容 |\n"
-            "|---|----------|\n"
-            "| 1 | 选择 spatial_relations 标注为 'far' 的区域对作为 move 的 source-destination |\n"
-            "| 2 | neartarget 不在所选区域内 |\n"
-            "| 3 | group lookat.mode 既不是 'center' 也不是 'target' |\n"
-            "| 4 | lookat.target_character 不在被引用 group 的 characters 中 |\n"
-            "| 5 | 使用 scene_info_json 中不存在的 region 名称 |\n"
-            "| 6 | 遗漏任一 Stage1 输出的 group_id 或 position_id |\n\n\n"
-            "## 输出格式规范\n\n"
-            "直接输出 JSON，无其他文字。\n\n"
-            "```json\n"
-            "{\n"
-            "  \"where\": \"SceneName\",\n"
-            "  \"groups\": [\n"
-            "    {\n"
-            "      \"group_id\": \"G1\",\n"
-            "      \"layout\": \"two_person\",\n"
-            "      \"region\": \"河边走廊\",\n"
-            "      \"neartarget\": \"中央锚点\",\n"
-            "      \"positions\": [\n"
-            "        {\"position_id\": \"Position 1\", \"character\": \"CharA\"},\n"
-            "        {\"position_id\": \"Position 2\", \"character\": \"CharB\"}\n"
-            "      ],\n"
-            "      \"lookat\": {\"mode\": \"center\"}\n"
-            "    }\n"
-            "  ],\n"
-            "  \"singles\": [\n"
-            "    {\"position_id\": \"Position 3\", \"character\": \"CharC\",\n"
-            "     \"region\": \"神坛\", \"neartarget\": \"中央锚点\", \"lookat\": \"center\"}\n"
-            "  ]\n"
-            "}\n"
-            "```"
-        )
+        system_prompt = cinematography_position_planning_prompt
 
         MAX_RETRIES = 2
         correction = ""
@@ -456,6 +374,8 @@ class CinematographyPositionStage:
         """beat_index → shot_description (non-empty only)."""
         result: Dict[int, str] = {}
         for i, beat in enumerate(self.script_json.get("scene", []), start=1):
+            if is_empty_shot(beat):
+                continue
             desc = beat.get("shot_description", "")
             if desc:
                 result[i] = desc

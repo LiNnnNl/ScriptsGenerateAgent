@@ -1,0 +1,126 @@
+[
+  {
+    "scene information": {
+      "who": ["林静", "陈屿"],
+      "where": "SpaceStation",
+      "what": "陈屿坐下分析异常信号，随后起身与林静确认舱门风险。"
+    },
+    "initial position": [
+      {"character": "林静", "position": "Position 1"},
+      {"character": "陈屿", "position": "Position 2"}
+    ],
+    "scene": [
+      {
+        "speaker": "",
+        "content": "",
+        "duration": "5s",
+        "shot": "scene",
+        "shot_blend": "Cut",
+        "camera": 1,
+        "shot_description": "空间站控制台闪着冷蓝色光，舱门深处传来低频震动。",
+        "actions": [],
+        "current position": [
+          {"character": "林静", "position": "Position 1"},
+          {"character": "陈屿", "position": "Position 2"}
+        ],
+        "event_index": 0,
+        "emotion": "normal",
+        "confidence": 0.0,
+        "reason": "空台词"
+      },
+      {
+        "speaker": "陈屿",
+        "content": "我坐下看一眼数据，先别碰那个舱门。",
+        "shot": "character",
+        "shot_blend": "Cut",
+        "shot_type": "中景",
+        "shot_description": "陈屿在控制台前坐下，视线贴着屏幕移动。",
+        "Follow": 0,
+        "actions": [
+          {
+            "character": "陈屿",
+            "state": "standing",
+            "action": "Sit Down",
+            "motion_detail": "Lower the body from standing into a seated position in front of the console"
+          }
+        ],
+        "current position": [
+          {"character": "林静", "position": "Position 1"},
+          {"character": "陈屿", "position": "Position 2"}
+        ],
+        "event_index": 1,
+        "emotion": "normal",
+        "confidence": 0.7,
+        "reason": "测试对白：坐下动作"
+      },
+      {
+        "speaker": "陈屿",
+        "content": "不是故障。这个信号像是有人故意藏在氧气循环里。",
+        "shot": "character",
+        "shot_blend": "Cut",
+        "shot_type": "中近景",
+        "shot_description": "陈屿保持坐姿，手指停在屏幕边缘，声音压低。",
+        "Follow": 0,
+        "actions": [],
+        "current position": [
+          {"character": "林静", "position": "Position 1"},
+          {"character": "陈屿", "position": "Position 2"}
+        ],
+        "event_index": 2,
+        "emotion": "normal",
+        "confidence": 0.7,
+        "reason": "测试对白：坐姿说话"
+      },
+      {
+        "speaker": "陈屿",
+        "content": "我去确认舱门锁，你盯住波形。",
+        "shot": "character",
+        "shot_blend": "Cut",
+        "shot_type": "中景",
+        "shot_description": "陈屿从控制台前起身，目光转向远处舱门。",
+        "Follow": 0,
+        "actions": [
+          {
+            "character": "陈屿",
+            "state": "sitting",
+            "action": "Stand Up",
+            "motion_detail": "Rise from the seated position and turn attention toward the hatch"
+          }
+        ],
+        "current position": [
+          {"character": "林静", "position": "Position 1"},
+          {"character": "陈屿", "position": "Position 2"}
+        ],
+        "event_index": 3,
+        "emotion": "normal",
+        "confidence": 0.7,
+        "reason": "测试对白：站起动作"
+      },
+      {
+        "speaker": "林静",
+        "content": "快点。它刚刚不是在闪，是在回应我们。",
+        "shot": "character",
+        "shot_blend": "Cut",
+        "shot_type": "中景",
+        "shot_description": "林静站在控制台另一侧，身体前倾，紧盯跳动的信号线。",
+        "Follow": 0,
+        "actions": [
+          {
+            "character": "林静",
+            "state": "standing",
+            "action": "Standing Talking 2",
+            "motion_detail": "Lean forward slightly and gesture toward the console while speaking urgently"
+          }
+        ],
+        "current position": [
+          {"character": "林静", "position": "Position 1"},
+          {"character": "陈屿", "position": "Position 2"}
+        ],
+        "event_index": 4,
+        "emotion": "surprised",
+        "confidence": 0.6,
+        "reason": "测试对白：站立说话"
+      }
+    ]
+  }
+]

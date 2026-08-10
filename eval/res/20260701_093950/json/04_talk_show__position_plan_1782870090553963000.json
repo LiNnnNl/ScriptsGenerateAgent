@@ -1,0 +1,13 @@
+{
+  "where": "太空站高层主仓",
+  "groups": [],
+  "singles": [
+    {
+      "position_id": "Position 1",
+      "character": "雷欧 (M-01)",
+      "region": "高层主仓",
+      "neartarget": "舷窗内侧锚点",
+      "lookat": "舷窗"
+    }
+  ]
+}

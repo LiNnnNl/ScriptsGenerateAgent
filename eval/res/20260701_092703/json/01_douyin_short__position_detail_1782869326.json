@@ -1,0 +1,22 @@
+{
+  "where": "太空站高层主仓",
+  "groups": [
+    {
+      "position_id": "Position 1",
+      "group_id": "G1",
+      "region": "高层主仓",
+      "character": "捷风",
+      "layout": "two_person",
+      "lookat": "center"
+    },
+    {
+      "position_id": "Position 2",
+      "group_id": "G1",
+      "region": "高层主仓",
+      "character": "贤者",
+      "layout": "two_person",
+      "lookat": "center"
+    }
+  ],
+  "singles": []
+}

@@ -95,8 +95,11 @@ class Action:
 class ResourceLoader:
     """资源管理器"""
     
-    def __init__(self, resource_dir: str = "resources"):
-        self.resource_dir = Path(resource_dir)
+    def __init__(self, resource_dir: Optional[str] = None):
+        if resource_dir is None:
+            self.resource_dir = Path(__file__).resolve().parents[1] / "resources"
+        else:
+            self.resource_dir = Path(resource_dir)
         self.characters: List[Character] = []
         self.scenes: List[Scene] = []
         self.actions: List[Action] = []
@@ -277,4 +280,3 @@ class ResourceLoader:
         summary.append(f"场景列表: {', '.join([s.name for s in self.scenes])}")
         
         return "\n".join(summary)
-

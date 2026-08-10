@@ -1,0 +1,19 @@
+"""Render camera planning prompts from pure prompt files."""
+
+from ..prompt_files.camera_planning_analysis_batch_system import camera_planning_analysis_batch_system_prompt
+from ..prompt_files.camera_planning_analysis_batch_user_instructions import camera_planning_analysis_batch_user_instructions_prompt
+from ..prompt_files.stash.camera_planning_analysis_system_stash import camera_planning_analysis_system_prompt
+from ..prompt_files.stash.camera_planning_analysis_user_instructions_stash import camera_planning_analysis_user_instructions_prompt
+from ..prompt_utils import prompt_lines
+
+
+def build_analysis_system_prompt() -> str:
+    return camera_planning_analysis_system_prompt
+
+
+def build_analysis_batch_system_prompt() -> str:
+    return camera_planning_analysis_batch_system_prompt
+
+
+camera_analysis_user_instructions = prompt_lines(camera_planning_analysis_user_instructions_prompt)
+camera_analysis_batch_user_instructions = prompt_lines(camera_planning_analysis_batch_user_instructions_prompt)

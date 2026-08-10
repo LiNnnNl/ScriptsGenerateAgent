@@ -19,8 +19,8 @@ from typing import Any, Dict, List, Optional
 logger = logging.getLogger(__name__)
 
 # 网络错误关键词（用于区分连接抖动 vs 业务错误）
-_NETWORK_ERR_KEYWORDS = ("connection", "timeout", "network", "remotedisconnected", "connect error")
-_STAGE_MAX_RETRIES = 2       # 前置阶段 Agent 最大重试次数
+_NETWORK_ERR_KEYWORDS = ("connection", "timeout", "timed out", "network", "remotedisconnected", "connect error")
+_STAGE_MAX_RETRIES = 3       # 前置阶段 Agent 最大重试次数
 _STAGE_RETRY_BASE_DELAY = 3  # 秒，每次翻倍
 
 from autogen_agentchat.messages import TextMessage, ToolCallExecutionEvent, ModelClientStreamingChunkEvent
@@ -34,6 +34,7 @@ from .autogen_agents import (
     create_concept_agent,
     create_synopsis_agent,
     create_character_bios_agent,
+    create_meeting_summary_agent,
     create_treatment_agent,
     create_title_agent,
     create_director_agent,
@@ -44,11 +45,16 @@ from .autogen_agents import (
     create_character_voice_agent,
     create_narrative_arch_agent,
     is_quota_error,
+    make_model_client,
     make_fallback_model_client,
 )
+from .prompt_renderers.title_generation import build_title_generation_user_prompt
 from .autogen_tools import validate_script_constraints, validate_json_spec, auto_fix_script
 from .resource_loader import ResourceLoader, Character, Scene
-from .json_generator import ScriptJSONGenerator
+from .script_style_skill import ScriptStyleSkill
+from .script_tone_skill import ScriptToneSkill
+from .json_generator import ScriptJSONGenerator, normalize_initial_position_states
+from .scene_segments import is_empty_shot, protect_empty_shot, protect_empty_shots
 from .cinematography import run_cinematography_pipeline
 from .schema import (
     validate_script_shot_structure,
@@ -82,8 +88,74 @@ def _emit_stage_log(
     })
 
 
+def _repair_json_string_escapes(text: str) -> str:
+    """Repair only malformed JSON string escapes without changing semantic content."""
+    repaired: list[str] = []
+    in_string = False
+    escaped = False
+    length = len(text)
+
+    for index, char in enumerate(text):
+        if not in_string:
+            repaired.append(char)
+            if char == '"':
+                in_string = True
+            continue
+
+        if escaped:
+            repaired.append(char)
+            escaped = False
+            continue
+        if char == "\\":
+            repaired.append(char)
+            escaped = True
+            continue
+        if char == '"':
+            next_index = index + 1
+            while next_index < length and text[next_index].isspace():
+                next_index += 1
+            next_char = text[next_index] if next_index < length else ""
+            # A closing quote is followed by a JSON delimiter. Any other quote
+            # inside a string is dialogue/content and must be escaped.
+            if next_char in {",", "]", "}", ":"} or not next_char:
+                repaired.append(char)
+                in_string = False
+            else:
+                repaired.append('\\"')
+            continue
+        if char == "\n":
+            repaired.append("\\n")
+            continue
+        if char == "\r":
+            repaired.append("\\r")
+            continue
+        if char == "\t":
+            repaired.append("\\t")
+            continue
+        repaired.append(char)
+    return "".join(repaired)
+
+
+def _load_json_with_safe_repair(json_str: str) -> Optional[Any]:
+    """Parse JSON, then retry a narrowly-scoped syntax repair for LLM output."""
+    try:
+        return json.loads(json_str)
+    except json.JSONDecodeError as original_error:
+        repaired = _repair_json_string_escapes(json_str)
+        if repaired == json_str:
+            logger.debug("JSON parsing failed without a safe repair candidate: %s", original_error)
+            return None
+        try:
+            parsed = json.loads(repaired)
+        except json.JSONDecodeError as repair_error:
+            logger.debug("JSON parsing failed after safe repair: %s", repair_error)
+            return None
+        logger.info("Recovered malformed LLM JSON by escaping string content.")
+        return parsed
+
+
 def _extract_json_from_text(text: str) -> Optional[list]:
-    """从 Agent 输出文本中提取 JSON 数组"""
+    """从 Agent 输出文本中提取 JSON 数组，并保守修复常见字符串转义错误。"""
     # 尝试提取 markdown 代码块
     match = re.search(r'```json\s*([\s\S]*?)\s*```', text, re.DOTALL)
     if match:
@@ -108,7 +180,7 @@ def _extract_json_from_text(text: str) -> Optional[list]:
         end = max(end_candidates)
         json_str = json_str[start : end + 1]
 
-        result = json.loads(json_str)
+        result = _load_json_with_safe_repair(json_str)
         return result if isinstance(result, list) else None
     except json.JSONDecodeError:
         return None
@@ -123,7 +195,7 @@ def _extract_json_object_from_text(text: str) -> Optional[dict]:
         end = json_str.rfind('}')
         if start == -1 or end == -1:
             return None
-        parsed = json.loads(json_str[start:end + 1])
+        parsed = _load_json_with_safe_repair(json_str[start:end + 1])
         return parsed if isinstance(parsed, dict) else None
     except json.JSONDecodeError:
         return None
@@ -161,6 +233,8 @@ def _filter_script_for_review(script: list) -> str:
         for seg in scene_obj.get("scene", []):
             if "move" in seg:
                 continue  # 移动片段不需要审查
+            if is_empty_shot(seg):
+                continue  # 空镜不是对白，文学/对白 Agent 不得改写
             filtered_scene["scene"].append({
                 "speaker": seg.get("speaker", ""),
                 "content": seg.get("content", ""),
@@ -218,7 +292,7 @@ async def _generate_script_title(script: list, bridge: "AutoGenStreamBridge") ->
     try:
         result = await _run_stage_agent_json_object(
             create_title_agent(),
-            f"请为以下剧本摘要命名：\n{_build_title_input(script)}",
+            build_title_generation_user_prompt(_build_title_input(script)),
         )
         title = _clean_script_title((result or {}).get("title"), script)
         _emit_stage_log(bridge, "success", "output", "title", f"🎬 自动片名：《{title}》")
@@ -269,12 +343,28 @@ async def _run_director_agent(
     label: str = "DirectorAgent",
 ) -> Optional[list]:
     """运行 DirectorAgent，处理 streaming 事件，返回解析后的 JSON 列表。连接错误时指数退避重试；额度耗尽时换用备用模型。"""
+    system_chars = sum(
+        len(str(getattr(message, "content", "")))
+        for message in getattr(director, "_system_messages", [])
+    )
+    model_args = getattr(getattr(director, "_model_client", None), "_create_args", {})
+    max_output_tokens = model_args.get("max_tokens", 8000) if isinstance(model_args, dict) else 8000
+    request_metrics = {
+        "system_prompt_chars": system_chars,
+        "dynamic_prompt_chars": len(prompt),
+        "total_input_chars": system_chars + len(prompt),
+        "max_output_tokens": max_output_tokens,
+    }
     delay = _STAGE_RETRY_BASE_DELAY
     _quota_switched = False
     for attempt in range(_STAGE_MAX_RETRIES + 1):
         thinking_started = False
         raw_content = None
         try:
+            _emit_stage_log(
+                bridge, 'info', 'direct' if '直接' in label else 'draft', 'director_attempt',
+                f'🤖 [{label}] 请求模型中（第 {attempt + 1}/{_STAGE_MAX_RETRIES + 1} 次）...'
+            )
             async for event in director.on_messages_stream(
                 [TextMessage(content=prompt, source="user")],
                 cancellation_token=CancellationToken()
@@ -289,14 +379,44 @@ async def _run_director_agent(
                 if hasattr(event, 'chat_message') and event.chat_message:
                     raw_content = event.chat_message.content
                     logger.info("[%s] 原始输出（前500字）: %s", label, raw_content[:500])
+                    _emit_stage_log(
+                        bridge, 'info', 'direct' if '直接' in label else 'draft', 'director_response',
+                        f'📥 [{label}] 已收到模型输出（{len(raw_content)} 字符），正在提取 JSON...'
+                    )
                     if thinking_started:
                         bridge.put_event({'type': 'thinking_done'})
                         thinking_started = False
             if thinking_started:
                 bridge.put_event({'type': 'thinking_done'})
             if not raw_content:
+                _emit_stage_log(
+                    bridge, 'warning', 'direct' if '直接' in label else 'draft', 'director_empty',
+                    f'⚠️ [{label}] 模型未返回内容。请求规模：系统 {system_chars} 字符，动态输入 {len(prompt)} 字符，输出上限 {max_output_tokens} tokens。'
+                )
                 return None
-            return _extract_json_from_text(raw_content)
+            parsed = _extract_json_from_text(raw_content)
+            if parsed is None:
+                code_block = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', raw_content, re.DOTALL | re.IGNORECASE)
+                json_candidate = code_block.group(1) if code_block else raw_content
+                bridge.last_error_details = {
+                    "agent": label,
+                    "error_type": "InvalidOrTruncatedJson",
+                    "response_chars": len(raw_content),
+                    "response_ends_with_array": json_candidate.rstrip().endswith("]"),
+                    "response_is_markdown_code_block": bool(code_block),
+                    "max_output_tokens": max_output_tokens,
+                }
+                _emit_stage_log(
+                    bridge, 'warning', 'direct' if '直接' in label else 'draft', 'director_parse_failed',
+                    f'⚠️ [{label}] 未能从模型输出中提取合法 JSON。已收到 {len(raw_content)} 字符，'
+                    f'输出是否以数组结束：{raw_content.rstrip().endswith("]")}；可能是 JSON 被截断或夹带非 JSON 内容。'
+                )
+            else:
+                _emit_stage_log(
+                    bridge, 'success', 'direct' if '直接' in label else 'draft', 'director_parse_ok',
+                    f'✅ [{label}] JSON 提取成功'
+                )
+            return parsed
         except Exception as e:
             if thinking_started:
                 bridge.put_event({'type': 'thinking_done'})
@@ -313,11 +433,321 @@ async def _run_director_agent(
                                label, delay, attempt + 1, _STAGE_MAX_RETRIES, e)
                 bridge.put_event({'type': 'thinking_chunk', 'agent': label,
                                   'text': f'\n⚠️ 连接错误，{delay:.0f}s 后重试（{attempt + 1}/{_STAGE_MAX_RETRIES}）...\n'})
+                # Do not reuse the HTTP client that just lost its upstream
+                # connection. A fresh client avoids carrying a broken pool into
+                # the next DirectorAgent attempt.
+                try:
+                    await director._model_client.close()
+                except Exception as close_error:
+                    logger.debug("[%s] Closing failed model client failed: %s", label, close_error)
+                director._model_client = make_model_client()
                 await asyncio.sleep(delay)
                 delay *= 2
+            elif is_network:
+                error_details = {
+                    "agent": label,
+                    "error_type": type(e).__name__,
+                    "error_message": str(e),
+                    "attempts": _STAGE_MAX_RETRIES + 1,
+                    **request_metrics,
+                }
+                bridge.last_error_details = error_details
+                logger.error("[%s] 网络重试耗尽，详情=%s", label, error_details)
+                _emit_stage_log(
+                    bridge, 'error', 'direct' if '直接' in label else 'draft', 'director_network_exhausted',
+                    f'❌ [{label}] 连接重试已耗尽。系统 {system_chars} 字符 + 动态输入 {len(prompt)} 字符，'
+                    f'输出上限 {max_output_tokens} tokens；异常 {type(e).__name__}: {e}。'
+                    '远端在返回响应前断开，无法从本次请求直接判定是输入还是预期输出过大。'
+                )
+                return None
             else:
                 raise
     return None
+
+
+async def _run_director_per_act_fallback(
+    base_prompt: str,
+    bridge: "AutoGenStreamBridge",
+    characters: List[Character],
+    scene: Scene,
+    resource_loader: ResourceLoader,
+    required_character_count: int,
+    act_count: int,
+    user_constraints: List[str],
+    act_scene_map: Optional[Dict[int, Scene]],
+    script_style_guide: Optional[str],
+) -> Optional[list]:
+    """Generate one act per request when the full-script request cannot stay connected."""
+    scenes: list = []
+    for act_index in range(act_count):
+        act_scene = (act_scene_map or {}).get(act_index, scene)
+        per_act_director = create_director_agent(
+            characters,
+            act_scene,
+            resource_loader,
+            required_character_count,
+            act_count=1,
+            user_constraints=user_constraints,
+            act_scene_map={0: act_scene} if act_scene_map else None,
+            script_style_guide=script_style_guide,
+        )
+        label = f"DirectorAgent（单幕降级，第{act_index + 1}/{act_count}幕）"
+        _emit_stage_log(
+            bridge, 'warning', 'draft', 'per_act_fallback',
+            f'⚠️ [剧本起草期] 完整剧本请求失败，改为单幕生成：第 {act_index + 1}/{act_count} 幕。'
+        )
+        per_act_prompt = (
+            f"{base_prompt}\n\n"
+            f"## 单幕生成约束\n"
+            f"现在只生成第 {act_index + 1} 幕，场景为 {act_scene.name}。"
+            "输出 JSON 数组且只能包含 1 个 scene_obj；不要生成或复述其他幕。"
+        )
+        per_act_script = await _run_director_agent(per_act_director, per_act_prompt, bridge, label)
+        if not per_act_script or len(per_act_script) != 1:
+            details = dict(getattr(bridge, "last_error_details", None) or {})
+            details.update({
+                'act': act_index + 1,
+                'expected_scene_count': 1,
+                'received_scene_count': len(per_act_script) if per_act_script else 0,
+                'fallback': 'per_act_json',
+            })
+            bridge.put_event({
+                'type': 'error',
+                'message': f'[DirectorAgent] 单幕降级在第 {act_index + 1} 幕仍未生成有效 JSON。',
+                'details': details,
+            })
+            return None
+        scenes.extend(per_act_script)
+        _emit_stage_log(
+            bridge, 'success', 'draft', 'per_act_complete',
+            f'✅ [剧本起草期] 第 {act_index + 1}/{act_count} 幕单独生成完成。'
+        )
+    return scenes
+
+
+def _direct_collect_scene_characters(scene_obj: Dict, beats: List[Dict], fallback_names: List[str]) -> List[str]:
+    names: List[str] = []
+    seen = set()
+
+    def add(name: Any) -> None:
+        value = str(name or "").strip()
+        if value and value not in seen and value.lower() not in _NARRATION_LABELS:
+            seen.add(value)
+            names.append(value)
+
+    for name in (scene_obj.get("scene information") or {}).get("who", []) or []:
+        add(name)
+    for entry in scene_obj.get("initial position", []) or []:
+        if isinstance(entry, dict):
+            add(entry.get("character"))
+    for beat in beats:
+        if not isinstance(beat, dict):
+            continue
+        add(beat.get("speaker"))
+        for action in beat.get("actions", []) or []:
+            if isinstance(action, dict):
+                add(action.get("character"))
+        moves = beat.get("move", [])
+        if isinstance(moves, dict):
+            moves = [moves]
+        for move in moves or []:
+            if isinstance(move, dict):
+                add(move.get("character"))
+        for entry in beat.get("current position", []) or []:
+            if isinstance(entry, dict):
+                add(entry.get("character"))
+
+    if not names:
+        for name in fallback_names:
+            add(name)
+    return names
+
+
+def _direct_current_position_map(entries: Any) -> Dict[str, str]:
+    if not isinstance(entries, list):
+        return {}
+    result: Dict[str, str] = {}
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        character = str(entry.get("character") or "").strip()
+        position = str(entry.get("position") or "").strip()
+        if character and position:
+            result[character] = position
+    return result
+
+
+def _direct_positions_are_collapsed(scene_obj: Dict, who: List[str]) -> bool:
+    """Detect the common direct-mode failure where every character is assigned one Position."""
+    if len(who) < 2:
+        return False
+    who_set = set(who)
+
+    initial_positions = [
+        str(entry.get("position") or "").strip()
+        for entry in scene_obj.get("initial position", []) or []
+        if isinstance(entry, dict)
+        and str(entry.get("character") or "").strip() in who_set
+        and str(entry.get("position") or "").strip()
+    ]
+    if len(initial_positions) >= 2 and len(set(initial_positions)) == 1:
+        return True
+
+    total_current_beats = 0
+    collapsed_current_beats = 0
+    for beat in scene_obj.get("scene", []) or []:
+        if not isinstance(beat, dict):
+            continue
+        current_map = _direct_current_position_map(beat.get("current position"))
+        positions = [current_map[name] for name in who if current_map.get(name)]
+        if len(positions) >= 2:
+            total_current_beats += 1
+            if len(set(positions)) == 1:
+                collapsed_current_beats += 1
+
+    return total_current_beats > 0 and collapsed_current_beats == total_current_beats
+
+
+def _spread_direct_collapsed_positions(scene_obj: Dict, who: List[str], scene_name: str) -> None:
+    """Spread collapsed Position 1/1/1 style assignments into stable per-character slots."""
+    state_by_character = {
+        str(item.get("character") or "").strip(): str(item.get("state") or "").strip()
+        for item in scene_obj.get("initial position", []) or []
+        if isinstance(item, dict) and str(item.get("character") or "").strip()
+    }
+    slot_by_character = {name: f"Position {index}" for index, name in enumerate(who, start=1)}
+    scene_obj["initial position"] = [
+        {
+            "character": name,
+            "position": slot_by_character[name],
+            "state": state_by_character.get(name) or "standing",
+        }
+        for name in who
+    ]
+
+    position_descriptions = dict(scene_obj.get("position_descriptions") or {})
+    for name, position in slot_by_character.items():
+        position_descriptions[position] = position_descriptions.get(
+            position,
+            f"{scene_name} - {name} 的独立初始站位",
+        )
+    scene_obj["position_descriptions"] = position_descriptions
+
+    current_positions = dict(slot_by_character)
+    for beat in scene_obj.get("scene", []) or []:
+        if not isinstance(beat, dict):
+            continue
+        raw_map = _direct_current_position_map(beat.get("current position"))
+        raw_positions = [raw_map[name] for name in who if raw_map.get(name)]
+        should_replace = not raw_map or (len(raw_positions) >= 2 and len(set(raw_positions)) == 1)
+        if should_replace:
+            beat["current position"] = [
+                {"character": name, "position": current_positions[name]}
+                for name in who if current_positions.get(name)
+            ]
+        else:
+            for name, position in raw_map.items():
+                current_positions[name] = position
+            for name in who:
+                if name not in raw_map and current_positions.get(name):
+                    beat.setdefault("current position", []).append({
+                        "character": name,
+                        "position": current_positions[name],
+                    })
+
+        moves = beat.get("move", []) or []
+        if isinstance(moves, dict):
+            moves = [moves]
+        for move in moves:
+            if isinstance(move, dict) and move.get("character") and move.get("destination"):
+                current_positions[str(move["character"]).strip()] = str(move["destination"]).strip()
+
+
+def _normalize_direct_scene(scene_obj: Dict, fallback_names: List[str], scene_name: str, what_snippet: str) -> Dict:
+    """直接模式本地兜底规范化：只补技术字段，不改写用户对白。"""
+    scene_obj = dict(scene_obj) if isinstance(scene_obj, dict) else {"scene": []}
+    raw_beats = scene_obj.get("scene") or []
+    beats = [dict(item) for item in raw_beats if isinstance(item, dict)]
+    who = _direct_collect_scene_characters(scene_obj, beats, fallback_names)
+
+    info = dict(scene_obj.get("scene information") or {})
+    info.setdefault("who", who)
+    info.setdefault("where", scene_name)
+    info.setdefault("what", what_snippet)
+    scene_obj["scene information"] = info
+
+    initial_positions = [
+        dict(item) for item in (scene_obj.get("initial position") or [])
+        if isinstance(item, dict) and item.get("character")
+    ]
+    existing_pos = {
+        item.get("character"): item.get("position")
+        for item in initial_positions
+        if item.get("character") and item.get("position")
+    }
+    for index, name in enumerate(who, start=1):
+        if name not in existing_pos:
+            pos_id = f"Position {index}"
+            initial_positions.append({"character": name, "position": pos_id})
+            existing_pos[name] = pos_id
+    scene_obj["initial position"] = initial_positions
+
+    position_descriptions = dict(scene_obj.get("position_descriptions") or {})
+    for name, pos_id in existing_pos.items():
+        if pos_id and pos_id not in position_descriptions:
+            position_descriptions[pos_id] = f"{scene_name} - {name} 的初始站位"
+    scene_obj["position_descriptions"] = position_descriptions
+
+    current_positions = dict(existing_pos)
+    normalized_beats: List[Dict] = []
+    for beat in beats:
+        has_move = "move" in beat
+        empty_shot = is_empty_shot(beat)
+        if has_move and isinstance(beat.get("move"), dict):
+            beat["move"] = [beat["move"]]
+
+        if not beat.get("shot"):
+            beat["shot"] = "scene" if has_move or empty_shot else "character"
+        if empty_shot:
+            protect_empty_shot(beat, ensure_camera=True)
+        if not beat.get("shot_blend"):
+            beat["shot_blend"] = "Cut"
+        if beat["shot"] == "scene":
+            if "camera" not in beat or beat.get("camera") is None:
+                beat["camera"] = 1
+        else:
+            if not beat.get("shot_type"):
+                beat["shot_type"] = "中景"
+            if "Follow" not in beat or beat.get("Follow") is None:
+                beat["Follow"] = 0
+            beat.setdefault("actions", [])
+        beat.setdefault("shot_description", "")
+
+        if not beat.get("current position"):
+            beat["current position"] = [
+                {"character": name, "position": pos}
+                for name, pos in current_positions.items() if pos
+            ]
+        else:
+            for entry in beat.get("current position", []) or []:
+                if isinstance(entry, dict) and entry.get("character") and entry.get("position"):
+                    current_positions[entry["character"]] = entry["position"]
+
+        normalized_beats.append(beat)
+
+        moves = beat.get("move", []) or []
+        if isinstance(moves, dict):
+            moves = [moves]
+        for move in moves:
+            if isinstance(move, dict) and move.get("character") and move.get("destination"):
+                current_positions[move["character"]] = move["destination"]
+
+    scene_obj["scene"] = normalized_beats
+    scene_obj["initial position"] = normalize_initial_position_states(scene_obj)
+    if _direct_positions_are_collapsed(scene_obj, who):
+        _spread_direct_collapsed_positions(scene_obj, who, scene_name)
+        scene_obj["_direct_position_repair_applied"] = True
+    return scene_obj
 
 
 def _extract_position_files(final_json: list, scene_id: str):
@@ -428,11 +858,15 @@ async def _build_direct_draft(creative_idea: str, characters, scene, bridge, dir
     返回结构与 DirectorAgent 产出一致，可直接喂给后续的验证 / 输出 / 摄影阶段。
     """
     text = (creative_idea or "").strip()
+    _emit_stage_log(
+        bridge, 'info', 'direct', 'input',
+        f'📄 [直接模式] 收到用户剧本 {len(text)} 个字符，开始解析'
+    )
 
     scenes = _try_parse_json_scenes(text)
     if scenes is not None:
         _emit_stage_log(bridge, 'info', 'direct', 'json',
-                        '🧩 [直接模式] 检测到规范 JSON，直接采用，跳过导演结构化')
+                        f'🧩 [直接模式] 检测到 JSON 输入，解析到 {len(scenes)} 个场景，跳过导演结构化')
     elif text:
         _emit_stage_log(bridge, 'info', 'direct', 'parsing',
                         '🎬 [直接模式] DirectorAgent 将用户剧本结构化（保留对白与镜头、分配站位，不创作）...')
@@ -460,35 +894,27 @@ async def _build_direct_draft(creative_idea: str, characters, scene, bridge, dir
     what_snippet = (creative_idea[:60] + ("…" if len(creative_idea) > 60 else "")) if creative_idea else scene.name
 
     normalized: List[Dict] = []
-    for sc in scenes:
-        sc = dict(sc) if isinstance(sc, dict) else {"scene": []}
-        beats = sc.get("scene") or []
-
-        # 收集本场景出现的角色（按出场顺序去重）
-        speakers: List[str] = []
-        seen = set()
-        for b in beats:
-            sp = (b.get("speaker") or "").strip() if isinstance(b, dict) else ""
-            if sp and sp not in seen:
-                seen.add(sp)
-                speakers.append(sp)
-        who = speakers or default_names
-
-        info = dict(sc.get("scene information") or {})
-        info.setdefault("who", who)
-        info.setdefault("where", scene.name)
-        info.setdefault("what", what_snippet)
-        sc["scene information"] = info
-
-        if "initial position" not in sc:
-            sc["initial position"] = [{"character": n, "position": ""} for n in who]
-        sc["scene"] = beats
-        normalized.append(sc)
+    for index, sc in enumerate(scenes, start=1):
+        normalized_scene = _normalize_direct_scene(sc, default_names, scene.name, what_snippet)
+        repaired_positions = bool(normalized_scene.pop("_direct_position_repair_applied", False))
+        normalized.append(normalized_scene)
+        beat_count = len(normalized_scene.get("scene", []))
+        who_count = len(normalized_scene.get("scene information", {}).get("who", []))
+        _emit_stage_log(
+            bridge, 'info', 'direct', 'normalize_scene',
+            f'🧱 [直接模式] 场景 {index} 已补齐基础字段：{who_count} 个角色 / {beat_count} 个片段'
+        )
+        if repaired_positions:
+            _emit_stage_log(
+                bridge, 'warning', 'direct', 'position_repair',
+                f'📍 [直接模式] 场景 {index} 检测到多个角色被分到同一 Position，已按角色拆成独立站位'
+            )
 
     total_beats = sum(len(s.get("scene", [])) for s in normalized)
+    position_count = sum(len(s.get("position_descriptions", {}) or {}) for s in normalized)
     _emit_stage_log(bridge, 'success', 'direct', 'parsed',
                     f'✅ [直接模式] 已解析用户剧本：{len(normalized)} 个场景 / {total_beats} 个片段，'
-                    f'跳过头脑风暴与剧本起草')
+                    f'补齐 {position_count} 个站位描述，跳过头脑风暴与剧本起草')
     return normalized
 
 
@@ -506,6 +932,8 @@ async def run_autogen_pipeline(
     custom_characters_input = request_params.get('custom_characters', [])
     scene_id = request_params.get('scene_id')
     creative_idea = (request_params.get('creative_idea') or '').strip()
+    requested_script_style_id = str(request_params.get('script_style_id') or '').strip()
+    requested_script_tone_id = str(request_params.get('script_tone_id') or '').strip()
     required_character_count = int(request_params.get('required_character_count', 0) or 0)
     act_count = max(1, min(10, int(request_params.get('act_count', 3) or 3)))
     # 直接模式：跳过创意会议/起草/审查，直接用用户提供的剧本（creative_idea），只补必要字段
@@ -534,6 +962,28 @@ async def run_autogen_pipeline(
     # 去重，保持顺序
     seen = set()
     user_constraints = [c for c in user_constraints if not (tuple(c) in seen or seen.add(tuple(c)))]
+
+    # ── 剧本风格 Skill：由导演入口统一锁定一次，供所有 Agent 共享 ──
+    style_skill = ScriptStyleSkill()
+    style_result = style_skill.resolve(creative_idea, requested_style_id=requested_script_style_id)
+    script_style_guide = style_skill.render_context(creative_idea, requested_style_id=requested_script_style_id)
+    selected_style = style_result.get("selected", {})
+    style_source = '用户按钮选择' if style_result.get('source') == 'user_button' else '创作灵感自动识别'
+    _emit_stage_log(
+        bridge, 'info', 'setup', 'script_style',
+        f"🎞️ 导演已锁定剧本风格: {selected_style.get('name', '未明确指定')}"
+        f"（{style_source}）"
+    )
+
+    tone_skill = ScriptToneSkill()
+    tone_result = tone_skill.resolve(requested_script_tone_id)
+    script_style_guide = script_style_guide + "\n\n" + tone_skill.render_context(requested_script_tone_id)
+    selected_tone = tone_result.get("selected", {})
+    if tone_result.get("explicit"):
+        _emit_stage_log(
+            bridge, 'info', 'setup', 'script_tone',
+            f"🎭 已锁定剧情倾向: {selected_tone.get('name', '未指定')}（用户按钮选择）"
+        )
 
     # ── 从 creative_idea 中提取用户提供的固定对白（格式：角色名: 对白内容）──
     _fixed_dlg_pattern = re.compile(r'^([A-Za-z\u4e00-\u9fff]{1,8})\s*[:：]\s*([^\n]{1,200})', re.MULTILINE)
@@ -668,10 +1118,24 @@ async def run_autogen_pipeline(
     model_supports_tools = os.getenv("MODEL_FUNCTION_CALLING", "false").lower() == "true"
     _emit_stage_log(bridge, 'info', 'setup', 'init', '🤖 初始化多 Agent 系统...')
 
-    treatment = create_treatment_agent(act_count=act_count)
-    director = create_director_agent(characters, scene, resource_loader, required_character_count, act_count, user_constraints=user_constraints, act_scene_map=act_scene_map if multi_scene else None)
-    critic = create_critic_agent(user_constraints=user_constraints, fixed_dialogues=fixed_dialogues)
-    dialogue = create_dialogue_agent(user_constraints=user_constraints, fixed_dialogues=fixed_dialogues)
+    treatment = create_treatment_agent(act_count=act_count, script_style_guide=script_style_guide)
+    meeting_summary_agent = create_meeting_summary_agent(script_style_guide=script_style_guide)
+    director = create_director_agent(
+        characters, scene, resource_loader, required_character_count, act_count,
+        user_constraints=user_constraints,
+        act_scene_map=act_scene_map if multi_scene else None,
+        script_style_guide=script_style_guide,
+    )
+    critic = create_critic_agent(
+        user_constraints=user_constraints,
+        fixed_dialogues=fixed_dialogues,
+        script_style_guide=script_style_guide,
+    )
+    dialogue = create_dialogue_agent(
+        user_constraints=user_constraints,
+        fixed_dialogues=fixed_dialogues,
+        script_style_guide=script_style_guide,
+    )
     validator = create_validation_agent(resource_loader, scene) if model_supports_tools else None
 
     _emit_stage_log(bridge, 'success', 'setup', 'ready', '✅ Agents 初始化完成（创意会议、大纲、导演、审查、验证）')
@@ -679,6 +1143,7 @@ async def run_autogen_pipeline(
     # 阶段化上下文（内存态，不落盘）
     stage_context: Dict[str, Any] = {
         "meeting_minutes": "",
+        "meeting_summary": {},
         "treatment": {},
     }
 
@@ -692,8 +1157,10 @@ async def run_autogen_pipeline(
         direct_director = create_director_agent(
             characters, scene, resource_loader, required_character_count, act_count,
             user_constraints=user_constraints, direct_mode=True,
+            script_style_guide=script_style_guide,
         )
         draft_script = await _build_direct_draft(creative_idea, characters, scene, bridge, direct_director)
+        protect_empty_shots(draft_script, ensure_camera=True)
     else:
         # ════════════════════════════════════════════════
         # 阶段一：创意会议（ConceptPitch / CharacterVoice / NarrativeArch 轮流发言）
@@ -701,9 +1168,12 @@ async def run_autogen_pipeline(
         _emit_stage_log(bridge, 'info', 'meeting', 'start',
                         '🎭 [创意会议] 三位创作顾问开始头脑风暴（每人最多发言 2 轮）...')
 
-        concept_pitch = create_concept_pitch_agent(characters, scene, required_character_count)
-        character_voice = create_character_voice_agent()
-        narrative_arch = create_narrative_arch_agent()
+        concept_pitch = create_concept_pitch_agent(
+            characters, scene, required_character_count,
+            script_style_guide=script_style_guide,
+        )
+        character_voice = create_character_voice_agent(script_style_guide=script_style_guide)
+        narrative_arch = create_narrative_arch_agent(script_style_guide=script_style_guide)
 
         # 每位最多 2 轮 = 最多 6 条消息；任意一位写出 [AGREE] 则提前终止
         _meeting_termination = MaxMessageTermination(6) | TextMentionTermination("[AGREE]")
@@ -753,13 +1223,36 @@ async def run_autogen_pipeline(
         ) if meeting_messages else f"创作方向：{plot_outline or '自由创作'}"
         stage_context["meeting_minutes"] = meeting_transcript
 
+        _emit_stage_log(bridge, 'info', 'meeting_summary', 'start',
+                        '📝 [创意摘要期] 正在提炼会议共识，后续阶段将只使用摘要...')
+        summary_prompt = (
+            f"创作构思：{plot_outline or '（AI 自由创作）'}\n"
+            f"需要生成的幕数：{act_count}\n\n"
+            f"以下是创意会议原文，请压缩为执行简报：\n{meeting_transcript}"
+        )
+        meeting_summary = await _run_stage_agent_json_object(meeting_summary_agent, summary_prompt)
+        if meeting_summary:
+            stage_context["meeting_summary"] = meeting_summary
+            _emit_output(bridge, 'MeetingSummaryAgent', meeting_summary, fmt='stage')
+            _emit_stage_log(bridge, 'success', 'meeting_summary', 'done',
+                            '✅ [创意摘要期] 已生成精简执行简报')
+        else:
+            # Never put the full meeting transcript back into later prompts.
+            stage_context["meeting_summary"] = {
+                "core_premise": (plot_outline or '保持角色动机一致并逐步升级冲突。')[:1200],
+                "director_brief": "根据创作构思生成连贯剧本，并遵守场景与角色约束。",
+            }
+            _emit_stage_log(bridge, 'warning', 'meeting_summary', 'fallback',
+                            '⚠️ [创意摘要期] 摘要生成失败，已使用简短创作构思继续')
+
         # ════════════════════════════════════════════════
-        # 阶段一后半：TreatmentAgent 将会议记录转化为分场大纲
+        # 阶段一后半：TreatmentAgent 将会议摘要转化为分场大纲
         # ════════════════════════════════════════════════
         _emit_stage_log(bridge, 'info', 'treatment', 'start',
-                        '🗂️ [分场规划期] TreatmentAgent 根据会议记录生成分场大纲...')
+                        '🗂️ [分场规划期] TreatmentAgent 根据创意摘要生成分场大纲...')
+        meeting_summary_text = json.dumps(stage_context["meeting_summary"], ensure_ascii=False, indent=2)
         treatment_prompt = (
-            f"以下是创意会议的讨论记录，请据此生成分场大纲：\n\n{meeting_transcript}\n\n"
+            f"以下是创意会议的执行摘要，请据此生成分场大纲：\n\n{meeting_summary_text}\n\n"
             f"指定角色约束：{json.dumps(custom_characters_input, ensure_ascii=False)}\n"
             f"幕数要求：恰好生成 {act_count} 个节拍（beat），JSON 数组长度严格为 {act_count}。\n" \
             + (f"{duration_hint}\n" if duration_hint else "")
@@ -790,11 +1283,11 @@ async def run_autogen_pipeline(
             )
         base_user_prompt = (
             f"创作想法：{plot_outline or '（AI 自由创作）'}{fixed_dlg_section}\n\n"
-            f"## 创意会议纪要\n{stage_context.get('meeting_minutes', '（无）')}\n\n"
+            f"## 创意会议执行摘要\n{meeting_summary_text}\n\n"
             f"## 分场大纲\n{treatment_summary}\n\n" \
             + (f"{duration_hint}\n" if duration_hint else "")
             + (f"{dialogue_target_hint}\n" if dialogue_target_hint else "")
-            + "请根据以上创意会议纪要和分场大纲生成剧本，直接输出 JSON 格式，不要有其他说明文字。"
+            + "请根据以上创意会议执行摘要和分场大纲生成剧本，直接输出 JSON 格式，不要有其他说明文字。"
         )
 
         draft_script = None
@@ -806,8 +1299,26 @@ async def run_autogen_pipeline(
             draft_script = await _run_director_agent(director, current_prompt, bridge, label)
 
             if draft_script is None:
-                bridge.put_event({'type': 'error', 'message': '[DirectorAgent] 未能生成有效的 JSON 剧本'})
-                return
+                _emit_stage_log(
+                    bridge, 'warning', 'draft', 'per_act_fallback_start',
+                    '⚠️ [剧本起草期] 完整剧本请求未成功，开始按幕生成 JSON 并合并。'
+                )
+                draft_script = await _run_director_per_act_fallback(
+                    current_prompt,
+                    bridge,
+                    characters,
+                    scene,
+                    resource_loader,
+                    required_character_count,
+                    act_count,
+                    user_constraints,
+                    act_scene_map if multi_scene else None,
+                    script_style_guide,
+                )
+                if draft_script is None:
+                    return
+
+            protect_empty_shots(draft_script, ensure_camera=True)
 
             logger.info("[DirectorAgent] 生成完成，场景数=%d（尝试%d）", len(draft_script), shot_attempt + 1)
             _emit_output(bridge, label, draft_script)
@@ -901,6 +1412,7 @@ async def run_autogen_pipeline(
                 + "\n".join(revision_parts)
                 + "\n\n重要：\n"
                 "- 每个角色动作的 `motion_detail` 字段必须保留原有内容，不得将其置为空字符串。\n"
+                "- 空镜（speaker/content 同时为空）必须原样保留；shot 固定为 `scene`，不得补台词、人物动作或人物镜头字段。\n"
                 + ("".join(f"- 用户约束：{c}（不得违背）\n" for c in user_constraints) if user_constraints else "")
                 + ("".join(f"- 固定对白（不得修改）：{d['speaker']}：{d['content']}\n" for d in fixed_dialogues) if fixed_dialogues else "")
                 + (f"- 目标对白行数：至少 {target_dialogue_lines} 行，当前不足请扩充。\n" if target_dialogue_lines else "")
@@ -939,6 +1451,7 @@ async def run_autogen_pipeline(
                 bridge.put_event({'type': 'thinking_done'})
 
             if revised_script:
+                protect_empty_shots(revised_script, ensure_camera=True)
                 draft_script = revised_script
                 _emit_stage_log(
                     bridge, 'success', 'review', 'revise_result',
@@ -995,6 +1508,7 @@ async def run_autogen_pipeline(
         _emit_stage_log(bridge, 'info', 'validation', 'autofix', '🔧 [技术验证期] 执行自动修复...')
 
         draft_script = auto_fix_script(draft_script, scene, resource_loader)
+        protect_empty_shots(draft_script, ensure_camera=True)
 
         # 修复后二次验证，确认结果
         constraints_result = validate_script_constraints(draft_script, scene, resource_loader)
@@ -1019,7 +1533,7 @@ async def run_autogen_pipeline(
     # ── 阶段四 后半：最终封包输出（纯 Python）──
     import asyncio as _asyncio
     _running_loop = _asyncio.get_running_loop()
-    timestamp = int(time.time())
+    timestamp = time.time_ns()
     output_dir = Path('outputs')
     output_dir.mkdir(exist_ok=True)
 
@@ -1052,6 +1566,7 @@ async def run_autogen_pipeline(
                 f"当前剧本对白行数不足。当前共 {actual_lines} 行，目标至少 {target_dialogue_lines} 行。\n"
                 f"请在不修改已有对白的前提下，"
                 f"在每个幕中**增加自然的对白**，让对话更丰富、更符合现实主义风格。\n"
+                f"已有空镜必须原样保留，禁止为空镜补写 speaker/content 或改成人物镜头。\n"
                 f"新增的对白必须：\n"
                 f"1. 口语化、有停顿感、有角色个人特征\n"
                 f"2. 推动情节或揭示人物关系\n"
@@ -1072,6 +1587,7 @@ async def run_autogen_pipeline(
                 _emit_stage_log(bridge, 'warning', 'dialogue_fill', 'error',
                                 f'⚠️ [对白补写] 补写请求失败，保留原始剧本: {_e}')
             if filled_script:
+                protect_empty_shots(filled_script, ensure_camera=True)
                 # 补写结果仍需经过 generator 规范化（补充 emotion 字段等）
                 final_json = generator.generate_final_json(filled_script, plot_summary, act_scene_ids=act_scene_ids)
                 new_lines = sum(
@@ -1091,8 +1607,20 @@ async def run_autogen_pipeline(
 
     # 计算剧本估算时长（基于对白长度）
     def _calc_duration(script_json: list) -> dict:
+        def _parse_duration_secs(value) -> float:
+            if isinstance(value, (int, float)):
+                return max(0.0, float(value))
+            text = str(value or "").strip().lower()
+            m = re.match(r'^(\d+(?:\.\d+)?)\s*(分钟|min|mins?|分|秒(?:钟)?|seconds?|sec|s)?$', text)
+            if not m:
+                return 5.0
+            amount = float(m.group(1))
+            unit = m.group(2) or "s"
+            return amount * 60 if unit in ("分钟", "min", "mins", "分") else amount
+
         total_chars = 0
         total_lines = 0
+        empty_shot_secs = 0.0
         for scene in script_json:
             for line in scene.get('scene', []):
                 speaker = line.get('speaker', '') or ''
@@ -1100,15 +1628,18 @@ async def run_autogen_pipeline(
                 if speaker and content:
                     total_lines += 1
                     total_chars += len(content)
+                elif 'speaker' in line and 'content' in line and not str(speaker).strip() and not str(content).strip():
+                    empty_shot_secs += _parse_duration_secs(line.get('duration', '5s'))
         # 按每字5字符/秒估算，附加场景/动作描述用时
         dialogue_secs = total_chars / 5
         # 场景切换、动作描述额外时间（按行数*3秒估算）
         scene_secs = total_lines * 3
-        estimated_secs = dialogue_secs + scene_secs
+        estimated_secs = dialogue_secs + scene_secs + empty_shot_secs
         return {
             'estimated_duration_seconds': round(estimated_secs),
             'dialogue_lines': total_lines,
             'dialogue_chars': total_chars,
+            'empty_shot_seconds': round(empty_shot_secs),
         }
 
     duration_info = _calc_duration(final_json)
@@ -1144,6 +1675,7 @@ async def run_autogen_pipeline(
             )
             if cine_result.get("ok"):
                 draft_script = cine_result["enriched_script"]
+                protect_empty_shots(draft_script, ensure_camera=True)
                 camera_script_filename = cine_result.get("camera_script_filename")
                 position_plan_filename = cine_result.get("position_plan_filename")
                 position_detail_filename = cine_result.get("position_detail_filename")

@@ -1,0 +1,144 @@
+[
+  {
+    "scene information": {
+      "who": [
+        "捷风",
+        "贤者"
+      ],
+      "where": "Space Station",
+      "what": "猛冲莽杀的捷风吐槽奶妈拖节奏，反转发现自己全程靠贤者奶命，搞笑反差收尾"
+    },
+    "initial position": [
+      {
+        "character": "捷风",
+        "position": "Position 1"
+      },
+      {
+        "character": "贤者",
+        "position": "Position 2"
+      }
+    ],
+    "scene": [
+      {
+        "speaker": "捷风",
+        "content": "最后那个残血我直接秒了，你跟这么快干嘛，拖节奏啊！",
+        "actions": [
+          {
+            "character": "捷风",
+            "state": "standing",
+            "action": "Standing Talking 2",
+            "motion_detail": "Shoulders relaxed, one hand waving impatiently, fingertips still buzzing from gun recoil"
+          },
+          {
+            "character": "贤者",
+            "state": "standing",
+            "action": "Standing Normal",
+            "motion_detail": "Leans against the porthole, calm expression with a faint smile"
+          }
+        ],
+        "current position": [
+          {
+            "character": "捷风",
+            "position": "Position 1"
+          },
+          {
+            "character": "贤者",
+            "position": "Position 2"
+          }
+        ],
+        "shot_description": "前景中心位置站着捷风，正抬一只手不耐烦挥动；中景右侧舷边斜靠着贤者，星空背景铺在舱室后方。",
+        "emotion": "happy",
+        "confidence": 0.7,
+        "reason": "text='最后那个残血我直接秒了，你跟这' excl=1 ques=0 threat=False sarcasm=False pos=False",
+        "event_index": 0
+      },
+      {
+        "speaker": "捷风",
+        "content": "看我直接给他掏了——",
+        "actions": [
+          {
+            "character": "捷风",
+            "state": "standing",
+            "action": "Fight",
+            "motion_detail": "Body leans forward ready to dash, suddenly freezes mid-action"
+          },
+          {
+            "character": "贤者",
+            "state": "standing",
+            "action": "Standing Normal",
+            "motion_detail": "Still leaning against porthole, waiting calmly"
+          }
+        ],
+        "current position": [
+          {
+            "character": "捷风",
+            "position": "Position 1"
+          },
+          {
+            "character": "贤者",
+            "position": "Position 2"
+          }
+        ],
+        "shot_description": "前景中心的捷风身体前倾准备冲出，突然僵在原地；中景右侧舷边的贤者依旧保持斜靠姿势静立，星空留在背景处。",
+        "emotion": "normal",
+        "confidence": 0.7,
+        "reason": "text='看我直接给他掏了——' excl=0 ques=0 threat=False sarcasm=False pos=False",
+        "event_index": 1
+      },
+      {
+        "speaker": "捷风",
+        "content": "我靠？！我血条早就空了大半？我刚才吃了三枪我都没发现！",
+        "actions": [
+          {
+            "character": "捷风",
+            "state": "standing",
+            "action": "Standing Surprise",
+            "motion_detail": "Body leans back, eyes wide staring at the status bar on her wrist"
+          }
+        ],
+        "current position": [
+          {
+            "character": "捷风",
+            "position": "Position 1"
+          },
+          {
+            "character": "贤者",
+            "position": "Position 2"
+          }
+        ],
+        "shot_description": "前景中心的捷风身体后仰，睁大眼睛盯着自己手腕上的状态条；中景右侧舷边的贤者依旧斜靠静立，漆黑星空衬在舱室背景。",
+        "emotion": "surprised",
+        "confidence": 0.65,
+        "reason": "text='我靠？！我血条早就空了大半？我' excl=2 ques=2 threat=False sarcasm=False pos=False",
+        "event_index": 2
+      },
+      {
+        "speaker": "贤者",
+        "content": "慢点儿，我跟着呢。",
+        "actions": [
+          {
+            "character": "贤者",
+            "state": "standing",
+            "action": "Standing Talking 1",
+            "motion_detail": "Soft smile, tone calm and gentle"
+          }
+        ],
+        "current position": [
+          {
+            "character": "捷风",
+            "position": "Position 1"
+          },
+          {
+            "character": "贤者",
+            "position": "Position 2"
+          }
+        ],
+        "shot_description": "前景处的捷风仍停在惊讶的姿势中；中景右侧斜靠舷边的贤者开口说话，星空背景铺满整个舱室后方。",
+        "emotion": "normal",
+        "confidence": 0.7,
+        "reason": "text='慢点儿，我跟着呢。' excl=0 ques=0 threat=False sarcasm=False pos=False",
+        "event_index": 3
+      }
+    ]
+  }
+]

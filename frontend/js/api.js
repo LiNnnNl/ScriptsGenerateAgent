@@ -85,6 +85,52 @@ const API = {
         }
     },
 
+    // 导演 Word 模式（只调用 DirectorAgent，流式返回）
+    async generateDirectorWord(data, onStream) {
+        const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.GENERATE_DIRECTOR_WORD}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop();
+
+            for (const line of lines) {
+                if (line.trim()) {
+                    try {
+                        onStream(JSON.parse(line));
+                    } catch (e) {
+                        console.error('解析导演 Word 日志失败:', e, line);
+                    }
+                }
+            }
+        }
+
+        if (buffer.trim()) {
+            try {
+                onStream(JSON.parse(buffer));
+            } catch (e) {
+                console.error('解析导演 Word 最后日志失败:', e, buffer);
+            }
+        }
+    },
+
     // 获取剧本内容（供编辑器加载）
     async getScriptContent(filename) {
         const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.SCRIPT_CONTENT}/${filename}`);

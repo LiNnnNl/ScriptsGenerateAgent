@@ -20,6 +20,11 @@ from dotenv import load_dotenv
 from src.resource_loader import ResourceLoader
 from src.autogen_bridge import AutoGenStreamBridge
 from src.autogen_pipeline import run_autogen_pipeline
+from src.director_word_pipeline import run_director_word_pipeline
+from src.prompt_renderers.character_generation import (
+    build_character_generation_prompt,
+    character_generation_system_prompt,
+)
 from src import registry as _registry
 from src.word_exporter import export_script_to_word
 
@@ -40,14 +45,51 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-FRONTEND_DIR = Path(__file__).parent.parent / "frontend"
-app = Flask(__name__, static_folder=str(FRONTEND_DIR), static_url_path='')
+app = Flask(__name__)
 app.config['JSON_AS_ASCII'] = False  # 支持中文
+_repo_dir = Path(__file__).resolve().parent.parent
+_frontend_dir = _repo_dir / "frontend"
+
+
+class _ScriptPrefixMiddleware:
+    """Allow the app to sit behind a `/script` URL prefix."""
+
+    def __init__(self, wsgi_app):
+        self.wsgi_app = wsgi_app
+
+    def __call__(self, environ, start_response):
+        path_info = environ.get("PATH_INFO", "")
+        if path_info == "/script":
+            query_string = environ.get("QUERY_STRING", "")
+            location = "/script/"
+            if query_string:
+                location = f"{location}?{query_string}"
+            start_response(
+                "308 Permanent Redirect",
+                [
+                    ("Location", location),
+                    ("Content-Type", "text/plain; charset=utf-8"),
+                    ("Content-Length", "0"),
+                ],
+            )
+            return [b""]
+        elif path_info.startswith("/script/"):
+            environ["PATH_INFO"] = path_info[len("/script"):]
+        return self.wsgi_app(environ, start_response)
+
+
+app.wsgi_app = _ScriptPrefixMiddleware(app.wsgi_app)
 
 # 启用CORS（跨域资源共享）
+_cors_origins = os.getenv("CORS_ORIGINS", "*")
+_cors_origins = [
+    origin.strip()
+    for origin in _cors_origins.split(",")
+    if origin.strip()
+] or "*"
 CORS(app, resources={
     r"/api/*": {
-        "origins": "*",
+        "origins": _cors_origins,
         "methods": ["GET", "POST", "PATCH", "OPTIONS"],
         "allow_headers": ["Content-Type"]
     }
@@ -55,6 +97,28 @@ CORS(app, resources={
 
 # 初始化资源加载器
 resource_loader = ResourceLoader()
+
+
+def _serve_frontend_asset(asset_path='index.html'):
+    target = (_frontend_dir / asset_path).resolve()
+    try:
+        target.relative_to(_frontend_dir.resolve())
+    except ValueError:
+        return jsonify({'success': False, 'error': 'Invalid frontend asset path'}), 400
+
+    if target.is_file():
+        return send_from_directory(str(_frontend_dir), asset_path)
+    return send_from_directory(str(_frontend_dir), 'index.html')
+
+
+@app.route('/api/health', methods=['GET'])
+def health_check():
+    """部署探活：前后端分离后，后端只承诺 API 可用。"""
+    return jsonify({
+        'success': True,
+        'service': 'script-agent-api',
+        'time': datetime.now().isoformat(timespec='seconds'),
+    })
 
 
 @app.route('/api/shot_types', methods=['GET'])
@@ -250,6 +314,7 @@ def get_characters(style_tag):
 def generate_characters():
     """使用 AI 生成角色档案 JSON（按指定格式）"""
     import os
+    import httpx
     from openai import OpenAI
 
     data = request.json or {}
@@ -333,50 +398,20 @@ def generate_characters():
     else:
         model_instruction = "\n\n注意：当前暂无可用角色模型，gameobject_name 字段留空字符串。"
 
-    # 严格格式模板（每个字段必须存在，不知道的留空字符串）
-    format_example = json.dumps([
-        {
-            "name": "天命人",
-            "gender": "男",
-            "ip": "黑神话：悟空",
-            "manufacturer": "游戏科学",
-            "background": "重走西游路的小猴子，背负着收集大圣六根、复活齐天大圣的宿命。虽一言不发，却在九九八十一难中磨砺成神。",
-            "Faction": "花果山 / 寻根人",
-            "personality_traits": "坚毅, 灵动, 沉默寡言",
-            "role_position": "棍法宗师 / 法术全才",
-            "important_relationships": [
-                {"object": "弥勒/小弥勒", "relationship": "引路者 / 幕后观察者"},
-                {"object": "二郎神", "relationship": "宿命的对手 / 意志的考验者"}
-            ],
-            "gameobject_name": "WuKong_Model_01"
-        }
-    ], ensure_ascii=False, indent=2)
-
-    prompt = (
-        f"请为以下场景创作 {character_count} 位角色的完整档案。\n\n"
-        f"场景：{scene_desc}\n"
-        + (f"创作灵感：{creative_idea}\n" if creative_idea else '')
-        + char_instructions
-        + model_instruction
-        + f"\n\n请严格按照以下 JSON 数组格式输出。"
-          f"每位角色必须包含下列全部字段，不知道的字段留空字符串 \"\"，"
-          f"important_relationships 不知道的留空数组 []。"
-          f"直接输出 JSON 数组，不要有 ```json 包裹或任何说明文字：\n\n"
-        + format_example
-        + f"\n\n要求：\n"
-          f"- 输出恰好 {character_count} 位角色\n"
-          f"- 每个角色对象必须且只能包含以上 10 个字段，字段名大小写完全一致\n"
-          f"- gameobject_name 必须从「可用角色模型列表」中选取，填写列表中存在的值；无合适的则留空字符串\n"
-          f"- important_relationships 中每条必须包含 object 和 relationship 两个字段\n"
-          f"- 不知道的字段填空字符串，不要省略字段\n"
-          f"- background 要有故事性，至少 30 字\n"
-          f"- personality_traits 使用逗号分隔的词语\n"
-          f"- 直接输出 JSON 数组，不加任何前缀后缀"
+    prompt = build_character_generation_prompt(
+        character_count=character_count,
+        scene_desc=scene_desc,
+        creative_idea=creative_idea,
+        char_instructions=char_instructions,
+        model_instruction=model_instruction,
     )
 
     client = OpenAI(
         api_key=os.getenv('API_KEY'),
-        base_url=os.getenv('BASE_URL', 'https://ark.cn-beijing.volces.com/api/v3')
+        base_url=os.getenv('BASE_URL', 'https://ark.cn-beijing.volces.com/api/v3'),
+        timeout=120,
+        max_retries=0,
+        http_client=httpx.Client(trust_env=False),
     )
     model_name = os.getenv('MODEL', 'doubao-seed-2-0-lite-260215')
 
@@ -384,7 +419,7 @@ def generate_characters():
         response = client.chat.completions.create(
             model=model_name,
             messages=[
-                {"role": "system", "content": "你是一位专业的角色设计师，擅长为影视、游戏创作有深度的角色档案。"},
+                {"role": "system", "content": character_generation_system_prompt},
                 {"role": "user", "content": prompt}
             ],
             max_tokens=4000,
@@ -471,7 +506,29 @@ def generate_script():
         )
         yield from bridge.flask_generator()
 
-    return Response(stream_with_context(generate()), mimetype='application/x-ndjson')
+    return Response(
+        stream_with_context(generate()),
+        mimetype='application/x-ndjson',
+        headers={'Cache-Control': 'no-cache, no-transform', 'X-Accel-Buffering': 'no'},
+    )
+
+
+@app.route('/api/generate_director_word', methods=['POST'])
+def generate_director_word():
+    """导演 Word 模式：只调用 DirectorAgent，生成可读分镜剧本并导出 Word。"""
+
+    def generate():
+        bridge = AutoGenStreamBridge()
+        bridge.run_in_thread(
+            run_director_word_pipeline(bridge, resource_loader, request.json or {})
+        )
+        yield from bridge.flask_generator()
+
+    return Response(
+        stream_with_context(generate()),
+        mimetype='application/x-ndjson',
+        headers={'Cache-Control': 'no-cache, no-transform', 'X-Accel-Buffering': 'no'},
+    )
 
 
 @app.route('/api/script_content/<filename>', methods=['GET'])
@@ -650,16 +707,14 @@ def download_word(filename):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-@app.route('/', defaults={'path': ''})
-@app.route('/<path:path>')
-def serve_frontend(path):
-    """托管前端静态文件"""
-    from flask import send_from_directory
-    if path and (FRONTEND_DIR / path).exists():
-        return send_from_directory(str(FRONTEND_DIR), path)
-    return send_from_directory(str(FRONTEND_DIR), 'index.html')
+@app.route('/', defaults={'asset_path': 'index.html'}, methods=['GET'])
+@app.route('/<path:asset_path>', methods=['GET'])
+def serve_frontend(asset_path):
+    """Serve the static frontend so `/script/*` can point at this backend."""
+    if asset_path.startswith('api/'):
+        return jsonify({'success': False, 'error': 'Not Found'}), 404
+    return _serve_frontend_asset(asset_path)
 
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5001)
-

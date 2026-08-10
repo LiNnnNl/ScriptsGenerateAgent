@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ScriptsGenerateAgent Eval</title>
+  <style>
+    :root { color-scheme: light; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    body { margin: 0; background: #f6f7f9; color: #20242a; }
+    main { max-width: 1180px; margin: 0 auto; padding: 28px; }
+    h1 { margin: 0 0 8px; font-size: 28px; }
+    .sub { color: #667085; margin-bottom: 24px; }
+    .summary { display: flex; gap: 12px; margin-bottom: 22px; flex-wrap: wrap; }
+    .stat { background: white; border: 1px solid #d9dee7; border-radius: 8px; padding: 12px 16px; min-width: 120px; }
+    .stat b { display: block; font-size: 22px; }
+    table { width: 100%; border-collapse: collapse; background: white; border: 1px solid #d9dee7; border-radius: 8px; overflow: hidden; margin-bottom: 24px; }
+    th, td { padding: 10px 12px; border-bottom: 1px solid #edf0f4; text-align: left; vertical-align: top; }
+    th { background: #eef2f7; font-size: 13px; color: #475467; }
+    a { color: #1d5fd1; text-decoration: none; margin-right: 10px; }
+    .case-card { background: white; border: 1px solid #d9dee7; border-radius: 8px; padding: 18px; margin-bottom: 18px; }
+    .case-card header { display: flex; justify-content: space-between; gap: 12px; align-items: center; }
+    .case-card h3 { margin: 0; font-size: 20px; }
+    .idea { color: #344054; }
+    .meta { color: #667085; font-size: 14px; margin: 8px 0 12px; }
+    .pill { display: inline-block; border-radius: 999px; padding: 3px 9px; font-size: 12px; font-weight: 700; }
+    .pill.ok { color: #067647; background: #dcfae6; }
+    .pill.bad { color: #b42318; background: #fee4e2; }
+    .act { border-top: 1px solid #edf0f4; margin-top: 14px; padding-top: 12px; }
+    .act h4 { margin: 0 0 6px; font-size: 15px; }
+    .act p { margin: 0 0 8px; color: #475467; }
+    .act ul { margin: 0; padding-left: 20px; }
+    .act li { margin: 4px 0; }
+    .error { color: #b42318; background: #fff1f0; border: 1px solid #ffccc7; padding: 10px; border-radius: 6px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>ScriptsGenerateAgent Eval</h1>
+    <div class="sub">生成时间：2026-07-01 09:44:47 · 结果目录：/Users/lin/Desktop/work_space/ScriptsGenerateAgent/eval/res/20260701_093950</div>
+    <section class="summary">
+      <div class="stat"><b>1/1</b>成功</div>
+      <div class="stat"><b>296.85s</b>总耗时</div>
+    </section>
+    <table>
+      <thead><tr><th>测试题</th><th>状态</th><th>耗时</th><th>标题</th><th>文件</th></tr></thead>
+      <tbody><tr><td>测试题4：单人脱口秀风格</td><td><span class="pill ok">success</span></td><td>296.85s</td><td>我在太空站改数据</td><td><a href="../json/04_talk_show__script_1782870090553963000.json">剧本JSON</a> <a href="../json/04_talk_show__camera_script_1782870090553963000.json">镜头JSON</a> <a href="../json/04_talk_show__actors_profile_1782870090553963000.json">角色档案</a> <a href="../json/04_talk_show__events.ndjson">事件流</a></td></tr></tbody>
+    </table>
+    <article class="case-card"><header><h3>测试题4：单人脱口秀风格</h3><span class="pill ok">success</span></header><p class="idea">生成一段吐槽研究生生活的单人脱口秀风格剧本。</p><div class="meta">耗时 296.85s · 标题 我在太空站改数据 · 幕数 1 · beat 6</div><nav><a href="../json/04_talk_show__script_1782870090553963000.json">剧本JSON</a> <a href="../json/04_talk_show__camera_script_1782870090553963000.json">镜头JSON</a> <a href="../json/04_talk_show__actors_profile_1782870090553963000.json">角色档案</a> <a href="../json/04_talk_show__events.ndjson">事件流</a></nav><section class="act"><h4>第 1 幕 · Space Station · 6 beats</h4><p>雷欧吐槽自己来太空站做机械观测，结果误打误撞过上了研究生熬课题改数据的苦逼生活</p><ul><li><b>雷欧 (M-01)</b>: 你说离谱不离谱？我一个废土边缘长大的拾荒者，攒了半条命摸上来这太空站，就为了拆这里的战斗机器人，攒全结构蓝图。</li><li><b>雷欧 (M-01)</b>: 结果呢？上来三个月，机器人没拆两块，数据改了八十七版。那个AI导师天天发推送：雷欧啊，这个模型不对，那个数据偏差，再改改？</li><li><b>雷欧 (M-01)</b>: 上周我偷偷摸进下层实验区，刚拆开一个维修机器人的外壳，扳手还热着呢，AI导师的推送直接弹我视网膜上：课题中期报告，deadline今天午夜。</li><li><b>雷欧 (M-01)</b>: 我攥着扳手坐在零件堆里，凉风吹得后颈发麻，突然就反应过来了——</li><li><b>雷欧 (M-01)</b>: 我这哪里是什么M-01号人类观察对象？我分明是读了个全宇宙最贵的深空在职研究生！</li><li><b>雷欧 (M-01)</b>: 合着不管你在废土捡垃圾还是来太空拆机器人，只要搞研究，就逃不过改课题熬大夜给导师打白工。得了，不说了，AI导师又催我改第八十九版数据了。</li></ul></section></article>
+  </main>
+</body>
+</html>

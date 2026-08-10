@@ -21,8 +21,8 @@
 
 ## 2. 技术栈与运行
 
-- **后端**：Python + Flask；多 Agent 基于 AutoGen（`RoundRobinGroupChat` / `AssistantAgent`）。入口 `backend/app.py`，跑 `python3 backend/app.py`，服务在 `:5001`，debug 热重载。
-- **前端**：原生 HTML/JS/CSS，**无框架、无构建步骤**，刷新即生效。`frontend/index.html` + `frontend/js/{config,api,main,ui}.js` + `frontend/css/style.css`。
+- **后端**：Python + Flask；多 Agent 基于 AutoGen（`RoundRobinGroupChat` / `AssistantAgent`）。入口 `backend/app.py`，跑 `uv run python backend/app.py`，服务在 `:5001`；本地开发时主要提供 `/api/*`，在反代 / Tunnel 的 `/script/*` 场景下也可直接托管前端静态文件，debug 热重载。
+- **前端**：原生 HTML/JS/CSS，**无框架、无构建步骤**。`frontend/index.html` + `frontend/js/{config,api,main,ui}.js` + `frontend/css/style.css`；本地推荐 `python3 -m http.server 8080` 独立开发，也可由 Flask 在 `/script/*` 下统一托管。
 - **LLM 调用**：通过 OpenAI 兼容接口（`backend/src/autogen_agents.py` 的 `make_model_client`，主模型 + 额度耗尽后的 `make_fallback_model_client` 备用模型）。
 - **Git**：分支 `autogen_agents`，远程 `LiNnnNl/ScriptsGenerateAgent`。
 
@@ -41,7 +41,7 @@
 ```
 ScriptsGenerateAgent/
 ├── backend/
-│   ├── app.py                      # Flask 入口 + 所有 HTTP 路由
+│   ├── app.py                      # Flask 入口：/api 路由 + /script 下的前端静态托管
 │   ├── requirements.txt
 │   ├── resources/                  # 资源库（部分为不可再生的权威数据）
 │   │   ├── scenes_resource.json        # 场景列表 + valid_positions（逻辑槽，旧版）
@@ -84,7 +84,7 @@ ScriptsGenerateAgent/
 
 ## 4. 端到端数据流（一次生成）
 
-前端发起 → 后端 `run_autogen_pipeline` 编排 → 通过 NDJSON 流式回传日志/产物。
+静态前端发起 API 请求 → 后端 `run_autogen_pipeline` 编排 → 通过 NDJSON 流式回传日志/产物。
 
 ### 4.1 前端侧（`frontend/js/main.js`）
 
@@ -104,10 +104,12 @@ ScriptsGenerateAgent/
 3. **构建角色**：有 `custom_characters` 则 `build_custom_characters`，否则交给 AI 自由创作。
 4. **创意阶段**（direct_mode 整体跳过）：
    - **创意会议**：`RoundRobinGroupChat`（ConceptPitch / CharacterVoice / NarrativeArch 三顾问轮流发言，最多 6 条消息或出现 `[AGREE]` 提前终止）。
-   - **分场规划**：`TreatmentAgent` 把会议纪要转成分场大纲（数组长度恰好 = `act_count`）。
-   - **剧本起草**：`DirectorAgent` 输出剧本 JSON 初稿（shot 结构不合规时最多重试 `MAX_SHOT_STRUCT_RETRIES=2` 次）。
+   - **创意摘要**：`MeetingSummaryAgent` 将会议原文压缩为角色、冲突、幕目标、保留项和场景/风格约束；后续阶段不再接收会议全文。
+   - **分场规划**：`TreatmentAgent` 把创意摘要转成分场大纲（数组长度恰好 = `act_count`）。
+   - **剧本起草**：`DirectorAgent` 输出剧本 JSON 初稿（shot 结构不合规时最多重试 `MAX_SHOT_STRUCT_RETRIES=2` 次）；完整请求网络重试耗尽时，自动按幕请求单个 JSON 并按顺序合并。
    - 文学审查 / 对白补写（`CriticAgent` / `DialogueAgent`）。
    - direct_mode 分支：`DirectorAgent_Direct` 经 `_build_direct_draft` 把用户剧本结构化。
+   - 导演 Word 模式：识别到超过 12 个 `S01` 式镜号时，`ShotPlanAgent` 先规划镜号到幕的连续归属，再按 6-8 镜头批量补全；每批经 NDJSON 回传预览，后端按镜号顺序合并。
 5. **时长估算**：按对白字数 + 行数估算影片秒数。
 6. **位置兜底**：`_extract_position_files` 从剧本直接抽 position_plan/detail（无 LLM，摄影未开启时的兜底；摄影默认开启故通常被覆盖）。
 7. **摄影指导**（默认启用，`run_cinematography_pipeline`，详见 §5）：逐幕跑三阶段，产出 camera_script 与含坐标的 position_plan/detail，并回填镜头字段重写剧本。
@@ -153,14 +155,16 @@ ScriptsGenerateAgent/
 - 剧本输出是一个 JSON 数组，**数组长度严格 = `act_count`**，每个元素是一个 `scene_obj`（一幕）。
 - `scene_obj` 关键字段：
   - `scene information`：本幕元信息（`who` 出场角色、`where` 场景名等）。
-  - `initial position`：起始站位（`position` + `character`）。
+  - `initial position`：起始站位（`position` + `character` + `state`）；`state` 表示角色在剧情开始时的姿态（如 `standing` / `sitting`）。
   - `scene`：beats 数组（对白/动作/镜头节拍）。
   - `position_descriptions`：各 Position 的戏剧意图自然语言描述。
+- `schema.py: validate_script_position_structure` 强制 `initial position.state` 非空，并要求同一 `initial position`、同一镜头的 `current position` 中不同人物的 Position 互不相同；违反时作为阻塞错误进入重试/自动修复流程。
 
 ### 6.2 Beat 类型（`backend/src/schema.py`）
 
 - **character beat**：`shot="character"` + `shot_blend` + `shot_type` + `Follow(0/1)` + `motion_detail`（必填，英文动作细节）。
 - **scene beat**：`shot` + `shot_blend` + `camera`。
+- **empty shot**：`speaker=""` 且 `content=""`（非 move）表示环境空镜；固定 `shot="scene"`、默认 `duration="5s"`、`actions=[]`，不含 `shot_type`/`Follow`。统一由 `scene_segments.py` 做确定性保护；文学审查跳过，摄影 Stage 1 生成/保留环境描述，Stage 2 不据此调整人物分组，Stage 3 跳过人物镜头分配。
 - **move**：角色移动。对齐下游 `ExecuteMoveEvent` 两种形态：①**基础移动**（只走不说）`{move:[{character, destination}]}`，move 可单对象或数组（多人同移），移动者**不写 action**（走路由系统驱动）；②**边走边说**——在 move 事件**顶层**加 `speaker`/`content`（+可选 emotion），说话人须为真实角色、非 default。落盘 `script` 的 move 事件镜头字段已剥离至 `camera_script`（沿用场景固定机位）。
 - 合法值：`VALID_SHOT_TYPE`（全景/中景/中近景/近景/仰拍/俯拍…）、`VALID_SHOT_BLEND`（运行时归一为 `cut/blend/easein`）、`VALID_LAYOUTS`（two_person/L_shape/triangle/line/square/arc/cluster/layered）。
 
@@ -181,6 +185,8 @@ ScriptsGenerateAgent/
 
 | 方法 | 路径 | 作用 |
 |------|------|------|
+| GET | `/` `/script` `/script/<asset>` | 前端静态页面与资源（供反代 / Tunnel 场景使用） |
+| GET | `/api/health` | 部署探活 |
 | GET | `/api/scenes` `/api/scenes/<style_tag>` | 场景列表 |
 | GET | `/api/characters` `/api/characters/<style_tag>` | 角色列表 |
 | POST | `/api/characters` | 新增角色 |

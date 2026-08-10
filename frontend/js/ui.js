@@ -61,6 +61,7 @@ const UI = {
             validation: '技术验证期',
             position_mapping: '位置映射期',
             position_generation: '坐标生成期',
+            director_word: '导演 Word 模式',
             output: '输出阶段'
         };
         const stageLabel = labels[meta.stage] || meta.stage;
@@ -86,7 +87,9 @@ const UI = {
             const highSecs = secs + 30;
             const lowMin = Math.floor(secs / 60);
             const highMin = Math.ceil((secs + 30) / 60);
-            durationEl.textContent = `⏱ 估算时长：约 ${lowMin}-${highMin}分钟（对白${estimatedDuration.dialogue_lines}句，共${estimatedDuration.dialogue_chars}字）`;
+            const emptySecs = estimatedDuration.empty_shot_seconds || 0;
+            const emptyText = emptySecs ? `，空镜${emptySecs}秒` : '';
+            durationEl.textContent = `⏱ 估算时长：约 ${lowMin}-${highMin}分钟（对白${estimatedDuration.dialogue_lines}句，共${estimatedDuration.dialogue_chars}字${emptyText}）`;
             durationEl.style.display = '';
         } else {
             durationEl.style.display = 'none';
@@ -154,17 +157,25 @@ const UI = {
     // 渲染场景池（多选复选框）：有锚点（regions 非空）才可勾选，无锚点禁用并标注
     renderScenes(scenes) {
         const list = document.getElementById('scenePoolList');
-        list.innerHTML = scenes.map(scene => {
+        const visibleScenes = (scenes || []).filter(scene => {
+            const hasAnchor = scene.regions && scene.regions.length > 0;
+            return hasAnchor || APP_STATE.showUnavailableScenes;
+        });
+        list.innerHTML = visibleScenes.map(scene => {
             const hasAnchor = scene.regions && scene.regions.length > 0;
             const disabledAttr = hasAnchor ? '' : 'disabled';
+            const checkedAttr = APP_STATE.scenePool.includes(scene.id) ? 'checked' : '';
             const note = hasAnchor ? '' : '<span class="scene-pool-note">暂无坐标锚点，不可选</span>';
             return `
             <label class="scene-pool-item ${hasAnchor ? '' : 'is-disabled'}">
-                <input type="checkbox" class="scene-pool-checkbox" value="${scene.id}" ${disabledAttr}>
+                <input type="checkbox" class="scene-pool-checkbox" value="${scene.id}" ${disabledAttr} ${checkedAttr}>
                 <span class="scene-pool-name">${scene.name}</span>
                 ${note}
             </label>`;
         }).join('');
+        if (visibleScenes.length === 0) {
+            list.innerHTML = '<div class="scene-pool-empty">暂无可用场景</div>';
+        }
     },
 
     // 渲染「每幕 → 场景」分配下拉（仅多场景时显示）；选项=场景池内场景
@@ -252,25 +263,27 @@ const UI = {
 
         list.innerHTML = characters.map((c, i) => {
             const imgURL = this._charImageURL(c.gameobject_name);
+            const traitsText = this._charTraitsText(c);
             return `
             <div class="cast-card" data-index="${i}">
                 <div class="cast-card-display">
-                    <div class="cast-card-name">${c.name}</div>
+                    <div class="cast-card-name">${this._esc(c.name || '')}</div>
                     <div class="cast-card-meta">
-                        <span>${c.gender || ''}${c.ip ? ' · ' + c.ip : ''}</span>
-                        <span>${c.personality_traits || ''}</span>
-                        <span class="cast-card-bg">${(c.background || '').slice(0, 80)}${(c.background || '').length > 80 ? '…' : ''}</span>
+                        <span>${this._esc(c.gender || '')}${c.ip ? ' · ' + this._esc(c.ip) : ''}</span>
+                        <span>${this._esc(traitsText)}</span>
+                        <span class="cast-card-bg">${this._esc((c.background || '').slice(0, 80))}${(c.background || '').length > 80 ? '…' : ''}</span>
                     </div>
-                    ${imgURL ? `<img class="cast-card-img" src="${imgURL}" alt="${c.name}" onerror="this.style.display='none'">` : ''}
-                    <button class="cast-replace-btn" data-index="${i}">替换角色</button>
+                    ${imgURL ? `<img class="cast-card-img" src="${imgURL}" alt="${this._attr(c.name || '')}" onerror="this.style.display='none'">` : ''}
+                    <button class="cast-replace-btn" data-index="${i}">编辑角色 / 更换模型</button>
                 </div>
                 <div class="cast-editor" style="display:none">
                     <div class="cast-mode-toggle">
-                        <button class="mode-btn active" data-editor-mode="library" data-index="${i}">从角色库选</button>
-                        <button class="mode-btn" data-editor-mode="custom" data-index="${i}">自定义输入</button>
+                        <button class="mode-btn active" data-editor-mode="library" data-index="${i}">更换模型</button>
+                        <button class="mode-btn" data-editor-mode="custom" data-index="${i}">编辑设定</button>
                     </div>
                     <div class="cast-library-panel">
                         ${this._buildCharDropdown('', i, 'cast-select editor-select')}
+                        <p class="cast-editor-note">从角色库选择时只替换模型，不改角色姓名、性别和背景。</p>
                         <div class="cast-char-preview" style="display:none"></div>
                     </div>
                     <div class="cast-custom-panel" style="display:none">
@@ -278,48 +291,34 @@ const UI = {
                             <div class="cast-field-row">
                                 <div class="cast-field cast-field-name">
                                     <label class="cast-field-label">姓名</label>
-                                    <input type="text" class="cast-input editor-name" data-index="${i}" placeholder="角色名称">
+                                    <input type="text" class="cast-input editor-name" data-index="${i}" value="${this._attr(c.name || '')}" placeholder="角色名称">
                                 </div>
                                 <div class="cast-field cast-field-gender">
                                     <label class="cast-field-label">性别</label>
                                     <select class="cast-input editor-gender" data-index="${i}">
-                                        <option value="未知">未知</option>
-                                        <option value="男">男</option>
-                                        <option value="女">女</option>
+                                        <option value="未知"${(c.gender || '未知') === '未知' ? ' selected' : ''}>未知</option>
+                                        <option value="男"${c.gender === '男' ? ' selected' : ''}>男</option>
+                                        <option value="女"${c.gender === '女' ? ' selected' : ''}>女</option>
                                     </select>
                                 </div>
                             </div>
                             <div class="cast-field-row">
                                 <div class="cast-field">
                                     <label class="cast-field-label">IP / 来源</label>
-                                    <input type="text" class="cast-input editor-ip" data-index="${i}" placeholder="如：原创">
+                                    <input type="text" class="cast-input editor-ip" data-index="${i}" value="${this._attr(c.ip || '')}" placeholder="如：原创">
                                 </div>
                                 <div class="cast-field">
-                                    <label class="cast-field-label">制作方</label>
-                                    <input type="text" class="cast-input editor-manufacturer" data-index="${i}" placeholder="如：用户创建">
+                                    <label class="cast-field-label">性格特征</label>
+                                    <input type="text" class="cast-input editor-personality" data-index="${i}" value="${this._attr(traitsText)}" placeholder="如：沉稳, 理性, 话少">
                                 </div>
-                            </div>
-                            <div class="cast-field-row">
-                                <div class="cast-field">
-                                    <label class="cast-field-label">阵营</label>
-                                    <input type="text" class="cast-input editor-faction" data-index="${i}" placeholder="如：未知">
-                                </div>
-                                <div class="cast-field">
-                                    <label class="cast-field-label">职位 / 定位</label>
-                                    <input type="text" class="cast-input editor-role" data-index="${i}" placeholder="如：主角">
-                                </div>
-                            </div>
-                            <div class="cast-field">
-                                <label class="cast-field-label">性格特征</label>
-                                <input type="text" class="cast-input editor-personality" data-index="${i}" placeholder="如：沉稳, 理性, 话少">
                             </div>
                             <div class="cast-field">
                                 <label class="cast-field-label">背景故事</label>
-                                <textarea class="cast-input editor-background" data-index="${i}" rows="3" placeholder="角色背景故事..."></textarea>
+                                <textarea class="cast-input editor-background" data-index="${i}" rows="3" placeholder="角色背景故事...">${this._esc(c.background || '')}</textarea>
                             </div>
                         </div>
                     </div>
-                    <button class="cast-confirm-btn" data-index="${i}">✓ 确认替换</button>
+                    <button class="cast-confirm-btn" data-index="${i}">✓ 保存修改</button>
                 </div>
             </div>
         `;
@@ -378,69 +377,42 @@ const UI = {
             btn.addEventListener('click', () => {
                 const i = parseInt(btn.dataset.index);
                 const card = container.querySelector(`.cast-card[data-index="${i}"]`);
-                const isLibrary = card.querySelector('.cast-library-panel').style.display !== 'none';
+                const currentChar = APP_STATE.generatedCharacters[i] || {};
+                const newChar = Object.assign({}, currentChar);
 
-                let newChar;
-                if (isLibrary) {
-                    const name = card.querySelector('.editor-select').value;
-                    if (!name) { alert('请先选择角色'); return; }
-                    const char = APP_STATE.characters.find(c => c.name === name);
-                    if (!char) { alert('角色不存在'); return; }
-                    newChar = Object.assign({}, char);
-                } else {
-                    const name = card.querySelector('.editor-name').value.trim();
-                    if (!name) { alert('请填写角色名称'); return; }
-                    newChar = {
-                        name,
-                        gender: card.querySelector('.editor-gender').value || '未知',
-                        ip: card.querySelector('.editor-ip').value.trim() || '原创',
-                        manufacturer: card.querySelector('.editor-manufacturer').value.trim() || '用户创建',
-                        Faction: card.querySelector('.editor-faction').value.trim() || '未知',
-                        role_position: card.querySelector('.editor-role').value.trim() || '未知',
-                        personality_traits: card.querySelector('.editor-personality').value.trim() || '',
-                        background: card.querySelector('.editor-background').value.trim() || '',
-                        important_relationships: []
-                    };
+                const selectedModelName = card.querySelector('.editor-select').value;
+                if (selectedModelName) {
+                    const modelChar = APP_STATE.characters.find(c => c.name === selectedModelName);
+                    if (!modelChar) { alert('模型角色不存在'); return; }
+                    newChar.gameobject_name = modelChar.gameobject_name || '';
+                    if (modelChar.appearance) newChar.appearance = modelChar.appearance;
+                    if (modelChar.acting_style && !newChar.acting_style) newChar.acting_style = modelChar.acting_style;
                 }
+
+                const editedName = card.querySelector('.editor-name').value.trim();
+                if (!editedName) { alert('请填写角色名称'); return; }
+                const editedTraits = card.querySelector('.editor-personality').value.trim();
+                newChar.name = editedName;
+                newChar.gender = card.querySelector('.editor-gender').value || '未知';
+                newChar.ip = card.querySelector('.editor-ip').value.trim() || newChar.ip || '原创';
+                newChar.personality_traits = editedTraits;
+                newChar.traits = editedTraits ? editedTraits.split(/[,，、]/).map(s => s.trim()).filter(Boolean) : [];
+                newChar.background = card.querySelector('.editor-background').value.trim() || '';
+                if (!newChar.important_relationships) newChar.important_relationships = [];
 
                 // 更新状态
                 APP_STATE.generatedCharacters[i] = newChar;
-
-                // 更新卡片显示内容
-                const display = card.querySelector('.cast-card-display');
-                display.querySelector('.cast-card-name').textContent = newChar.name;
-                const spans = display.querySelectorAll('.cast-card-meta span');
-                spans[0].textContent = `${newChar.gender || ''} · ${newChar.ip || ''}`;
-                spans[1].textContent = newChar.personality_traits || '';
-                spans[2].textContent = (newChar.background || '').slice(0, 80) + ((newChar.background || '').length > 80 ? '…' : '');
-
-                // 更新图片
-                const newImgURL = this._charImageURL(newChar.gameobject_name);
-                let existingImg = display.querySelector('.cast-card-img');
-                if (newImgURL) {
-                    if (!existingImg) {
-                        existingImg = document.createElement('img');
-                        existingImg.className = 'cast-card-img';
-                        existingImg.setAttribute('onerror', "this.style.display='none'");
-                        display.insertBefore(existingImg, display.querySelector('.cast-replace-btn'));
-                    }
-                    existingImg.src = newImgURL;
-                    existingImg.alt = newChar.name;
-                    existingImg.style.display = '';
-                } else if (existingImg) {
-                    existingImg.style.display = 'none';
-                }
-
-                // 收起编辑器
-                card.querySelector('.cast-editor').style.display = 'none';
+                this.renderCastPreview(APP_STATE.generatedCharacters);
             });
         });
     },
 
     // 构建角色图片 URL
     _charImageURL(gameobject_name) {
-        if (!gameobject_name) return '';
-        return `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.CHARACTER_IMAGE}/${encodeURIComponent(gameobject_name)}`;
+        const key = (gameobject_name || '').trim();
+        if (!key || !/^[A-Za-z0-9_-]+$/.test(key)) return '';
+        if (APP_STATE.characterImageKeys && !APP_STATE.characterImageKeys.has(key)) return '';
+        return `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.CHARACTER_IMAGE}/${encodeURIComponent(key)}`;
     },
 
     // 构建角色的描述字符串（用于发送给AI）
@@ -451,6 +423,12 @@ const UI = {
         if (char.Faction && char.Faction !== '未知') parts.push(`阵营：${char.Faction}`);
         if (char.ip && char.ip !== '自定义') parts.push(`IP《${char.ip}》`);
         return parts.join(' · ');
+    },
+
+    _charTraitsText(char) {
+        if (!char) return '';
+        if (Array.isArray(char.traits) && char.traits.length) return char.traits.join(', ');
+        return char.personality_traits || char.personality || '';
     },
 
     // 构建角色库选择器的 options HTML（按性别分组）
@@ -667,10 +645,7 @@ const UI = {
         const bodyType = (app.body_type || '').slice(0, 60) + ((app.body_type || '').length > 60 ? '…' : '');
         const traits = Array.isArray(char.traits) ? char.traits.join(' · ') : '';
         const bg = (char.background || '').slice(0, 80) + ((char.background || '').length > 80 ? '…' : '');
-        const gobj = char.gameobject_name || '';
-        const imgURL = gobj
-            ? `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.CHARACTER_IMAGE}/${encodeURIComponent(gobj)}`
-            : '';
+        const imgURL = this._charImageURL(char.gameobject_name);
         return `
             <div class="char-preview-layout">
                 <div class="char-preview-info">
@@ -910,12 +885,14 @@ const UI = {
             const initPos   = (scene['initial position'] || [])
                 .map(p => {
                     const anchor = (APP_STATE.positionPlanMap || {})[p.position] || p.position;
-                    return `${p.character} → ${anchor}`;
+                    const state = p.state || 'standing';
+                    return `${p.character} → ${anchor} (${state})`;
                 }).join('　');
             const sceneChars = (info.who && info.who.length) ? info.who : allChars;
 
             const beats = (scene['scene'] || []).map((beat, bi) => {
                 if (beat.speaker !== undefined) {
+                    const isEmptyShot = this._isEmptyShotBeat(beat);
                     const positions = (beat['current position'] || [])
                         .map(p => {
                             const pos = p.position;
@@ -923,22 +900,32 @@ const UI = {
                             return `${p.character}→${anchor}`;
                         }).join('　');
                     // 说话人下拉
-                    const speakerOpts = sceneChars.map(c =>
+                    const speakerOpts = [
+                        `<option value=""${isEmptyShot ? ' selected' : ''}>空镜</option>`,
+                        ...sceneChars.map(c =>
                         `<option value="${this._esc(c)}"${c === beat.speaker ? ' selected' : ''}>${this._esc(c)}</option>`
-                    ).join('');
-                    const actionsHtml = this._renderActionEditor(si, bi, beat.actions || [], sceneChars, actionsFlat);
+                        )
+                    ].join('');
+                    const actionsHtml = isEmptyShot ? '' : this._renderActionEditor(si, bi, beat.actions || [], sceneChars, actionsFlat);
                     const shotHtml    = this._renderShotSelects(si, bi, beat);
+                    const durationHtml = isEmptyShot ? `
+                        <div class="sv-empty-shot-meta">
+                            <span class="sv-label">时长</span>
+                            <input class="sv-duration-input" data-scene="${si}" data-beat="${bi}"
+                                value="${this._esc(beat.duration || '5s')}" placeholder="5s">
+                        </div>` : '';
                     return `
-                    <div class="sv-beat sv-beat-dialogue" data-scene="${si}" data-beat="${bi}">
+                    <div class="sv-beat sv-beat-dialogue${isEmptyShot ? ' sv-beat-empty-shot' : ''}" data-scene="${si}" data-beat="${bi}">
                         <div class="sv-beat-top">
                             <select class="sv-speaker-select" data-scene="${si}" data-beat="${bi}">
                                 ${speakerOpts}
                             </select>
-                            <button class="sv-del-beat" data-scene="${si}" data-beat="${bi}" title="删除此对话">✕</button>
+                            <button class="sv-del-beat" data-scene="${si}" data-beat="${bi}" title="删除此片段">✕</button>
                         </div>
                         <textarea class="sv-content sv-editable"
                             data-scene="${si}" data-beat="${bi}" data-field="content"
-                            rows="3" placeholder="对话内容..."></textarea>
+                            rows="${isEmptyShot ? '2' : '3'}" placeholder="${isEmptyShot ? '空镜不填写对白，可在镜头描述中写画面...' : '对话内容...'}"></textarea>
+                        ${durationHtml}
                         ${shotHtml}
                         ${actionsHtml}
                         ${positions ? `<div class="sv-meta"><span class="sv-label">站位</span><span class="sv-value">${this._esc(positions)}</span></div>` : ''}
@@ -968,7 +955,10 @@ const UI = {
                     rows="2" placeholder="场景核心事件描述...">${this._esc(info.what || '')}</textarea>
                 ${initPos ? `<div class="sv-init-pos"><span class="sv-label">初始站位</span> ${this._esc(initPos)}</div>` : ''}
                 <div class="sv-beats">${beats}</div>
-                <button class="sv-add-beat" data-scene="${si}">＋ 添加对话</button>
+                <div class="sv-add-row">
+                    <button class="sv-add-beat" data-scene="${si}">＋ 添加对话</button>
+                    <button class="sv-add-empty-shot" data-scene="${si}">＋ 添加空镜</button>
+                </div>
             </div>`;
         }).join('');
 
@@ -1012,6 +1002,32 @@ const UI = {
             (scene['scene'] || []).forEach(beat => { if (beat.speaker) set.add(beat.speaker); });
         });
         return [...set];
+    },
+
+    _isEmptyShotBeat(beat) {
+        return beat
+            && beat.speaker !== undefined
+            && beat.content !== undefined
+            && String(beat.speaker || '').trim() === ''
+            && String(beat.content || '').trim() === '';
+    },
+
+    _buildEmptyShotBeat(data, si) {
+        const scene = data[si] || {};
+        const beats = scene['scene'] || [];
+        const previous = beats[beats.length - 1] || {};
+        const currentPosition = previous['current position'] || scene['initial position'] || [];
+        return {
+            speaker: '',
+            content: '',
+            duration: '5s',
+            shot: 'scene',
+            shot_blend: 'Cut',
+            camera: 1,
+            shot_description: '',
+            actions: [],
+            'current position': JSON.parse(JSON.stringify(currentPosition)),
+        };
     },
 
     _flatActions() {
@@ -1118,7 +1134,18 @@ const UI = {
                 const si = parseInt(sel.dataset.scene);
                 const bi = parseInt(sel.dataset.beat);
                 if (data[si]?.['scene']?.[bi]) {
-                    data[si]['scene'][bi].speaker = sel.value;
+                    const beat = data[si]['scene'][bi];
+                    beat.speaker = sel.value;
+                    if (!sel.value) {
+                        beat.content = '';
+                        beat.duration = beat.duration || '5s';
+                        beat.actions = [];
+                        beat.shot = 'scene';
+                        beat.camera = beat.camera || 1;
+                    } else {
+                        delete beat.duration;
+                    }
+                    this._redrawScriptViewer();
                 }
             });
         });
@@ -1128,6 +1155,16 @@ const UI = {
             sel.addEventListener('change', () => {
                 const si = parseInt(sel.dataset.scene), bi = parseInt(sel.dataset.beat);
                 if (data[si]?.['scene']?.[bi]) data[si]['scene'][bi].shot_type = sel.value;
+            });
+        });
+
+        viewer.querySelectorAll('.sv-duration-input').forEach(input => {
+            input.addEventListener('input', () => {
+                const si = parseInt(input.dataset.scene);
+                const bi = parseInt(input.dataset.beat);
+                if (data[si]?.['scene']?.[bi]) {
+                    data[si]['scene'][bi].duration = input.value || '5s';
+                }
             });
         });
 
@@ -1220,6 +1257,15 @@ const UI = {
             });
         });
 
+        viewer.querySelectorAll('.sv-add-empty-shot').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const si = parseInt(btn.dataset.scene);
+                if (!data[si]['scene']) data[si]['scene'] = [];
+                data[si]['scene'].push(this._buildEmptyShotBeat(data, si));
+                this._redrawScriptViewer();
+            });
+        });
+
         // 删除幕
         viewer.querySelectorAll('.sv-del-scene').forEach(btn => {
             btn.addEventListener('click', () => {
@@ -1238,7 +1284,11 @@ const UI = {
             const defaultWhere = sceneOpts[0]?.id || '';
             data.push({
                 'scene information': { who: chars, where: defaultWhere, what: '' },
-                'initial position': chars.map((c, i) => ({ character: c, position: `Position ${i + 1}` })),
+                'initial position': chars.map((c, i) => ({
+                    character: c,
+                    position: `Position ${i + 1}`,
+                    state: 'standing',
+                })),
                 'scene': [{
                     speaker: chars[0] || '',
                     content: '',
@@ -1287,11 +1337,13 @@ const UI = {
                 const initPos = (scene['initial position'] || [])
                     .map(p => {
                         const anchor = (APP_STATE.positionPlanMap || {})[p.position] || p.position || '';
-                        return `${p.character || ''} → ${anchor}`;
+                        const state = p.state || 'standing';
+                        return `${p.character || ''} → ${anchor} (${state})`;
                     })
                     .join('　');
                 const beats = (scene['scene'] || []).map(beat => {
                     if (beat.speaker !== undefined) {
+                        const isEmptyShot = this._isEmptyShotBeat(beat);
                         const content = (beat.content || '').slice(0, 60) + ((beat.content || '').length > 60 ? '…' : '');
                         const shot = beat.shot || '';
                         const anchors = Array.isArray(beat.shot_anchors) ? beat.shot_anchors.join(', ') : '';
@@ -1308,9 +1360,9 @@ const UI = {
                         const motion = beat.motion_description || '';
                         const shotMeta = [shot, anchors ? `锚点 ${anchors}` : '', camera].filter(Boolean).join(' · ');
                         return `
-                        <div class="ob-beat ob-dialogue">
-                            <span class="ob-speaker">${this._esc(beat.speaker)}</span>
-                            <span class="ob-content">${this._esc(content)}</span>
+                        <div class="ob-beat ob-dialogue${isEmptyShot ? ' ob-empty-shot' : ''}">
+                            <span class="ob-speaker">${isEmptyShot ? '空镜' : this._esc(beat.speaker)}</span>
+                            <span class="ob-content">${this._esc(isEmptyShot ? (beat.duration || '5s') : content)}</span>
                             ${shotMeta ? `<div class="ob-beat-meta">镜头：${this._esc(shotMeta)}</div>` : ''}
                             ${actions ? `<div class="ob-beat-meta">动作：${this._esc(actions)}</div>` : ''}
                             ${positions ? `<div class="ob-beat-meta">站位：${this._esc(positions)}</div>` : ''}
@@ -1456,6 +1508,10 @@ const UI = {
         return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     },
 
+    _attr(str) {
+        return this._esc(str).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    },
+
     // 启用/禁用步骤
     enableStep(stepId) {
         document.getElementById(stepId).classList.remove('disabled');
@@ -1472,6 +1528,26 @@ const UI = {
 
     disableGenerateBtn() {
         document.getElementById('generateBtn').disabled = true;
+    },
+
+    enableDirectGenerateBtn() {
+        const btn = document.getElementById('directGenerateBtn');
+        if (btn) btn.disabled = false;
+    },
+
+    disableDirectGenerateBtn() {
+        const btn = document.getElementById('directGenerateBtn');
+        if (btn) btn.disabled = true;
+    },
+
+    enableDirectorWordBtn() {
+        const btn = document.getElementById('directorWordBtn');
+        if (btn) btn.disabled = false;
+    },
+
+    disableDirectorWordBtn() {
+        const btn = document.getElementById('directorWordBtn');
+        if (btn) btn.disabled = true;
     },
 
     // 显示/隐藏版本命名行

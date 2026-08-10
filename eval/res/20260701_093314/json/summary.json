@@ -1,0 +1,77 @@
+{
+  "run_id": "20260701_093314",
+  "base_url": "http://127.0.0.1:5001",
+  "started_at": "20260701_093314",
+  "elapsed_seconds": 299.8,
+  "results": [
+    {
+      "id": "01_douyin_short",
+      "name": "测试题1：抖音短视频风格",
+      "creative_idea": "瓦罗兰特中的捷风和奶妈为主角的抖音短视频剧本。",
+      "status": "success",
+      "started_at": "2026-07-01T09:33:14",
+      "elapsed_seconds": 299.78,
+      "title": "太空站刷奶茶券",
+      "session_id": "1782869688972730000",
+      "estimated_duration": {
+        "estimated_duration_seconds": 21,
+        "dialogue_lines": 3,
+        "dialogue_chars": 59
+      },
+      "error": null,
+      "files": {
+        "script": "01_douyin_short__script_1782869688972730000.json",
+        "camera_script": "01_douyin_short__camera_script_1782869688972730000.json",
+        "actors_profile": "01_douyin_short__actors_profile_1782869688972730000.json",
+        "position_plan": "01_douyin_short__position_plan_1782869688972730000.json",
+        "position_detail": "01_douyin_short__position_detail_1782869688972730000.json"
+      },
+      "event_file": "01_douyin_short__events.ndjson",
+      "script_summary": {
+        "act_count": 1,
+        "beat_count": 3,
+        "acts": [
+          {
+            "index": 1,
+            "where": "Space Station",
+            "what": "残血捷风团战结束冲回据点找奶，撞见本该守点的贤者摸鱼刷地球奶茶优惠券",
+            "beat_count": 3,
+            "preview": [
+              {
+                "speaker": "贤者",
+                "content": "满三十减二十...珍珠奶绿能送进太空站不？"
+              },
+              {
+                "speaker": "捷风",
+                "content": "贤者快奶我！我残血见底了！对面下波马上冲了！"
+              },
+              {
+                "speaker": "捷风",
+                "content": "靠——你居然在这刷奶茶优惠券？！"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "04_talk_show",
+      "name": "测试题4：单人脱口秀风格",
+      "creative_idea": "生成一段吐槽研究生生活的单人脱口秀风格剧本。",
+      "status": "error",
+      "started_at": "2026-07-01T09:33:14",
+      "elapsed_seconds": 82.07,
+      "title": null,
+      "session_id": null,
+      "estimated_duration": null,
+      "error": "[DirectorAgent] 未能生成有效的 JSON 剧本",
+      "files": {},
+      "event_file": "04_talk_show__events.ndjson",
+      "script_summary": {
+        "act_count": 0,
+        "beat_count": 0,
+        "acts": []
+      }
+    }
+  ]
+}

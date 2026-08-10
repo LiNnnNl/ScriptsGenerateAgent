@@ -97,7 +97,6 @@ def run_position_agent(
     # OP_IGNORE_UNEXPECTED_EOF（Python 3.12+），避免火山引擎 ARK 不发 close_notify 时报错。
     script_args = [
         str(STANDALONE_PATH),
-        "--deepseek-api-key", os.getenv("API_KEY", ""),
         "--api-url",          (os.getenv("BASE_URL", "").rstrip("/") + "/chat/completions"),
         "--model",            os.getenv("MODEL", "deepseek-chat"),
         "--no-force-json-response",

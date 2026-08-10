@@ -12,6 +12,7 @@ from .client import LLMJsonClient
 from .shot_planning_stage import ShotPlanningStage
 from .cinematography_position_stage import CinematographyPositionStage
 from .camera_planning_stage import CameraPlanningStage
+from ..scene_segments import is_empty_shot, protect_empty_shot, protect_empty_shots
 
 # Lazy import to avoid circular dependency — schema lives outside this package
 def _get_camera_validators():
@@ -123,6 +124,8 @@ def run_cinematography_pipeline(script, scene, resource_dir, output_dir, timesta
                 logger.warning("[Cinematography] Stage 1 failed, skipping: %s", e)
                 enriched_scene = scene_obj
 
+            protect_empty_shots(enriched_scene, ensure_camera=True)
+
             # ── 冲突修复1: save "scene" beats before Stage 3 overwrites them ──
             scene_shot_backup = _backup_scene_shots(enriched_scene)
 
@@ -230,6 +233,12 @@ def run_cinematography_pipeline(script, scene, resource_dir, output_dir, timesta
                         continue
                     data = _scene_retry_data[retry_si]
                     logger.info("[Cinematography] Retrying Stage 3 for scene %d", retry_si)
+                    if progress_callback:
+                        progress_callback(
+                            "warning",
+                            "camera_retry",
+                            f"🔁 [摄影指导期][Stage3 retry] camera_script 校验失败，正在重跑场景 {retry_si + 1}",
+                        )
                     try:
                         stage3_retry = CameraPlanningStage(
                             script_json=data["scene_obj"],
@@ -302,19 +311,20 @@ def run_cinematography_pipeline(script, scene, resource_dir, output_dir, timesta
 
 def _backup_scene_shots(scene_obj):
     """
-    Return a dict mapping beat_index → {"shot": "scene", "camera": ...} for every
-    move beat.  Move beats use a fixed Unity camera index; Stage 3 would wrongly
-    overwrite shot to "character".  Detection is by "move" key presence, not by
-    shot value (director no longer pre-fills shot).
+    Back up every movement or empty shot that must remain a scene shot.
     """
     backup = {}
     for idx, beat in enumerate(scene_obj.get("scene", [])):
         if not isinstance(beat, dict):
             continue
-        if "move" in beat:
-            entry = {"shot": "scene"}
+        empty_shot = is_empty_shot(beat)
+        if "move" in beat or empty_shot:
+            entry = {"shot": "scene", "empty_shot": empty_shot}
             if "camera" in beat:
                 entry["camera"] = beat["camera"]
+            if empty_shot:
+                entry["duration"] = beat.get("duration") or "5s"
+                entry["shot_description"] = beat.get("shot_description", "")
             backup[idx] = entry
     return backup
 
@@ -334,6 +344,10 @@ def _restore_scene_shots(scene_obj, backup):
             # for "scene" beats use a wide shot if Stage 3 picked a close one.
             if beat.get("shot_type") in ("近景", "中近景"):
                 beat["shot_type"] = "全景"
+            if backup[idx].get("empty_shot"):
+                beat["duration"] = backup[idx]["duration"]
+                beat["shot_description"] = backup[idx]["shot_description"]
+                protect_empty_shot(beat, ensure_camera=True)
 
 
 def _normalise_shot_blend(scene_obj):
@@ -410,6 +424,11 @@ def _build_camera_script(enriched_script, camera_lib):
                 moves = beat.get("move") or []
                 if moves and isinstance(moves, list):
                     target = moves[0].get("character", "")
+            if not target:
+                for pos_entry in beat.get("current position", []):
+                    if isinstance(pos_entry, dict) and pos_entry.get("character"):
+                        target = pos_entry.get("character", "")
+                        break
 
             # Find target's current position
             target_position = ""
@@ -417,6 +436,13 @@ def _build_camera_script(enriched_script, camera_lib):
                 for pos_entry in beat.get("current position", []):
                     if isinstance(pos_entry, dict) and pos_entry.get("character") == target:
                         target_position = pos_entry.get("position", "")
+                        break
+            if not target_position:
+                for pos_entry in beat.get("current position", []):
+                    if isinstance(pos_entry, dict) and pos_entry.get("position"):
+                        target_position = pos_entry.get("position", "")
+                        if not target:
+                            target = pos_entry.get("character", "")
                         break
 
             event = {

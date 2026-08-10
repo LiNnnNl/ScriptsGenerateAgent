@@ -1,0 +1,54 @@
+{
+  "scenes": [
+    {
+      "scene_index": 0,
+      "events": [
+        {
+          "event_index": 0,
+          "shot": "character",
+          "target": "贤者",
+          "target_position": "Position 1",
+          "shot_type": "中近景",
+          "shot_blend": "cut",
+          "follow": 0,
+          "camera": null,
+          "shot_description": "前景中心站着贤者，暖调全息光落在他脸上，手指正在投影界面上敲击，捷风在中景右侧位置静止站立。",
+          "motion_enabled": true,
+          "motion_preset": "dialogue_push",
+          "play_motion_on_activate": true,
+          "motion_start_delay": 0.0,
+          "motion_reset_on_replay": true
+        },
+        {
+          "event_index": 1,
+          "shot": "scene",
+          "target": "捷风",
+          "target_position": "Position 2",
+          "shot_type": "全景",
+          "shot_blend": "cut",
+          "follow": 0,
+          "camera": 1,
+          "shot_description": "前景左侧的捷风正朝三号位置移动，向中景中心的贤者喊话，贤者仍站在全息投影前保持操作姿态。",
+          "motion_enabled": false,
+          "motion_preset": "none"
+        },
+        {
+          "event_index": 2,
+          "shot": "character",
+          "target": "捷风",
+          "target_position": "Position 3",
+          "shot_type": "中近景",
+          "shot_blend": "cut",
+          "follow": 0,
+          "camera": null,
+          "shot_description": "前景右侧站着捷风，身体后仰双臂张开，中景中心的贤者停在全息投影前，抬头看向捷风，手指仍悬在投影界面上。",
+          "motion_enabled": true,
+          "motion_preset": "dialogue_push",
+          "play_motion_on_activate": true,
+          "motion_start_delay": 0.0,
+          "motion_reset_on_replay": true
+        }
+      ]
+    }
+  ]
+}

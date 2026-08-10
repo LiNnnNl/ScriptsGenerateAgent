@@ -1,0 +1,621 @@
+﻿﻿<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Motion Bridge</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f4f7f5;
+      --panel: #ffffff;
+      --ink: #1c2430;
+      --muted: #637083;
+      --line: #d9e2dc;
+      --green: #20745b;
+      --blue: #245f9f;
+      --amber: #a66112;
+      --shadow: 0 18px 50px rgba(31, 45, 61, 0.11);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, "Segoe UI", Arial, sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+    }
+    header {
+      padding: 26px clamp(18px, 4vw, 52px) 18px;
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 18px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.72);
+      backdrop-filter: blur(14px);
+    }
+    h1 {
+      margin: 0;
+      font-size: clamp(26px, 4vw, 42px);
+      font-weight: 760;
+      letter-spacing: 0;
+    }
+    .subtitle {
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 15px;
+    }
+    .health {
+      border: 1px solid var(--line);
+      background: #eef4f0;
+      color: var(--green);
+      border-radius: 999px;
+      padding: 8px 12px;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+    main {
+      width: min(1180px, calc(100% - 32px));
+      margin: 28px auto 56px;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+    }
+    section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      padding: 22px;
+      min-width: 0;
+    }
+    h2 {
+      margin: 0 0 16px;
+      font-size: 22px;
+      letter-spacing: 0;
+    }
+    label {
+      display: block;
+      margin: 14px 0 7px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 650;
+    }
+    textarea, input[type="number"], input[type="file"], input[type="text"] {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 11px 12px;
+      font: inherit;
+      background: #fbfcfb;
+      color: var(--ink);
+    }
+    textarea {
+      min-height: 116px;
+      resize: vertical;
+    }
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    button {
+      margin-top: 18px;
+      width: 100%;
+      border: 0;
+      border-radius: 8px;
+      padding: 12px 14px;
+      font: inherit;
+      font-weight: 750;
+      color: #fff;
+      cursor: pointer;
+      min-height: 46px;
+    }
+    .t2m button { background: var(--green); }
+    .v2m button { background: var(--blue); }
+    .history {
+      grid-column: 1 / -1;
+    }
+    .history-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 12px;
+    }
+    .history-head h2 {
+      margin: 0;
+    }
+    .history-list {
+      display: grid;
+      gap: 10px;
+    }
+    .history-item {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+      background: #fbfcfb;
+    }
+    .history-title {
+      font-weight: 750;
+      overflow-wrap: anywhere;
+    }
+    .history-meta {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .history-actions {
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+    .history-actions button,
+    .history-actions a,
+    .history-head button {
+      margin: 0;
+      width: auto;
+      min-height: 34px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 8px 10px;
+      background: #eef4f0;
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: 750;
+      text-decoration: none;
+      cursor: pointer;
+    }
+    .pill {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 7px 10px;
+      color: var(--muted);
+      font-size: 13px;
+      white-space: nowrap;
+    }
+    button:disabled {
+      opacity: 0.62;
+      cursor: wait;
+    }
+    .result {
+      margin-top: 16px;
+      border-top: 1px solid var(--line);
+      padding-top: 14px;
+      min-height: 92px;
+      color: var(--muted);
+      font-size: 14px;
+      overflow-wrap: anywhere;
+    }
+    .result a {
+      display: inline-flex;
+      margin-top: 10px;
+      color: var(--blue);
+      font-weight: 750;
+      text-decoration: none;
+    }
+    .preview {
+      margin-top: 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #0f1720;
+      overflow: hidden;
+      aspect-ratio: 4 / 3;
+      width: 100%;
+    }
+    canvas.preview, video.preview {
+      display: block;
+      object-fit: contain;
+    }
+    .error { color: #9b1c1c; }
+    .ok { color: var(--green); }
+    pre {
+      max-height: 220px;
+      overflow: auto;
+      background: #101820;
+      color: #dce7ef;
+      border-radius: 8px;
+      padding: 12px;
+      font-size: 12px;
+      white-space: pre-wrap;
+    }
+    @media (max-width: 820px) {
+      header { align-items: start; flex-direction: column; }
+      main { grid-template-columns: 1fr; }
+      .row { grid-template-columns: 1fr; }
+      .history-item { grid-template-columns: 1fr; }
+      .history-actions { justify-content: flex-start; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Motion Bridge</h1>
+      <div class="subtitle">MMM 鏂囧瓧鐢熸垚鍔ㄤ綔 + MC_ALL 瑙嗛鎻愬彇鍔ㄤ綔锛岀粺涓€瀵煎嚭 FBX銆?/div>
+    </div>
+    <div id="health" class="health">妫€鏌ョ幆澧冧腑...</div>
+  </header>
+
+  <main>
+    <section class="t2m">
+      <h2>鏂囧瓧鐢熸垚鍔ㄤ綔</h2>
+      <form id="t2mForm">
+        <label for="text">鍔ㄤ綔鎻忚堪</label>
+        <textarea id="text" name="text">the person walks forward.</textarea>
+        <div class="row">
+          <div>
+            <label for="length">甯ф暟</label>
+            <input id="length" name="length" type="number" min="16" max="196" value="156">
+          </div>
+          <div>
+            <label for="t2mHint">妯″瀷</label>
+            <input id="t2mHint" type="text" value="MMM / CPU export / Blender FBX" disabled>
+          </div>
+        </div>
+        <button type="submit">鐢熸垚 FBX</button>
+      </form>
+      <div id="t2mResult" class="result">绛夊緟杈撳叆銆?/div>
+    </section>
+
+    <section class="v2m">
+      <h2>瑙嗛鎻愬彇鍔ㄤ綔</h2>
+      <form id="v2mForm">
+        <label for="video">瑙嗛鏂囦欢</label>
+        <input id="video" name="video" type="file" accept="video/*" required>
+        <div class="row">
+          <div>
+            <label for="person">浜虹墿缂栧彿</label>
+            <input id="person" name="person" type="number" min="0" value="0">
+          </div>
+          <div>
+            <label for="v2mHint">妯″瀷</label>
+            <input id="v2mHint" type="text" value="MC_ALL / HMR4D + HaMeR / FBX" disabled>
+          </div>
+        </div>
+        <button type="submit">鎻愬彇 FBX</button>
+      </form>
+      <div id="v2mResult" class="result">绛夊緟涓婁紶銆?/div>
+    </section>
+
+    <section class="history">
+      <div class="history-head">
+        <h2>鍘嗗彶璁板綍</h2>
+        <button id="refreshHistory" type="button">鍒锋柊</button>
+      </div>
+      <div id="historyList" class="history-list">鏆傛棤鍘嗗彶璁板綍銆?/div>
+    </section>
+  </main>
+
+  <script>
+    if (window.location.protocol === "file:") {
+      window.location.replace("http://127.0.0.1:7860/");
+    }
+
+    const healthEl = document.getElementById("health");
+    fetch("/api/health")
+      .then(r => r.json())
+      .then(data => {
+        healthEl.textContent = data.success ? "鐜灏辩华" : "鐜缂洪」";
+        healthEl.style.color = data.success ? "var(--green)" : "var(--amber)";
+      })
+      .catch(() => {
+        healthEl.textContent = "鐜妫€鏌ュけ璐?;
+        healthEl.style.color = "var(--amber)";
+      });
+
+    const activeAnimations = new Map();
+
+    function renderResult(el, data, options = {}) {
+      if (activeAnimations.has(el.id)) {
+        cancelAnimationFrame(activeAnimations.get(el.id));
+        activeAnimations.delete(el.id);
+      }
+      if (!data.success) {
+        const log = data.log ? `<pre>${escapeHtml((data.log.stderr || "") + "\n" + (data.log.stdout || ""))}</pre>` : "";
+        el.innerHTML = `<div class="error">${escapeHtml(data.error || "浠诲姟澶辫触")}</div>${log}`;
+        return;
+      }
+      el.innerHTML = [
+        `<div class="ok">瀹屾垚锛?{escapeHtml(data.filename)}</div>`,
+        `<div>${escapeHtml(data.output_path || "")}</div>`,
+        `<a href="${data.download_url}">涓嬭浇 FBX</a>`
+      ].join("");
+      if (data.preview) {
+        mountPreview(el, data.preview);
+      } else if (options.showMissingPreview) {
+        const msg = document.createElement("div");
+        msg.className = "error";
+        msg.textContent = "杩欎釜缁撴灉娌℃湁鍙洿鎺ユ挱鏀剧殑棰勮鏂囦欢銆?;
+        el.appendChild(msg);
+      }
+    }
+
+    function renderHistory(items) {
+      const list = document.getElementById("historyList");
+      if (!items.length) {
+        list.textContent = "鏆傛棤鍘嗗彶璁板綍銆?;
+        return;
+      }
+      list.innerHTML = "";
+      for (const item of items) {
+        const row = document.createElement("div");
+        row.className = "history-item";
+
+        const main = document.createElement("div");
+        const title = document.createElement("div");
+        title.className = "history-title";
+        title.textContent = item.label || item.filename || item.task_id;
+        const meta = document.createElement("div");
+        meta.className = "history-meta";
+        const kind = item.kind === "v2m" ? "瑙嗛鎻愬彇" : "鏂囧瓧鐢熸垚";
+        const created = item.created_at ? new Date(item.created_at * 1000).toLocaleString() : "";
+        meta.textContent = `${kind} 路 ${item.filename || ""} 路 ${created}`;
+        main.append(title, meta);
+
+        const actions = document.createElement("div");
+        actions.className = "history-actions";
+        const view = document.createElement("button");
+        view.type = "button";
+        view.textContent = "鏌ョ湅";
+        view.addEventListener("click", () => {
+          const target = item.kind === "v2m" ? document.getElementById("v2mResult") : document.getElementById("t2mResult");
+          renderResult(target, item, { showMissingPreview: true });
+          target.scrollIntoView({ behavior: "smooth", block: "center" });
+        });
+        const download = document.createElement("a");
+        download.href = item.download_url;
+        download.textContent = "涓嬭浇";
+        actions.append(view, download);
+        row.append(main, actions);
+        list.appendChild(row);
+      }
+    }
+
+    async function refreshHistory() {
+      const list = document.getElementById("historyList");
+      try {
+        const response = await fetch(`/api/history?preview=1&t=${Date.now()}`, { cache: "no-store" });
+        const data = await response.json();
+        renderHistory(data.items || []);
+      } catch (error) {
+        list.innerHTML = `<div class="error">${escapeHtml(error.message)}</div>`;
+      }
+    }
+    async function loadLatest() {
+      try {
+        const response = await fetch(`/api/latest?t=${Date.now()}`, { cache: "no-store" });
+        if (!response.ok) return;
+        const data = await response.json();
+        if (!data.success) return;
+        const target = data.kind === "v2m" ? document.getElementById("v2mResult") : document.getElementById("t2mResult");
+        renderResult(target, data, { showMissingPreview: true });
+      } catch (error) {
+        console.warn("latest preview load failed", error);
+      }
+    }
+
+
+    function mountPreview(el, preview) {
+      if (preview.type === "video") {
+        const video = document.createElement("video");
+        video.className = "preview";
+        video.src = preview.url;
+        video.controls = true;
+        video.loop = true;
+        video.muted = true;
+        video.playsInline = true;
+        el.appendChild(video);
+        return;
+      }
+      if (preview.type === "skeleton2d") {
+        const canvas = document.createElement("canvas");
+        canvas.className = "preview";
+        canvas.width = 720;
+        canvas.height = 450;
+        el.appendChild(canvas);
+        if (preview.data) {
+          playSkeleton(el.id, canvas, preview.data);
+          return;
+        }
+        fetch(`${preview.url}${preview.url.includes("?") ? "&" : "?"}t=${Date.now()}`, { cache: "no-store" })
+          .then(r => r.json())
+          .then(data => playSkeleton(el.id, canvas, data))
+          .catch(error => {
+            const msg = document.createElement("div");
+            msg.className = "error";
+            msg.textContent = `棰勮鍔犺浇澶辫触锛?{error.message}`;
+            el.appendChild(msg);
+          });
+      }
+    }
+
+    function playSkeleton(key, canvas, data) {
+      const ctx = canvas.getContext("2d");
+      const frames = (data.joints || []).filter(frame =>
+        Array.isArray(frame) && frame.every(point =>
+          Array.isArray(point) &&
+          point.length >= 3 &&
+          point.every(value => Number.isFinite(Number(value)))
+        )
+      );
+      const chains = (data.chains || []).filter(chain =>
+        Array.isArray(chain) && chain.length > 1 && chain.every(index => Number.isInteger(Number(index)))
+      ).map(chain => chain.map(index => Number(index)));
+      const edges = (data.edges || []).filter(edge =>
+        Array.isArray(edge) && edge.length >= 2 && Number.isInteger(Number(edge[0])) && Number.isInteger(Number(edge[1]))
+      ).map(edge => [Number(edge[0]), Number(edge[1])]);
+      const drawEdges = chains.length
+        ? chains.flatMap(chain => chain.slice(0, -1).map((joint, index) => [joint, chain[index + 1]]))
+        : edges;
+      if (!frames.length || !drawEdges.length) {
+        ctx.fillStyle = "#0f1720";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "#f8fafc";
+        ctx.font = "18px Inter, Segoe UI, sans-serif";
+        ctx.fillText("棰勮鏁版嵁涓虹┖鎴栭鏋堕摼鏃犳晥", 28, 42);
+        return;
+      }
+
+      const projectedBounds = frames.flat().map(p => ({
+        x: p[0] * 0.92 + p[2] * 0.38,
+        y: p[1]
+      }));
+      const minViewX = Math.min(...projectedBounds.map(p => p.x));
+      const maxViewX = Math.max(...projectedBounds.map(p => p.x));
+      const minY = Math.min(...projectedBounds.map(p => p.y));
+      const maxY = Math.max(...projectedBounds.map(p => p.y));
+      const padding = 44;
+      const availableW = canvas.width - padding * 2;
+      const availableH = canvas.height - padding * 2;
+      const rangeX = Math.max(0.001, maxViewX - minViewX);
+      const rangeY = Math.max(0.001, maxY - minY);
+      const scale = Math.min(availableW / rangeX, availableH / rangeY);
+      const centerX = (minViewX + maxViewX) / 2;
+      const centerY = (minY + maxY) / 2;
+      const fps = data.fps || 20;
+      const start = performance.now();
+      const chainColors = ["#7dd3fc", "#86efac", "#fef08a", "#fca5a5", "#c4b5fd"];
+
+      function project(point) {
+        const viewX = point[0] * 0.92 + point[2] * 0.38;
+        return [
+          canvas.width / 2 + (viewX - centerX) * scale,
+          canvas.height / 2 - (point[1] - centerY) * scale
+        ];
+      }
+
+      function draw(now = start) {
+        const elapsed = Math.max(0, now - start);
+        const index = Math.floor((elapsed / 1000) * fps) % frames.length;
+        const frame = frames[index];
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "#0f1720";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "rgba(248,250,252,0.7)";
+        ctx.font = "13px Inter, Segoe UI, sans-serif";
+        ctx.fillText(`${frames.length}f / ${frame.length}j / ${drawEdges.length}b`, 16, 24);
+        ctx.strokeStyle = "rgba(255,255,255,0.12)";
+        ctx.lineWidth = 1;
+        for (let i = 0; i < 5; i++) {
+          const y = canvas.height - 38 - i * 70;
+          ctx.beginPath();
+          ctx.moveTo(34, y);
+          ctx.lineTo(canvas.width - 34, y);
+          ctx.stroke();
+        }
+        ctx.lineWidth = 4;
+        ctx.lineCap = "round";
+        for (let edgeIndex = 0; edgeIndex < drawEdges.length; edgeIndex++) {
+          const [a, b] = drawEdges[edgeIndex];
+          if (!Array.isArray(frame[a]) || !Array.isArray(frame[b])) continue;
+          ctx.strokeStyle = chainColors[Math.min(chainColors.length - 1, Math.floor(edgeIndex / 4))];
+          const pa = project(frame[a]);
+          const pb = project(frame[b]);
+          ctx.beginPath();
+          ctx.moveTo(pa[0], pa[1]);
+          ctx.lineTo(pb[0], pb[1]);
+          ctx.stroke();
+        }
+        ctx.fillStyle = "#f8fafc";
+        for (const joint of frame) {
+          if (!Array.isArray(joint)) continue;
+          const p = project(joint);
+          ctx.beginPath();
+          ctx.arc(p[0], p[1], 4, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        activeAnimations.set(key, requestAnimationFrame(draw));
+      }
+      draw(start);
+    }
+
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>"']/g, ch => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#039;"
+      })[ch]);
+    }
+
+    async function submitForm(form, url, resultEl) {
+      const button = form.querySelector("button");
+      button.disabled = true;
+      resultEl.textContent = "杩愯涓紝妯″瀷鍔犺浇鍜?Blender 瀵煎嚭闇€瑕佷竴鐐规椂闂?..";
+      try {
+        const response = await fetch(url, { method: "POST", body: new FormData(form) });
+        const contentType = response.headers.get("content-type") || "";
+        if (!contentType.includes("application/json")) {
+          const text = await response.text();
+          throw new Error(`鏈嶅姟杩斿洖浜嗛潪 JSON 鍐呭锛孒TTP ${response.status}銆?{text.slice(0, 120)}`);
+        }
+        const data = await response.json();
+        if (data.job_id) {
+          await pollJob(data.job_id, resultEl);
+          return;
+        }
+        renderResult(resultEl, data);
+        if (data.success) {
+          refreshHistory();
+        }
+      } catch (error) {
+        resultEl.innerHTML = `<div class="error">${escapeHtml(error.message)}</div>`;
+      } finally {
+        button.disabled = false;
+      }
+    }
+
+    async function pollJob(jobId, resultEl) {
+      resultEl.innerHTML = `<div class="ok">浠诲姟宸叉彁浜わ細${escapeHtml(jobId)}</div><div>鍚庡彴澶勭悊涓紝椤甸潰浼氳嚜鍔ㄥ埛鏂扮粨鏋溿€?/div>`;
+      while (true) {
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        const response = await fetch(`/api/jobs/${encodeURIComponent(jobId)}?t=${Date.now()}`, { cache: "no-store" });
+        const contentType = response.headers.get("content-type") || "";
+        if (!contentType.includes("application/json")) {
+          throw new Error(`浠诲姟鐘舵€佽繑鍥炰簡闈?JSON 鍐呭锛孒TTP ${response.status}`);
+        }
+        const job = await response.json();
+        if (!job.success) {
+          renderResult(resultEl, job);
+          return;
+        }
+        if (job.status === "queued" || job.status === "running") {
+          resultEl.innerHTML = `<div class="ok">${escapeHtml(job.message || "鍚庡彴澶勭悊涓?..")}</div><div>浠诲姟 ID锛?{escapeHtml(jobId)}</div>`;
+          continue;
+        }
+        if (job.status === "done") {
+          renderResult(resultEl, job.result);
+          refreshHistory();
+          return;
+        }
+        if (job.status === "failed") {
+          renderResult(resultEl, job.result || { success: false, error: job.message || "浠诲姟澶辫触" });
+          return;
+        }
+      }
+    }
+
+    document.getElementById("t2mForm").addEventListener("submit", event => {
+      event.preventDefault();
+      submitForm(event.currentTarget, "/api/t2m", document.getElementById("t2mResult"));
+    });
+
+    document.getElementById("v2mForm").addEventListener("submit", event => {
+      event.preventDefault();
+      submitForm(event.currentTarget, "/api/v2m", document.getElementById("v2mResult"));
+    });
+
+    document.getElementById("refreshHistory").addEventListener("click", refreshHistory);
+    loadLatest();
+    refreshHistory();
+  </script>
+</body>
+</html>
