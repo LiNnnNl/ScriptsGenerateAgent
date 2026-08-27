@@ -8,7 +8,7 @@ AutoGen FunctionTool 包装层
 import json
 import re
 from typing import Any
-from .resource_loader import ResourceLoader, Scene
+from .resource_loader import POSTURE_TRANSITION_TARGETS, ResourceLoader, Scene
 from .json_generator import ScriptJSONGenerator, normalize_initial_position_states
 from .scene_segments import is_empty_shot, protect_empty_shot
 
@@ -180,6 +180,11 @@ def validate_script_constraints(
         return {"valid": False, "errors": ["剧本必须是 JSON 数组"], "warnings": []}
 
     for scene_idx, scene_obj in enumerate(script):
+        character_states = {
+            entry.get("character"): str(entry.get("state") or "standing").strip().lower()
+            for entry in scene_obj.get("initial position", [])
+            if isinstance(entry, dict) and entry.get("character")
+        }
         shared_initial = _find_shared_positions(scene_obj.get("initial position", []))
         if shared_initial:
             errors.append(
@@ -222,6 +227,8 @@ def validate_script_constraints(
                     action_id = action.get("action")
                     if not action_id:
                         continue
+                    character = action.get("character")
+                    current_state = character_states.get(character, "standing")
                     action_obj = resource_loader.get_action_by_id(action_id)
                     if not action_obj:
                         warnings.append(
@@ -229,12 +236,14 @@ def validate_script_constraints(
                             f"动作 '{action_id}' 不在动作资源库中"
                         )
                     else:
-                        state = action.get("state", "standing")
-                        if not action_obj.is_compatible_with_state(state):
+                        if not action_obj.is_compatible_with_state(current_state):
                             warnings.append(
                                 f"场景{scene_idx} 片段{seg_idx}: "
-                                f"动作 '{action_id}' 不兼容状态 '{state}'"
+                                f"动作 '{action_id}' 不兼容角色 '{character}' 的当前姿态 '{current_state}'"
                             )
+                    target_state = POSTURE_TRANSITION_TARGETS.get(action_id)
+                    if character and target_state:
+                        character_states[character] = target_state
 
                 # ── 【新增】camera_group 分组一致性检查 ──
                 # 仅在所有位置都是真实点位时才检查（抽象位置由 PositionAgent 处理后才验证）
@@ -324,9 +333,10 @@ def auto_fix_script(script: list, scene: Scene, resource_loader: ResourceLoader)
     - 缺失/空 Follow → 0
     - 缺失/空 shot_blend → "cut"
     - 缺失 actions 字段 → []
-    - 无效 action_id → 替换为同 state 下动作库第一个有效动作
+    - 无效 action_id → 替换为角色当前姿态下动作库第一个有效动作
     - 缺失 current position → 从上一片段继承（初始位置兜底）
-    - 缺失 initial position.state → 首个动作执行前状态兜底，否则 standing
+    - 缺失 initial position.state → standing
+    - 删除已废弃的 actions[].state，并按姿态切换动作追踪角色当前姿态
     - 同一 initial/current position 中多个角色共用同一站位 → 后出现的角色改到未占用 Position
 
     Returns:
@@ -349,6 +359,11 @@ def auto_fix_script(script: list, scene: Scene, resource_loader: ResourceLoader)
             entry.get("character"): entry.get("position")
             for entry in scene_obj.get("initial position", [])
             if isinstance(entry, dict) and entry.get("character") and entry.get("position")
+        }
+        last_states = {
+            entry.get("character"): str(entry.get("state") or "standing").strip().lower()
+            for entry in scene_obj.get("initial position", [])
+            if isinstance(entry, dict) and entry.get("character")
         }
 
         for seg in scene_obj.get("scene", []):
@@ -385,12 +400,18 @@ def auto_fix_script(script: list, scene: Scene, resource_loader: ResourceLoader)
 
                 # ── 无效 action_id → 替换为同 state 的合法动作 ──
                 for action in seg.get("actions", []):
+                    action.pop("state", None)
                     action_id = action.get("action", "")
+                    character = action.get("character")
+                    current_state = last_states.get(character, "standing")
                     if action_id and not resource_loader.get_action_by_id(action_id):
-                        state = action.get("state", "standing")
-                        candidates = resource_loader.get_actions_by_state(state)
+                        candidates = resource_loader.get_actions_by_state(current_state)
                         if candidates:
                             action["action"] = candidates[0].action_id
+                            action_id = action["action"]
+                    target_state = POSTURE_TRANSITION_TARGETS.get(action_id)
+                    if character and target_state:
+                        last_states[character] = target_state
 
                 # ── emotion 字段缺失 → 规则化分类兜底 ──
                 # 注意：此处分类不使用连续性约束（无 prev 上下文），直接按单句判定

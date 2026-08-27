@@ -9,6 +9,26 @@ from typing import List, Dict, Optional
 from pathlib import Path
 
 
+# 动作按“执行前的角色姿态”建立固定索引。即使某一类暂无动作，也必须保留，
+# 避免 Agent 把缺失分类误解为可以自由编造动作。
+ACTION_POSTURE_CATEGORIES = (
+    ("standing", "站姿"),
+    ("sitting", "坐姿"),
+    ("kneeling", "跪姿"),
+    ("squatting", "蹲姿"),
+)
+ACTION_POSTURE_LABELS = dict(ACTION_POSTURE_CATEGORIES)
+VALID_CHARACTER_STATES = frozenset(ACTION_POSTURE_LABELS)
+
+# Unity 将这四个名称作为持续姿态切换事件处理，不按普通 Animator Trigger 播放。
+POSTURE_TRANSITION_TARGETS = {
+    "Sit Down": "sitting",
+    "Kneel Down": "kneeling",
+    "Squat Down": "squatting",
+    "Stand Up": "standing",
+}
+
+
 class Character:
     """角色资源（兼容新格式：appearance/traits/acting_style）"""
     def __init__(self, data: dict):
@@ -79,10 +99,11 @@ class Action:
     """动作资源（通用，不区分画风）"""
     def __init__(self, data: dict):
         self.action_id = data.get('action_id') or data.get('trigger', '')
-        self.category = data.get('category', '')
         self.description = data.get('description', '')
         self.file = data.get('file', '')
         self.compatible_states = data.get('compatible_states', ['standing'])
+        primary_state = self.compatible_states[0] if self.compatible_states else 'standing'
+        self.category = data.get('category') or ACTION_POSTURE_LABELS.get(primary_state, primary_state)
     
     def is_compatible_with_state(self, state: str) -> bool:
         """检查动作是否兼容指定状态"""

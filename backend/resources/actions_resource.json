@@ -145,17 +145,41 @@
     },
     {
         "trigger": "Sit Down",
-        "description": "从站立状态坐下，身体重心下降并落座，适合角色准备坐在椅子、控制台前或低位平台上。（时长 2.5 秒）",
+        "description": "切换为坐姿并持续保持，后续事件无需重复填写。",
         "compatible_states": [
-            "standing"
+            "standing",
+            "kneeling",
+            "squatting"
         ],
         "file": "ImportedAnimations\\Sit Down.fbx"
     },
     {
-        "trigger": "Stand Up",
-        "description": "从坐姿起身站立，身体重心上移并恢复站姿，适合角色结束坐姿对话或准备行动。（时长 2.5 秒）",
+        "trigger": "Kneel Down",
+        "description": "切换为跪姿并持续保持，后续事件无需重复填写。",
         "compatible_states": [
-            "sitting"
+            "standing",
+            "sitting",
+            "squatting"
+        ],
+        "file": ""
+    },
+    {
+        "trigger": "Squat Down",
+        "description": "切换为蹲姿并持续保持，后续事件无需重复填写。",
+        "compatible_states": [
+            "standing",
+            "sitting",
+            "kneeling"
+        ],
+        "file": ""
+    },
+    {
+        "trigger": "Stand Up",
+        "description": "从坐姿、跪姿或蹲姿切换为站姿。",
+        "compatible_states": [
+            "sitting",
+            "kneeling",
+            "squatting"
         ],
         "file": "ImportedAnimations\\Stand Up.fbx"
     },
@@ -974,5 +998,229 @@
             "standing"
         ],
         "file": "ImportedAnimations\\Anim_Breakdown_02.fbx"
+    },
+    {
+        "trigger": "standing_place_tray1.fbx",
+        "description": "01_放置",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "matsu_motions\\01_放置\\standing_place_tray1.fbx"
+    },
+    {
+        "trigger": "standing_pat_forearms1.fbx",
+        "description": "02_拍手-拍身上",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "matsu_motions\\02_拍手-拍身上\\standing_pat_forearms1.fbx"
+    },
+    {
+        "trigger": "standing_run1.fbx",
+        "description": "03_跑步",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "matsu_motions\\03_跑步\\standing_run1.fbx"
+    },
+    {
+        "trigger": "standing_run2.fbx",
+        "description": "04_跑步①",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "matsu_motions\\04_跑步①\\standing_run2.fbx"
+    },
+    {
+        "trigger": "standing_run_with_broom1.fbx",
+        "description": "06_拿扫帚跑步",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "matsu_motions\\06_拿扫帚跑步\\standing_run_with_broom1.fbx"
+    },
+    {
+        "trigger": "standing_crouch_pick_up1.fbx",
+        "description": "07_蹲着捡东西",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "matsu_motions\\07_蹲着捡东西\\standing_crouch_pick_up1.fbx"
+    },
+    {
+        "trigger": "standing_hold_broom_and_point1.fbx",
+        "description": "08_一手拿一手指",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "matsu_motions\\08_一手拿一手指\\standing_hold_broom_and_point1.fbx"
+    },
+    {
+        "trigger": "standing_wave_hands1.fbx",
+        "description": "09_摆手",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "matsu_motions\\09_摆手\\standing_wave_hands1.fbx"
+    },
+    {
+        "trigger": "standing_put_down_broom1.fbx",
+        "description": "10_放下扫帚",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "matsu_motions\\10_放下扫帚\\standing_put_down_broom1.fbx"
+    },
+    {
+        "trigger": "standing_peek1.fbx",
+        "description": "11_探头",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "matsu_motions\\11_探头\\standing_peek1.fbx"
+    },
+    {
+        "trigger": "standing_fan_flame1.fbx",
+        "description": "12_手扇风",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "matsu_motions\\12_手扇风\\standing_fan_flame1.fbx"
+    },
+    {
+        "trigger": "kneeling_throw_divination_blocks1.fbx",
+        "description": "13_跪着掷筊",
+        "compatible_states": [
+            "kneeling"
+        ],
+        "file": "matsu_motions\\13_跪着掷筊\\kneeling_throw_divination_blocks1.fbx"
+    },
+    {
+        "trigger": "kneeling_lean_forward1.fbx",
+        "description": "14_跪着身体前倾",
+        "compatible_states": [
+            "kneeling"
+        ],
+        "file": "matsu_motions\\14_跪着身体前倾\\kneeling_lean_forward1.fbx"
+    },
+    {
+        "trigger": "kneeling_turn_and_hold_divination_blocks1.fbx",
+        "description": "16_转头-捧筊",
+        "compatible_states": [
+            "kneeling"
+        ],
+        "file": "matsu_motions\\16_转头-捧筊\\kneeling_turn_and_hold_divination_blocks1.fbx"
+    },
+    {
+        "trigger": "standing_clap1.fbx",
+        "description": "19_拍手",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "matsu_motions\\19_拍手\\standing_clap1.fbx"
+    },
+    {
+        "trigger": "kneeling_kowtow1.fbx",
+        "description": "20_磕头",
+        "compatible_states": [
+            "kneeling"
+        ],
+        "file": "matsu_motions\\20_磕头\\kneeling_kowtow1.fbx"
+    },
+    {
+        "trigger": "sitting_drink_porridge1.fbx",
+        "description": "21_端碗喝粥",
+        "compatible_states": [
+            "sitting"
+        ],
+        "file": "matsu_motions\\21_端碗喝粥\\sitting_drink_porridge1.fbx"
+    },
+    {
+        "trigger": "sitting_lower_head1.fbx",
+        "description": "22_低头",
+        "compatible_states": [
+            "sitting"
+        ],
+        "file": "matsu_motions\\22_低头\\sitting_lower_head1.fbx"
+    },
+    {
+        "trigger": "sitting_turn_head1.fbx",
+        "description": "23_转头看",
+        "compatible_states": [
+            "sitting"
+        ],
+        "file": "matsu_motions\\23_转头看\\sitting_turn_head1.fbx"
+    },
+    {
+        "trigger": "sitting_take_out_genealogy1.fbx",
+        "description": "24_取出族谱",
+        "compatible_states": [
+            "sitting"
+        ],
+        "file": "matsu_motions\\24_取出族谱\\sitting_take_out_genealogy1.fbx"
+    },
+    {
+        "trigger": "sitting_drop_chopsticks1.fbx",
+        "description": "25_筷子滑落",
+        "compatible_states": [
+            "sitting"
+        ],
+        "file": "matsu_motions\\25_筷子滑落\\sitting_drop_chopsticks1.fbx"
+    },
+    {
+        "trigger": "standing_face_shrine1.fbx",
+        "description": "28_站在神像前",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "matsu_motions\\28_站在神像前\\standing_face_shrine1.fbx"
+    },
+    {
+        "trigger": "standing_stroke_wooden_box1.fbx",
+        "description": "29_抚摸木匣",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "matsu_motions\\29_抚摸木匣\\standing_stroke_wooden_box1.fbx"
+    },
+    {
+        "trigger": "standing_open_wooden_box1.fbx",
+        "description": "30_打开木匣",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "matsu_motions\\30_打开木匣\\standing_open_wooden_box1.fbx"
+    },
+    {
+        "trigger": "standing_look_up1.fbx",
+        "description": "31_抬头看天",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "matsu_motions\\31_抬头看天\\standing_look_up1.fbx"
+    },
+    {
+        "trigger": "kneeling_idle.fbx",
+        "description": "跪姿",
+        "compatible_states": [
+            "kneeling"
+        ],
+        "file": "matsu_motions\\跪姿\\kneeling_idle.fbx"
+    },
+    {
+        "trigger": "standing_pray.fbx",
+        "description": "祈祷",
+        "compatible_states": [
+            "standing"
+        ],
+        "file": "matsu_motions\\祈祷\\standing_pray.fbx"
+    },
+    {
+        "trigger": "sitting_lower_head.fbx",
+        "description": "坐着低头",
+        "compatible_states": [
+            "sitting"
+        ],
+        "file": "matsu_motions\\坐着低头\\sitting_lower_head.fbx"
     }
 ]

@@ -18,6 +18,8 @@ director_ai_context_prompt = """{char_info}{scene_info}{action_info}{plot_info}
    - 只能使用"可用动作库"中的动作名称
    - 根据动作的description描述选择最贴切的动作
    - 注意动作的compatible_states，确保角色状态匹配（如坐着的人不能执行standing动作）
+   - 姿态切换只使用 `Sit Down` / `Kneel Down` / `Squat Down` / `Stand Up`
+   - `actions[]` 中禁止填写 `state`；初始姿态只在 `initial position[]` 中填写
 
 4. **对白生成**:
    - 严格遵循角色的性格描述
@@ -56,7 +58,6 @@ director_ai_context_prompt = """{char_info}{scene_info}{action_info}{plot_info}
     "actions": [
       {
         "character": "角色名",
-        "state": "standing",
         "action": "Standing Thinking",
         "motion_detail": "Character shifts weight, subtle hand movement while speaking"
       }
@@ -77,13 +78,11 @@ director_ai_context_prompt = """{char_info}{scene_info}{action_info}{plot_info}
     "actions": [
       {
         "character": "角色名",
-        "state": "standing",
         "action": "Standing Speech 2",
         "motion_detail": "Slight forward lean, hands gesture emphasis"
       },
       {
         "character": "另一角色名",
-        "state": "standing",
         "action": "Standing Thinking",
         "motion_detail": "Arms crossed, slight head tilt, listening posture"
       },

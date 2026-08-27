@@ -6,6 +6,7 @@ from ..prompt_files.stash.director_ai_context_stash import director_ai_context_p
 from ..prompt_files.stash.director_ai_generate_user_stash import director_ai_generate_user_prompt
 from ..prompt_utils import render_prompt
 from ..resource_loader import Character, ResourceLoader, Scene
+from .action_info import render_action_info
 
 
 def build_director_ai_context_prompt(
@@ -52,15 +53,7 @@ def build_director_ai_context_prompt(
         for group in scene.camera_groups:
             scene_info += f"- **{group['id']}组 - {group['name']}**: {', '.join(group['position_ids'])}\n"
 
-    action_info = "## 可用动作库\n\n以下是所有可用的动作，请根据描述选择最合适的动作ID:\n\n"
-    categories = {}
-    for action in resource_loader.actions:
-        categories.setdefault(action.category, []).append(action)
-    for category, actions in sorted(categories.items()):
-        action_info += f"### {category} (状态: {actions[0].compatible_states})\n"
-        for action in actions:
-            action_info += f"- **{action.action_id}**: {action.description}\n"
-        action_info += "\n"
+    action_info = render_action_info(resource_loader)
 
     if plot_outline and plot_outline.strip():
         plot_info = f"""## 创作要求

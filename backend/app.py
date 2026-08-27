@@ -17,8 +17,9 @@ import logging
 from datetime import datetime
 from pathlib import Path
 from dotenv import load_dotenv
-from src.resource_loader import ResourceLoader
+from src.resource_loader import ACTION_POSTURE_CATEGORIES, ACTION_POSTURE_LABELS, ResourceLoader
 from src.autogen_bridge import AutoGenStreamBridge
+from src.autogen_agents import is_quota_error
 from src.autogen_pipeline import run_autogen_pipeline
 from src.director_word_pipeline import run_director_word_pipeline
 from src.prompt_renderers.character_generation import (
@@ -44,6 +45,27 @@ logging.basicConfig(
     ],
 )
 logger = logging.getLogger(__name__)
+
+
+def _create_chat_completion_with_quota_fallback(client, primary_model, fallback_model, **kwargs):
+    """Call the primary model and switch once when its inference quota is exhausted."""
+    models = [primary_model]
+    if fallback_model and fallback_model != primary_model:
+        models.append(fallback_model)
+
+    for index, model in enumerate(models):
+        try:
+            return client.chat.completions.create(model=model, **kwargs), model
+        except Exception as exc:
+            can_fallback = index == 0 and len(models) > 1 and is_quota_error(exc)
+            if not can_fallback:
+                raise
+            logger.warning(
+                "角色生成主模型额度耗尽，自动切换备用模型：%s -> %s；原因：%s",
+                primary_model,
+                fallback_model,
+                exc,
+            )
 
 app = Flask(__name__)
 app.config['JSON_AS_ASCII'] = False  # 支持中文
@@ -134,15 +156,16 @@ def get_shot_types():
 
 @app.route('/api/actions', methods=['GET'])
 def get_actions():
-    """返回动作库列表（按 compatible_states 分组）"""
+    """返回动作库列表（按站姿、坐姿、跪姿、蹲姿四个兼容状态分组）"""
     try:
-        groups = {}
+        groups = {state: [] for state, _ in ACTION_POSTURE_CATEGORIES}
         for action in resource_loader.actions:
             for state in (action.compatible_states or ['standing']):
                 groups.setdefault(state, []).append({
                     'trigger': action.action_id,
                     'description': action.description,
                     'state': state,
+                    'category': ACTION_POSTURE_LABELS.get(state, state),
                 })
         return jsonify({'success': True, 'data': groups})
     except Exception as e:
@@ -414,10 +437,13 @@ def generate_characters():
         http_client=httpx.Client(trust_env=False),
     )
     model_name = os.getenv('MODEL', 'doubao-seed-2-0-lite-260215')
+    fallback_model = os.getenv('FALLBACK_MODEL', 'doubao-seed-2-0-mini-260215')
 
     try:
-        response = client.chat.completions.create(
-            model=model_name,
+        response, used_model = _create_chat_completion_with_quota_fallback(
+            client,
+            model_name,
+            fallback_model,
             messages=[
                 {"role": "system", "content": character_generation_system_prompt},
                 {"role": "user", "content": prompt}
@@ -485,7 +511,12 @@ def generate_characters():
         with open(output_dir / filename, 'w', encoding='utf-8') as f:
             json.dump(characters, f, ensure_ascii=False, indent=2)
 
-        return jsonify({'success': True, 'data': characters, 'filename': filename})
+        return jsonify({
+            'success': True,
+            'data': characters,
+            'filename': filename,
+            'model': used_model,
+        })
 
     except (json.JSONDecodeError, ValueError) as e:
         logger.error("generate_characters JSON 解析失败: %s | raw=%s", e, raw[:300])

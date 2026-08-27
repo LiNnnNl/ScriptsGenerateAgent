@@ -10,6 +10,7 @@ import re
 from typing import Dict, List, Optional
 import httpx
 from autogen_agentchat.agents import AssistantAgent
+from autogen_core.models import CreateResult
 from autogen_ext.models.openai import OpenAIChatCompletionClient
 from .resource_loader import ResourceLoader, Character, Scene
 from .autogen_tools import make_validation_tools
@@ -22,7 +23,30 @@ _FALLBACK_MODEL = os.getenv("FALLBACK_MODEL", "doubao-seed-2-0-mini-260215")
 _QUOTA_ERR_KEYWORDS = (
     "rate_limit", "ratelimit", "429", "quota", "insufficient",
     "arrearage", "exceeded", "billing", "account_quota",
+    "setlimitexceeded", "set inference limit", "safe experience mode",
+    "too many requests",
 )
+
+
+class DiagnosticOpenAIChatCompletionClient(OpenAIChatCompletionClient):
+    """保留最近一次底层 CreateResult，供流水线记录 finish_reason 和 token 用量。"""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.last_create_result: Optional[CreateResult] = None
+
+    async def create(self, *args, **kwargs):
+        self.last_create_result = None
+        result = await super().create(*args, **kwargs)
+        self.last_create_result = result
+        return result
+
+    async def create_stream(self, *args, **kwargs):
+        self.last_create_result = None
+        async for chunk in super().create_stream(*args, **kwargs):
+            if isinstance(chunk, CreateResult):
+                self.last_create_result = chunk
+            yield chunk
 
 
 def is_quota_error(exc: BaseException) -> bool:
@@ -52,7 +76,7 @@ def make_model_client(model: Optional[str] = None) -> OpenAIChatCompletionClient
     # 如需开启，在 .env 中设置 MODEL_FUNCTION_CALLING=true
     function_calling = os.getenv("MODEL_FUNCTION_CALLING", "false").lower() == "true"
 
-    return OpenAIChatCompletionClient(
+    return DiagnosticOpenAIChatCompletionClient(
         model=model_name,
         api_key=api_key,
         base_url=base_url,

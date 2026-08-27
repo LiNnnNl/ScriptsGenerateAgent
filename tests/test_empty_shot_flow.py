@@ -37,7 +37,7 @@ class EmptyShotFlowTest(unittest.TestCase):
         from src.schema import validate_script_shot_structure
 
         result = validate_script_shot_structure(
-            [{"scene": [{
+            [{"initial position": [], "scene": [{
                 "speaker": "",
                 "content": "",
                 "duration": "5s",

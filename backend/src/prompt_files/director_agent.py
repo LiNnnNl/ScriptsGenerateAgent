@@ -31,6 +31,9 @@ director_agent_prompt = """{char_info}{scene_info}{action_info}
 4. **动作决策**:
    - 只能使用"可用动作库"中的动作名称
    - 注意动作的 compatible_states，确保角色状态匹配
+   - 持续姿态只有 `standing`、`sitting`、`kneeling`、`squatting` 四种
+   - 姿态切换只写动作名：`Sit Down`→坐姿、`Kneel Down`→跪姿、`Squat Down`→蹲姿、`Stand Up`→站姿
+   - `actions[]` 中禁止填写 `state`；`state` 只允许出现在 `initial position[]`
 
 5. **对白生成（口语风格）**:
    - 严格遵循角色的性格描述
@@ -117,7 +120,7 @@ director_agent_prompt = """{char_info}{scene_info}{action_info}
         "shot_description": "",
         "Follow": 0,
         "actions": [
-          {"character": "角色名", "state": "standing", "action": "Standing Speech 2", "motion_detail": "Slight forward lean, hands gesture for emphasis while speaking"}
+          {"character": "角色名", "action": "Standing Speech 2", "motion_detail": "Slight forward lean, hands gesture for emphasis while speaking"}
         ],
         "current position": [
           {"character": "角色名1", "position": "Position X"}
@@ -162,7 +165,8 @@ director_agent_prompt = """{char_info}{scene_info}{action_info}
 ```
 
 **字段规则:**
-- `initial position` 中每个角色必须新增 `state`，填写剧情开始时的姿态（如 `standing` / `sitting`）；除此之外站位条目的字段保持不变
+- `initial position` 中每个角色必须新增 `state`，且只能填写 `standing` / `sitting` / `kneeling` / `squatting`；除此之外站位条目的字段保持不变
+- `actions[].state` 已废弃，禁止输出；事件内姿态变化只通过 `Sit Down` / `Kneel Down` / `Squat Down` / `Stand Up` 表达
 - `shot_description` 固定留空 `""`，由摄影指导智能体填写
 - `motion_detail` 动作细节英文描述，由导演模型生成
 - **空镜片段必须保留 `speaker` 和 `content` 两个字段，但二者都填空字符串 `""`；必须包含 `duration`，未明确时长时填 `"5s"`。**

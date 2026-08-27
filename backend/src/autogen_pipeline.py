@@ -19,7 +19,11 @@ from typing import Any, Dict, List, Optional
 logger = logging.getLogger(__name__)
 
 # 网络错误关键词（用于区分连接抖动 vs 业务错误）
-_NETWORK_ERR_KEYWORDS = ("connection", "timeout", "timed out", "network", "remotedisconnected", "connect error")
+_NETWORK_ERR_KEYWORDS = (
+    "connection", "timeout", "timed out", "network", "remotedisconnected",
+    "connect error", "server disconnected", "remote protocol", "unexpected eof",
+    "bad gateway", "service unavailable", "gateway timeout", "502", "503", "504",
+)
 _STAGE_MAX_RETRIES = 3       # 前置阶段 Agent 最大重试次数
 _STAGE_RETRY_BASE_DELAY = 3  # 秒，每次翻倍
 
@@ -317,23 +321,136 @@ async def _run_stage_agent_json_object(agent, prompt: str) -> Optional[dict]:
                 if hasattr(event, 'chat_message') and event.chat_message:
                     raw_content = event.chat_message.content
             if not raw_content:
+                if attempt < _STAGE_MAX_RETRIES:
+                    logger.warning("[StageAgent] 收到空响应，%.0fs后重试（%d/%d）",
+                                   delay, attempt + 1, _STAGE_MAX_RETRIES)
+                    await _reset_agent_after_failed_request(agent)
+                    await asyncio.sleep(delay)
+                    delay *= 2
+                    continue
                 return None
             return _extract_json_object_from_text(raw_content)
         except Exception as e:
             if is_quota_error(e) and not _quota_switched:
                 logger.warning("[StageAgent] 额度耗尽，切换备用模型重试: %s", e)
-                agent._model_client = make_fallback_model_client()
+                await _reset_agent_after_failed_request(agent, use_fallback=True)
                 _quota_switched = True
                 continue
-            is_network = any(k in str(e).lower() for k in _NETWORK_ERR_KEYWORDS)
+            is_network = _is_transient_network_error(e)
             if is_network and attempt < _STAGE_MAX_RETRIES:
                 logger.warning("[StageAgent] 连接错误，%.0fs后重试（%d/%d）: %s",
                                delay, attempt + 1, _STAGE_MAX_RETRIES, e)
+                await _reset_agent_after_failed_request(agent)
                 await asyncio.sleep(delay)
                 delay *= 2
             else:
                 raise
     return None
+
+
+def _is_transient_network_error(exc: BaseException) -> bool:
+    """Recognize common tunnel/proxy disconnects and retryable gateway errors."""
+    message = str(exc).lower()
+    return any(keyword in message for keyword in _NETWORK_ERR_KEYWORDS)
+
+
+def _agent_model_name(agent) -> Optional[str]:
+    client = getattr(agent, "_model_client", None)
+    create_args = getattr(client, "_create_args", {})
+    return create_args.get("model") if isinstance(create_args, dict) else None
+
+
+async def _reset_agent_after_failed_request(agent, *, use_fallback: bool = False) -> None:
+    """Clear failed request context and replace a possibly broken HTTP client."""
+    current_model = _agent_model_name(agent)
+    old_client = getattr(agent, "_model_client", None)
+    try:
+        if old_client is not None:
+            await old_client.close()
+    except Exception as close_error:
+        logger.debug("关闭失败的模型客户端时出现异常: %s", close_error)
+    try:
+        await agent.reset()
+    except Exception as reset_error:
+        logger.debug("清理 Agent 失败请求上下文时出现异常: %s", reset_error)
+    agent._model_client = (
+        make_fallback_model_client()
+        if use_fallback
+        else make_model_client(current_model)
+    )
+
+
+def _director_response_diagnostics(
+    director,
+    *,
+    event_counts: Dict[str, int],
+    last_event_type: str,
+    streamed_chars: int,
+    thought_chars: int,
+    final_usage=None,
+) -> dict:
+    """提取不含密钥和正文的模型响应诊断信息。"""
+    client = getattr(director, "_model_client", None)
+    create_args = getattr(client, "_create_args", {})
+    result = getattr(client, "last_create_result", None)
+    usage = getattr(result, "usage", None) or final_usage
+    content = getattr(result, "content", None) if result is not None else None
+    thought = getattr(result, "thought", None) if result is not None else None
+
+    return {
+        "model": create_args.get("model", "unknown") if isinstance(create_args, dict) else "unknown",
+        "finish_reason": getattr(result, "finish_reason", None),
+        "prompt_tokens": getattr(usage, "prompt_tokens", None),
+        "completion_tokens": getattr(usage, "completion_tokens", None),
+        "cached": getattr(result, "cached", None),
+        "result_captured": result is not None,
+        "result_content_type": type(content).__name__ if content is not None else None,
+        "result_content_chars": len(content) if isinstance(content, str) else None,
+        "result_thought_chars": len(thought) if isinstance(thought, str) else 0,
+        "streamed_chars": streamed_chars,
+        "thought_event_chars": thought_chars,
+        "last_event_type": last_event_type or None,
+        "event_counts": dict(event_counts),
+    }
+
+
+def _explain_empty_director_response(diagnostics: dict, max_output_tokens: int) -> str:
+    finish_reason = diagnostics.get("finish_reason")
+    completion_tokens = diagnostics.get("completion_tokens")
+    thought_chars = max(
+        diagnostics.get("result_thought_chars") or 0,
+        diagnostics.get("thought_event_chars") or 0,
+    )
+
+    if finish_reason == "length":
+        return "模型因达到输出长度限制而停止，最终正文可能尚未开始或未能形成。"
+    if finish_reason == "content_filter":
+        return "模型响应被内容安全过滤器终止，因此没有可用正文。"
+    if thought_chars > 0:
+        return f"模型产生了 {thought_chars} 字符的思考内容，但没有生成最终正文，可能是思考阶段消耗了输出预算。"
+    if finish_reason == "stop" and completion_tokens == 0:
+        return "模型正常停止但 completion_tokens 为 0，倾向于模型或上游接口返回了空响应。"
+    if (
+        isinstance(completion_tokens, int)
+        and max_output_tokens > 0
+        and completion_tokens >= int(max_output_tokens * 0.95)
+    ):
+        return "模型输出 token 已接近配置上限，但最终正文为空，可能是输出预算被内部推理消耗。"
+    if diagnostics.get("result_captured"):
+        return "底层模型请求已正常结束，但返回的正文是空字符串；当前数据不足以进一步区分模型空响应与上游兼容接口异常。"
+    return "未捕获到底层模型结束结果，可能是客户端事件结构异常或响应未完整传递到 Agent。"
+
+
+def _format_director_diagnostics(diagnostics: dict) -> str:
+    event_counts = diagnostics.get("event_counts") or {}
+    events = ", ".join(f"{name}={count}" for name, count in sorted(event_counts.items())) or "无"
+    return (
+        f"model={diagnostics.get('model')}，finish_reason={diagnostics.get('finish_reason')}，"
+        f"prompt_tokens={diagnostics.get('prompt_tokens')}，completion_tokens={diagnostics.get('completion_tokens')}，"
+        f"底层正文={diagnostics.get('result_content_chars')}字符，底层思考={diagnostics.get('result_thought_chars')}字符，"
+        f"流式正文={diagnostics.get('streamed_chars')}字符，最后事件={diagnostics.get('last_event_type')}，"
+        f"事件统计=[{events}]"
+    )
 
 
 async def _run_director_agent(
@@ -360,6 +477,11 @@ async def _run_director_agent(
     for attempt in range(_STAGE_MAX_RETRIES + 1):
         thinking_started = False
         raw_content = None
+        event_counts: Dict[str, int] = {}
+        last_event_type = ""
+        streamed_chars = 0
+        thought_chars = 0
+        final_usage = None
         try:
             _emit_stage_log(
                 bridge, 'info', 'direct' if '直接' in label else 'draft', 'director_attempt',
@@ -369,19 +491,37 @@ async def _run_director_agent(
                 [TextMessage(content=prompt, source="user")],
                 cancellation_token=CancellationToken()
             ):
-                logger.debug("[%s] event type=%s", label, type(event).__name__)
+                event_type = type(event).__name__
+                last_event_type = event_type
+                event_counts[event_type] = event_counts.get(event_type, 0) + 1
+                logger.debug("[%s] event type=%s", label, event_type)
+                if isinstance(event, ModelClientStreamingChunkEvent):
+                    streamed_chars += len(event.content or "")
+                elif event_type == "ThoughtEvent":
+                    thought_chars += len(str(getattr(event, "content", "") or ""))
                 if hasattr(event, 'inner_messages'):
                     for msg in (event.inner_messages or []):
                         if isinstance(msg, ModelClientStreamingChunkEvent):
+                            streamed_chars += len(msg.content or "")
                             if not thinking_started:
                                 thinking_started = True
                             bridge.put_event({'type': 'thinking_chunk', 'agent': label, 'text': msg.content})
                 if hasattr(event, 'chat_message') and event.chat_message:
                     raw_content = event.chat_message.content
+                    final_usage = getattr(event.chat_message, "models_usage", None)
+                    diagnostics = _director_response_diagnostics(
+                        director,
+                        event_counts=event_counts,
+                        last_event_type=last_event_type,
+                        streamed_chars=streamed_chars,
+                        thought_chars=thought_chars,
+                        final_usage=final_usage,
+                    )
                     logger.info("[%s] 原始输出（前500字）: %s", label, raw_content[:500])
                     _emit_stage_log(
                         bridge, 'info', 'direct' if '直接' in label else 'draft', 'director_response',
-                        f'📥 [{label}] 已收到模型输出（{len(raw_content)} 字符），正在提取 JSON...'
+                        f'📥 [{label}] 已收到模型输出（{len(raw_content)} 字符），正在提取 JSON。'
+                        f'响应诊断：{_format_director_diagnostics(diagnostics)}。'
                     )
                     if thinking_started:
                         bridge.put_event({'type': 'thinking_done'})
@@ -389,10 +529,39 @@ async def _run_director_agent(
             if thinking_started:
                 bridge.put_event({'type': 'thinking_done'})
             if not raw_content:
+                diagnostics = _director_response_diagnostics(
+                    director,
+                    event_counts=event_counts,
+                    last_event_type=last_event_type,
+                    streamed_chars=streamed_chars,
+                    thought_chars=thought_chars,
+                    final_usage=final_usage,
+                )
+                explanation = _explain_empty_director_response(diagnostics, max_output_tokens)
+                bridge.last_error_details = {
+                    "agent": label,
+                    "error_type": "EmptyModelResponse",
+                    **request_metrics,
+                    **diagnostics,
+                    "likely_explanation": explanation,
+                }
                 _emit_stage_log(
                     bridge, 'warning', 'direct' if '直接' in label else 'draft', 'director_empty',
-                    f'⚠️ [{label}] 模型未返回内容。请求规模：系统 {system_chars} 字符，动态输入 {len(prompt)} 字符，输出上限 {max_output_tokens} tokens。'
+                    f'⚠️ [{label}] 模型未返回最终正文。请求规模：系统 {system_chars} 字符，动态输入 {len(prompt)} 字符，'
+                    f'输出上限 {max_output_tokens} tokens。响应诊断：{_format_director_diagnostics(diagnostics)}。'
+                    f'初步判断：{explanation}'
                 )
+                retryable_empty = diagnostics.get("finish_reason") not in {"length", "content_filter"}
+                if retryable_empty and attempt < _STAGE_MAX_RETRIES:
+                    _emit_stage_log(
+                        bridge, 'warning', 'direct' if '直接' in label else 'draft', 'director_empty_retry',
+                        f'🔄 [{label}] 空响应可能由上游连接未完整返回导致，{delay:.0f}s 后使用新连接重试'
+                        f'（{attempt + 1}/{_STAGE_MAX_RETRIES}）。'
+                    )
+                    await _reset_agent_after_failed_request(director)
+                    await asyncio.sleep(delay)
+                    delay *= 2
+                    continue
                 return None
             parsed = _extract_json_from_text(raw_content)
             if parsed is None:
@@ -405,6 +574,14 @@ async def _run_director_agent(
                     "response_ends_with_array": json_candidate.rstrip().endswith("]"),
                     "response_is_markdown_code_block": bool(code_block),
                     "max_output_tokens": max_output_tokens,
+                    "model_response": _director_response_diagnostics(
+                        director,
+                        event_counts=event_counts,
+                        last_event_type=last_event_type,
+                        streamed_chars=streamed_chars,
+                        thought_chars=thought_chars,
+                        final_usage=final_usage,
+                    ),
                 }
                 _emit_stage_log(
                     bridge, 'warning', 'direct' if '直接' in label else 'draft', 'director_parse_failed',
@@ -424,23 +601,16 @@ async def _run_director_agent(
                 logger.warning("[%s] 额度耗尽，切换备用模型重试: %s", label, e)
                 bridge.put_event({'type': 'thinking_chunk', 'agent': label,
                                   'text': f'\n⚠️ 主模型额度耗尽，已切换备用模型重试...\n'})
-                director._model_client = make_fallback_model_client()
+                await _reset_agent_after_failed_request(director, use_fallback=True)
                 _quota_switched = True
                 continue
-            is_network = any(k in str(e).lower() for k in _NETWORK_ERR_KEYWORDS)
+            is_network = _is_transient_network_error(e)
             if is_network and attempt < _STAGE_MAX_RETRIES:
                 logger.warning("[%s] 连接错误，%.0fs后重试（%d/%d）: %s",
                                label, delay, attempt + 1, _STAGE_MAX_RETRIES, e)
                 bridge.put_event({'type': 'thinking_chunk', 'agent': label,
                                   'text': f'\n⚠️ 连接错误，{delay:.0f}s 后重试（{attempt + 1}/{_STAGE_MAX_RETRIES}）...\n'})
-                # Do not reuse the HTTP client that just lost its upstream
-                # connection. A fresh client avoids carrying a broken pool into
-                # the next DirectorAgent attempt.
-                try:
-                    await director._model_client.close()
-                except Exception as close_error:
-                    logger.debug("[%s] Closing failed model client failed: %s", label, close_error)
-                director._model_client = make_model_client()
+                await _reset_agent_after_failed_request(director)
                 await asyncio.sleep(delay)
                 delay *= 2
             elif is_network:

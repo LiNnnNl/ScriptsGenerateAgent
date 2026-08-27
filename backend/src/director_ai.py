@@ -7,7 +7,7 @@ from typing import List, Dict, Optional
 import os
 from openai import OpenAI
 from dotenv import load_dotenv
-from .resource_loader import ResourceLoader, Character, Scene, Action
+from .resource_loader import POSTURE_TRANSITION_TARGETS, ResourceLoader, Character, Scene, Action
 from .prompt_renderers.director_ai import director_ai_generate_user_prompt
 
 # 加载环境变量
@@ -233,6 +233,11 @@ class DirectorAI:
             return {"valid": False, "errors": errors, "warnings": warnings}
 
         for scene_idx, scene_obj in enumerate(scene_objects):
+            character_states = {
+                entry.get("character"): str(entry.get("state") or "standing").strip().lower()
+                for entry in scene_obj.get("initial position", [])
+                if isinstance(entry, dict) and entry.get("character")
+            }
             scene_sequence = scene_obj.get("scene", [])
 
             for idx, segment in enumerate(scene_sequence):
@@ -261,17 +266,22 @@ class DirectorAI:
                         action_id = action.get("action")
                         if not action_id:
                             continue
+                        character = action.get("character")
+                        current_state = character_states.get(character, "standing")
                         action_obj = self.resource_loader.get_action_by_id(action_id)
                         if not action_obj:
                             warnings.append(
                                 f"场景{scene_idx}段落{idx}: 动作 '{action_id}' 不在动作资源库中"
                             )
                         else:
-                            state = action.get("state", "standing")
-                            if not action_obj.is_compatible_with_state(state):
+                            if not action_obj.is_compatible_with_state(current_state):
                                 warnings.append(
-                                    f"场景{scene_idx}段落{idx}: 动作 '{action_id}' 不兼容状态 '{state}'"
+                                    f"场景{scene_idx}段落{idx}: 动作 '{action_id}' "
+                                    f"不兼容角色 '{character}' 的当前姿态 '{current_state}'"
                                 )
+                        target_state = POSTURE_TRANSITION_TARGETS.get(action_id)
+                        if character and target_state:
+                            character_states[character] = target_state
 
         return {
             "valid": len(errors) == 0,

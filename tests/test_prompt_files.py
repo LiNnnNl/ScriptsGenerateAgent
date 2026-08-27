@@ -62,6 +62,26 @@ class PromptFilesTest(unittest.TestCase):
         self.assertIn('"title"', build_title_system_message())
         self.assertIn("_validate_constraints", build_validation_system_message())
 
+    def test_action_prompt_is_compact_without_losing_action_ids(self):
+        from src.prompt_renderers.action_info import render_action_info
+        from src.resource_loader import ACTION_POSTURE_CATEGORIES, ResourceLoader
+
+        loader = ResourceLoader()
+        actions = [
+            action
+            for state, _ in ACTION_POSTURE_CATEGORIES
+            for action in loader.get_actions_by_state(state)
+        ]
+        expanded = "\n".join(
+            f"- **{action.action_id}**: {action.description}"
+            for action in actions
+        )
+        compact = render_action_info(loader)
+
+        self.assertTrue(actions)
+        self.assertTrue(all(action.action_id in compact for action in actions))
+        self.assertLess(len(compact), len(expanded) * 0.75)
+
     def test_cinematography_prompt_modules_are_importable(self):
         from src.prompt_files.cinematography_position_grouping import cinematography_position_grouping_prompt
         from src.prompt_files.cinematography_position_planning import cinematography_position_planning_prompt

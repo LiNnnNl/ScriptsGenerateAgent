@@ -19,6 +19,7 @@ from __future__ import annotations
 
 from typing import Any, List, Literal, Optional, Union
 from pydantic import BaseModel, field_validator, model_validator
+from .resource_loader import VALID_CHARACTER_STATES
 from .scene_segments import is_empty_shot
 
 
@@ -115,6 +116,16 @@ class InitialPositionEntry(BaseModel):
         if not v or not v.strip():
             raise ValueError("不得为空")
         return v
+
+    @field_validator("state")
+    @classmethod
+    def check_posture_state(cls, v: str) -> str:
+        normalized = v.strip().lower()
+        if normalized not in VALID_CHARACTER_STATES:
+            raise ValueError(
+                f"姿态非法值 {v!r}，可选: {sorted(VALID_CHARACTER_STATES)}"
+            )
+        return normalized
 
 
 class CurrentPositionEntry(BaseModel):

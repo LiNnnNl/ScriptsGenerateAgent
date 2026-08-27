@@ -4,32 +4,28 @@ JSON生成器模块
 """
 
 from typing import List, Dict, Optional
-from .resource_loader import Character, Scene
+from .resource_loader import (
+    POSTURE_TRANSITION_TARGETS,
+    VALID_CHARACTER_STATES,
+    Character,
+    Scene,
+)
 from .scene_segments import is_empty_shot, protect_empty_shot
 
 
 def normalize_initial_position_states(scene_obj: Dict) -> List[Dict]:
     """Ensure every initial-position entry has the character's starting pose."""
-    inferred_states = {}
-    for segment in scene_obj.get("scene", []) or []:
-        if not isinstance(segment, dict):
-            continue
-        for action in segment.get("actions", []) or []:
-            if not isinstance(action, dict):
-                continue
-            character = str(action.get("character") or "").strip()
-            state = str(action.get("state") or "").strip()
-            if character and state and character not in inferred_states:
-                inferred_states[character] = state
-
     normalized = []
     for item in scene_obj.get("initial position", []) or []:
         if not isinstance(item, dict):
             continue
         entry = dict(item)
-        character = str(entry.get("character") or "").strip()
-        if not str(entry.get("state") or "").strip():
-            entry["state"] = inferred_states.get(character, "standing")
+        state = str(entry.get("state") or "").strip()
+        normalized_state = state.lower()
+        if not state:
+            entry["state"] = "standing"
+        elif normalized_state in VALID_CHARACTER_STATES:
+            entry["state"] = normalized_state
         normalized.append(entry)
     return normalized
 
@@ -40,7 +36,7 @@ class ScriptJSONGenerator:
     def __init__(self, characters: List[Character], scene: Scene):
         self.characters = characters
         self.scene = scene
-        self.character_states = {}  # 追踪每个角色的状态 (standing/sitting)
+        self.character_states = {}  # 追踪角色的 standing/sitting/kneeling/squatting 姿态
         self.character_positions = {}  # 追踪每个角色的位置
         
         # 初始化角色状态
@@ -152,6 +148,7 @@ class ScriptJSONGenerator:
         for field in fields_to_strip:
             seg.pop(field, None)
         for action in seg.get("actions", []):
+            action.pop("state", None)
             action.setdefault("motion_detail", "")
         if is_empty_shot(seg):
             protect_empty_shot(seg, ensure_camera=preserve_shot_fields)
@@ -341,12 +338,13 @@ class ScriptJSONGenerator:
             char_name = action.get("character")
             action_id = action.get("action")
             
-            # 如果是坐下动作，更新状态
-            if action_id in ("Interact_Sit_Down", "Sit Down"):
-                self.character_states[char_name] = "sitting"
-            # 如果是站起动作，更新状态
-            elif action_id in ("Interact_Stand_Up", "Stand Up"):
-                self.character_states[char_name] = "standing"
+            target_state = POSTURE_TRANSITION_TARGETS.get(action_id)
+            if action_id == "Interact_Sit_Down":
+                target_state = "sitting"
+            elif action_id == "Interact_Stand_Up":
+                target_state = "standing"
+            if char_name and target_state:
+                self.character_states[char_name] = target_state
         
         # 构建基础结构
         item = {

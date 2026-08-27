@@ -24,6 +24,7 @@ from ..prompt_files.validation_agent import validation_agent_prompt
 from ..prompt_utils import render_prompt
 from ..resource_loader import Character, ResourceLoader, Scene
 from ..script_style_skill import build_script_style_context
+from .action_info import render_action_info as _render_action_info
 
 
 def _build_stage_common_context(
@@ -133,19 +134,6 @@ def _render_scene_info(
     if region_text:
         scene_info += "### 可用区域（Regions）\n\n" + region_note + region_text
     return scene_info
-
-
-def _render_action_info(resource_loader: ResourceLoader) -> str:
-    action_info = "## 可用动作库\n\n以下是所有可用的动作，请根据描述选择最合适的动作ID:\n\n"
-    categories: dict = {}
-    for action in resource_loader.actions:
-        categories.setdefault(action.category, []).append(action)
-    for category, actions in sorted(categories.items()):
-        action_info += f"### {category} (状态: {actions[0].compatible_states})\n"
-        for action in actions:
-            action_info += f"- **{action.action_id}**: {action.description}\n"
-        action_info += "\n"
-    return action_info
 
 
 def build_director_system_message(

@@ -48,6 +48,8 @@ director_agent_word_prompt = """{char_info}{scene_info}{action_info}
 7. **动作设计**:
    - 如需写 actions，只能使用上方「可用动作库」里的动作名称
    - `motion_detail` 用英文简短描述动作细节
+   - 姿态切换只使用 `Sit Down` / `Kneel Down` / `Squat Down` / `Stand Up`
+   - `actions[]` 中禁止填写 `state`；`state` 只允许出现在 `initial position[]`
    - 如果不确定动作，优先使用站立说话、轻微手势、转身、点头等安全动作
 
 8. **镜头字段**:
@@ -86,7 +88,7 @@ director_agent_word_prompt = """{char_info}{scene_info}{action_info}
         "shot_description": "镜头对准角色上半身，背景保留场景关键物件，角色停顿后说出台词。",
         "Follow": 0,
         "actions": [
-          {"character": "角色名", "state": "standing", "action": "Standing Speech 2", "motion_detail": "Slight forward lean with restrained hand gesture"}
+          {"character": "角色名", "action": "Standing Speech 2", "motion_detail": "Slight forward lean with restrained hand gesture"}
         ],
         "current position": [
           {"character": "角色名1", "position": "Position 1"},
@@ -99,7 +101,8 @@ director_agent_word_prompt = """{char_info}{scene_info}{action_info}
 ```
 
 **字段规则:**
-- `initial position` 中每个角色必须新增 `state`，填写剧情开始时的姿态（如 `standing` / `sitting`）；其他字段保持不变
+- `initial position` 中每个角色必须新增 `state`，且只能填写 `standing` / `sitting` / `kneeling` / `squatting`；其他字段保持不变
+- `actions[].state` 已废弃，禁止输出；事件内姿态变化只写对应的姿态切换动作
 - JSON 数组长度必须等于幕数要求
 - 每个片段必须包含非空 `shot_description`
 - `current position` 是强制必填字段，每个片段必须列出场景内所有在场角色当前所在的 Position 编号
