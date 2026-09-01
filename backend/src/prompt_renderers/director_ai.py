@@ -46,7 +46,8 @@ def build_director_ai_context_prompt(
     for pos in scene.valid_positions:
         sittable = " [可坐]" if pos.get('is_sittable', False) else ""
         group_tag = f" [组{pos['camera_group']}]" if pos.get('camera_group') else ""
-        scene_info += f"- **{pos['id']}**{sittable}{group_tag}: {pos['description']}\n"
+        label = f"{pos.get('number', '')} · {pos.get('name', '')}".strip(" ·")
+        scene_info += f"- **{label}** (ID: {pos['id']}){sittable}{group_tag}: {pos['description']}\n"
     if scene.camera_groups:
         scene_info += "\n#### 镜头分组（同一镜头只能拍摄同组点位内的角色）:\n"
         for group in scene.camera_groups:

@@ -26,6 +26,34 @@ from ..resource_loader import Character, ResourceLoader, Scene
 from ..script_style_skill import build_script_style_context
 
 
+_POSITION_METADATA_CONTRACT = """
+
+## 点位元数据格式（最高优先级，覆盖上文旧示例）
+
+上文若出现 `position_descriptions`，它是旧格式示例；最终 JSON **不得输出该字段**。
+每个场景对象必须改为输出 `position_metadata`，键仍是供走位引用的稳定 ID `Position N`，值必须同时包含：
+
+```json
+"position_metadata": {
+  "Position 1": {
+    "number": 1,
+    "name": "主讲位",
+    "description": "舞台前侧中央，供主讲者面向观众完成关键表达，需保留正面取景空间。"
+  }
+}
+```
+
+- `number`：沿用 `Position N` 中的数字 N，不得遗漏或重复。
+- `name`：尽可能短地概括作用、人物位置或情节功能，禁止写成 `Position 1`、`位置1` 之类编号复述。
+- `description`：较详细说明该点位的场景设置、人物关系、表演用途和取景需求。
+- `position_metadata` 必须覆盖 `initial position`、每个 `current position` 与 `move.destination` 使用的全部 Position ID。
+"""
+
+
+def _with_position_metadata_contract(prompt: str) -> str:
+    return prompt.rstrip() + _POSITION_METADATA_CONTRACT
+
+
 def _build_stage_common_context(
     characters: List[Character],
     scene: Scene,
@@ -184,7 +212,7 @@ def build_director_system_message(
         )
 
     template = director_agent_direct_prompt if direct_mode else director_agent_prompt
-    return render_prompt(
+    return _with_position_metadata_contract(render_prompt(
         template,
         char_info=_render_character_info(characters, total_count, extra_count),
         scene_info=_render_scene_info(scene, resource_loader, act_count, act_scene_map),
@@ -194,7 +222,7 @@ def build_director_system_message(
         shot_types_str=shot_types_str,
         user_constraints=(_append_user_constraints(user_constraints) + "\n") if user_constraints else "",
         video_style_guide=script_style_guide or build_script_style_context(),
-    )
+    ))
 
 
 def build_director_word_system_message(
@@ -230,7 +258,7 @@ def build_director_word_system_message(
             f"幕-场景对应：{act_scene_lines}。"
         )
 
-    return render_prompt(
+    return _with_position_metadata_contract(render_prompt(
         director_agent_word_prompt,
         char_info=_render_character_info(characters, total_count, extra_count),
         scene_info=_render_scene_info(scene, resource_loader, act_count, act_scene_map),
@@ -240,7 +268,7 @@ def build_director_word_system_message(
         shot_types_str=shot_types_str,
         user_constraints=(_append_user_constraints(user_constraints) + "\n") if user_constraints else "",
         video_style_guide=script_style_guide or build_script_style_context(),
-    )
+    ))
 
 
 def build_concept_system_message(characters: List[Character], scene: Scene, required_character_count: int = 0) -> str:
@@ -332,7 +360,8 @@ def build_position_agent_system_message(scene: Scene) -> str:
     for pos in scene.valid_positions:
         sittable = " [可坐]" if pos.get('is_sittable', False) else ""
         group_tag = f" [镜头组{pos['camera_group']}]" if pos.get('camera_group') else ""
-        positions_info += f"- **{pos['id']}**{sittable}{group_tag}: {pos['description']}\n"
+        label = f"{pos.get('number', '')} · {pos.get('name', '')}".strip(" ·")
+        positions_info += f"- **{label}** (ID: {pos['id']}){sittable}{group_tag}: {pos['description']}\n"
 
     camera_groups_info = ""
     if scene.camera_groups:

@@ -28,6 +28,7 @@ from typing import Any, Dict, List, Optional
 
 from .coordinate_skill import CoordinateSkill
 from .position_detail_converter import PositionDetailConverter
+from ..position_metadata import attach_position_metadata, normalize_position_metadata
 from ..schema import validate_position_plan, format_position_plan_errors
 from ..scene_segments import is_empty_shot
 from ..prompt_files.cinematography_position_grouping import cinematography_position_grouping_prompt
@@ -84,6 +85,8 @@ class CinematographyPositionStage:
 
         # Substage 2: planning (region/neartarget/lookat)
         self.planning_result = self._run_planning(where, self.grouping_result)
+        position_metadata = normalize_position_metadata(self.script_json)
+        attach_position_metadata(self.planning_result, position_metadata)
         self._save(PLANNING_FILENAME, self.planning_result)
         self._emit_progress("success", "position_planning", self._format_planning_summary(where, self.planning_result))
         logger.info("[Stage2][planning] done")
@@ -97,6 +100,7 @@ class CinematographyPositionStage:
 
         # Build position_detail via PositionDetailConverter (same as Unity)
         position_detail = PositionDetailConverter(self.planning_result).convert()
+        attach_position_metadata(position_detail, position_metadata)
 
         stage_result = {
             "where": where,

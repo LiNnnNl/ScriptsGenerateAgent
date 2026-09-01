@@ -20,6 +20,7 @@ from .autogen_pipeline import (
 )
 from .autogen_tools import auto_fix_script, validate_script_constraints
 from .json_generator import ScriptJSONGenerator
+from .position_metadata import normalize_position_metadata
 from .prompt_files.director_word_user import director_word_user_prompt
 from .prompt_utils import render_prompt
 from .resource_loader import ResourceLoader, Scene
@@ -89,13 +90,15 @@ def _merge_batch_scene(target: Optional[Dict[str, Any]], batch_scene: Dict[str, 
 
     if target is None:
         target = {
-            "position_descriptions": dict(batch_scene.get("position_descriptions") or {}),
+            "position_metadata": normalize_position_metadata(batch_scene),
             "scene information": dict(batch_scene.get("scene information") or {}),
             "initial position": deepcopy(batch_scene.get("initial position") or []),
             "scene": [],
         }
     else:
-        target["position_descriptions"].update(batch_scene.get("position_descriptions") or {})
+        target.setdefault("position_metadata", {}).update(
+            normalize_position_metadata(batch_scene)
+        )
     target["scene"].extend(segments)
     return target
 

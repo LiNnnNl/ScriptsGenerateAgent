@@ -59,6 +59,7 @@ ScriptsGenerateAgent/
 │   │   ├── autogen_agents.py       # 各 Agent 的 system_message 构建 + 工厂函数
 │   │   ├── resource_loader.py      # 加载资源、scene_info（含文件名模糊匹配）
 │   │   ├── json_generator.py       # 组装最终剧本 JSON
+│   │   ├── position_metadata.py    # Position 元数据归一化、旧格式升级与校验
 │   │   ├── schema.py               # Pydantic 校验（shot/position/camera_script）
 │   │   ├── registry.py             # session 注册（产出文件索引）
 │   │   ├── word_exporter.py        # 剧本导出为 Word
@@ -157,7 +158,7 @@ ScriptsGenerateAgent/
   - `scene information`：本幕元信息（`who` 出场角色、`where` 场景名等）。
   - `initial position`：起始站位（`position` + `character` + `state`）；`state` 表示角色在剧情开始时的姿态（如 `standing` / `sitting`）。
   - `scene`：beats 数组（对白/动作/镜头节拍）。
-  - `position_descriptions`：各 Position 的戏剧意图自然语言描述。
+  - `position_metadata`：以稳定技术 ID（`Position N`）为键，每项包含 `number`、简短 `name` 和详细 `description`。旧输入中的 `position_descriptions` 会被确定性升级，最终产物只输出新格式。
 - `schema.py: validate_script_position_structure` 强制 `initial position.state` 非空，并要求同一 `initial position`、同一镜头的 `current position` 中不同人物的 Position 互不相同；违反时作为阻塞错误进入重试/自动修复流程。
 
 ### 6.2 Beat 类型（`backend/src/schema.py`）
@@ -173,9 +174,10 @@ ScriptsGenerateAgent/
 | 数据源 | 性质 | 用途 |
 |--------|------|------|
 | `cinematography/scene_info/*.json` 的 anchors/scene_markers | **带真实 x/y/z 坐标的物品锚点**，唯一权威 | 摄影算角色坐标的依据 |
-| `scenes_resource.json` 的 `valid_positions`（Position 1~N） | **无坐标的逻辑槽**，旧版 | 导演点位菜单 + 同框约束 + 校验 |
+| `scenes_resource.json` 的 `valid_positions`（Position 1~N） | **无坐标的逻辑槽**，含 `number` / `name` / `description` | 导演点位菜单 + 同框约束 + 元数据生成与校验 |
 
 - **角色坐标全部由摄影 Stage2 计算**（region+neartarget → CoordinateSkill + LayoutLib）。`Position N` 本身不带坐标。
+- `Position N` 继续作为剧本引用和 Unity 查找使用的稳定技术 ID；面向创作与界面展示统一使用“序号 · 名称”，悬停或详情区域展示 `description`。
 - 锚点是场景中**标志性物体（雕像/树/石柱…）的坐标，不是角色站立点**——导演只为站位选「区域名」，坐标交给摄影。
 - 目前**只有 `SpaceStation` / `LotusTown` 两套**有 scene_info 锚点文件。
 

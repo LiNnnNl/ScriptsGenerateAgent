@@ -10,6 +10,7 @@ import re
 from typing import Any
 from .resource_loader import ResourceLoader, Scene
 from .json_generator import ScriptJSONGenerator, normalize_initial_position_states
+from .position_metadata import derive_position_name, parse_position_number
 from .scene_segments import is_empty_shot, protect_empty_shot
 
 
@@ -67,19 +68,33 @@ def _next_unused_position_id(used: set[str], scene: Scene) -> str:
     return f"Position {index}"
 
 
-def _ensure_position_description(scene_obj: dict, scene: Scene, position_id: str) -> None:
-    descriptions = scene_obj.setdefault("position_descriptions", {})
-    if not isinstance(descriptions, dict):
-        descriptions = {}
-        scene_obj["position_descriptions"] = descriptions
-    if position_id in descriptions:
+def _ensure_position_metadata(scene_obj: dict, scene: Scene, position_id: str) -> None:
+    metadata = scene_obj.setdefault("position_metadata", {})
+    if not isinstance(metadata, dict):
+        metadata = {}
+        scene_obj["position_metadata"] = metadata
+    if isinstance(metadata.get(position_id), dict):
         return
 
     scene_position = scene.get_position(position_id)
-    if scene_position and scene_position.get("description"):
-        descriptions[position_id] = scene_position["description"]
-    else:
-        descriptions[position_id] = f"{position_id} 的独立站位"
+    number = parse_position_number(position_id, len(metadata) + 1)
+    legacy = scene_obj.get("position_descriptions")
+    legacy_description = legacy.get(position_id) if isinstance(legacy, dict) else ""
+    scene_description = scene_position.get("description") if scene_position else ""
+    description = (
+        legacy_description
+        or scene_description
+        or f"{position_id} 的独立场景站位与演出需求"
+    )
+    metadata[position_id] = {
+        "number": scene_position.get("number", number) if scene_position else number,
+        "name": (
+            scene_position.get("name")
+            if scene_position and scene_position.get("name")
+            else derive_position_name(description, number)
+        ),
+        "description": description,
+    }
 
 
 def _spread_shared_positions(entries: Any, scene: Scene, scene_obj: dict) -> None:
@@ -101,14 +116,14 @@ def _spread_shared_positions(entries: Any, scene: Scene, scene_obj: dict) -> Non
             if position:
                 entry["position"] = _next_unused_position_id(used, scene)
                 used.add(entry["position"])
-                _ensure_position_description(scene_obj, scene, entry["position"])
+                _ensure_position_metadata(scene_obj, scene, entry["position"])
             continue
         seen_characters.add(character)
 
         if not position or position in used:
             position = _next_unused_position_id(used, scene)
             entry["position"] = position
-            _ensure_position_description(scene_obj, scene, position)
+            _ensure_position_metadata(scene_obj, scene, position)
         used.add(position)
 
 

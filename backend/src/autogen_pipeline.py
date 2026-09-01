@@ -54,6 +54,7 @@ from .resource_loader import ResourceLoader, Character, Scene
 from .script_style_skill import ScriptStyleSkill
 from .script_tone_skill import ScriptToneSkill
 from .json_generator import ScriptJSONGenerator, normalize_initial_position_states
+from .position_metadata import attach_position_metadata, normalize_position_metadata
 from .scene_segments import is_empty_shot, protect_empty_shot, protect_empty_shots
 from .cinematography import run_cinematography_pipeline
 from .schema import (
@@ -756,7 +757,9 @@ def _extract_position_files(final_json: list, scene_id: str):
     用于在摄影流水线未开启时也能提供可下载的位置文件。
     """
     char_pos: dict = {}  # position_id -> character (first-seen wins)
+    position_metadata: dict = {}
     for scene_obj in (final_json or []):
+        position_metadata.update(normalize_position_metadata(scene_obj))
         for entry in scene_obj.get("initial position", []):
             pos, char = entry.get("position", ""), entry.get("character", "")
             if pos and pos not in char_pos:
@@ -777,6 +780,8 @@ def _extract_position_files(final_json: list, scene_id: str):
     detail_signals = [{"position_id": p, "character": c, "region": "", "lookat": ""}
                       for p, c in char_pos.items() if p]
     detail = {"where": scene_id, "groups": [], "singles": detail_signals}
+    attach_position_metadata(plan, position_metadata)
+    attach_position_metadata(detail, position_metadata)
     return plan, detail
 
 
@@ -911,7 +916,10 @@ async def _build_direct_draft(creative_idea: str, characters, scene, bridge, dir
             )
 
     total_beats = sum(len(s.get("scene", [])) for s in normalized)
-    position_count = sum(len(s.get("position_descriptions", {}) or {}) for s in normalized)
+    position_count = sum(
+        len(s.get("position_metadata", {}) or s.get("position_descriptions", {}) or {})
+        for s in normalized
+    )
     _emit_stage_log(bridge, 'success', 'direct', 'parsed',
                     f'✅ [直接模式] 已解析用户剧本：{len(normalized)} 个场景 / {total_beats} 个片段，'
                     f'补齐 {position_count} 个站位描述，跳过头脑风暴与剧本起草')

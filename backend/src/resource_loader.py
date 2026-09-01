@@ -8,6 +8,8 @@ import re
 from typing import List, Dict, Optional
 from pathlib import Path
 
+from .position_metadata import derive_position_name, parse_position_number
+
 
 class Character:
     """角色资源（兼容新格式：appearance/traits/acting_style）"""
@@ -50,7 +52,16 @@ class Scene:
         self.id = data['id']
         self.name = data['name']
         self.description = data['description']
-        self.valid_positions = data['valid_positions']
+        self.valid_positions = []
+        for raw_position in data['valid_positions']:
+            position = dict(raw_position)
+            number = position.get('number')
+            if not isinstance(number, int) or number < 0:
+                number = parse_position_number(position.get('id'), len(self.valid_positions) + 1)
+            position['number'] = number
+            if not str(position.get('name') or '').strip():
+                position['name'] = derive_position_name(position.get('description'), number)
+            self.valid_positions.append(position)
         self.camera_groups = data.get('camera_groups', [])
 
     def get_position(self, position_id: str) -> Optional[dict]:
