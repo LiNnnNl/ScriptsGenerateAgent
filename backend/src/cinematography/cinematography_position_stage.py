@@ -183,16 +183,21 @@ class CinematographyPositionStage:
             "shot_descriptions": shot_descriptions,
             "layout_lib": self.layout_lib_json,
         }
-        try:
-            result = self.llm_client.complete_json(system_prompt, user_payload)
-            result.setdefault("groups", [])
-            result.setdefault("singles", [])
-            # Backfill any missing character fields from char_map
-            self._backfill_characters(result, char_map)
-            return result
-        except Exception as exc:
-            logger.warning("[Stage2][grouping] LLM failed (%s), using fallback", exc)
-            return self._fallback_grouping(position_ids, char_map)
+        for attempt in range(3):
+            try:
+                result = self.llm_client.complete_json(system_prompt, user_payload)
+                result.setdefault("groups", [])
+                result.setdefault("singles", [])
+                self._backfill_characters(result, char_map)
+                errors = self._position_coverage_errors(result, position_ids)
+                if not errors:
+                    return result
+                error = "; ".join(errors)
+            except Exception as exc:
+                error = str(exc)
+            user_payload["correction_required"] = error + "；请重新输出完整分组，每个输入位置恰好出现一次。"
+            logger.warning("[Stage2][grouping] attempt %d/3: %s", attempt + 1, error)
+        raise ValueError("站位分组失败：" + error)
 
     def _run_planning(self, where: str, grouping: Dict) -> Dict:
         system_prompt = cinematography_position_planning_prompt
@@ -213,7 +218,8 @@ class CinematographyPositionStage:
                 result.setdefault("singles", grouping.get("singles", []))
 
                 plan_validation = validate_position_plan(result)
-                if plan_validation["valid"]:
+                plan_validation["errors"].extend(self._position_coverage_errors(result, self._collect_position_ids()))
+                if not plan_validation["errors"]:
                     # 写入 outputs 前强制丢弃 group 层的 neartarget
                     for g in result.get("groups", []):
                         g.pop("neartarget", None)
@@ -229,8 +235,7 @@ class CinematographyPositionStage:
                         f"上次输出存在以下字段问题，请修正后重新输出完整 JSON：\n{error_msg}"
                     )
                 else:
-                    logger.warning("[Stage2][planning] 已达最大重试次数，使用当前结果继续")
-                    return result
+                    logger.warning("[Stage2][planning] 已达最大重试次数，停止坐标生成")
 
             except Exception as exc:
                 logger.warning("[Stage2][planning] LLM failed (%s), using fallback", exc)
@@ -239,15 +244,29 @@ class CinematographyPositionStage:
                     g.pop("neartarget", None)
                 return result
 
-        result = self._fallback_planning(where, grouping)
-        for g in result.get("groups", []):
-            g.pop("neartarget", None)
-        return result
+        raise ValueError("站位规划校验失败：" + error_msg)
 
     def _run_coordinates(self, planning: Dict) -> Dict:
         """Substage 3: call CoordinateSkill to compute x/y/z (stored separately)."""
         skill = CoordinateSkill()
         positions: Dict[str, Dict[str, float]] = {}
+        occupied = set()
+
+        def add_unique(coords: Dict[str, Dict[str, float]], layout: str) -> None:
+            spacing = skill._get_layout_spacing(layout, self.layout_lib_json)
+            for position_id, original in coords.items():
+                coordinate = dict(original)
+                base_x = coordinate["x"]
+                step = 0
+                key = (coordinate["x"], coordinate["y"], coordinate["z"])
+                while key in occupied:
+                    step += 1
+                    direction = 1 if step % 2 else -1
+                    distance = ((step + 1) // 2) * spacing
+                    coordinate["x"] = round(base_x + direction * distance, 4)
+                    key = (coordinate["x"], coordinate["y"], coordinate["z"])
+                occupied.add(key)
+                positions[position_id] = coordinate
 
         for group in planning.get("groups", []):
             region = group.get("region", "")
@@ -263,7 +282,7 @@ class CinematographyPositionStage:
                 scene_info=self.scene_info_json,
                 group_positions=pos_ids,
             )
-            positions.update(coords)
+            add_unique(coords, layout)
 
         for single in planning.get("singles", []):
             pos_id = single.get("position_id", "")
@@ -278,7 +297,7 @@ class CinematographyPositionStage:
                 scene_info=self.scene_info_json,
                 group_positions=[pos_id],
             )
-            positions.update(coords)
+            add_unique(coords, "single")
 
         return {
             "where": planning.get("where", ""),
@@ -330,6 +349,16 @@ class CinematographyPositionStage:
     def _resolve_where(self) -> str:
         return (self.script_json.get("scene information", {}).get("where")
                 or self.script_json.get("where", ""))
+
+    @staticmethod
+    def _position_coverage_errors(result: Dict, expected: List[str]) -> List[str]:
+        from collections import Counter
+        entries = [item for group in result.get("groups", []) for item in group.get("positions", [])]
+        entries.extend(result.get("singles", []))
+        counts = Counter(item.get("position_id", "") for item in entries)
+        errors = [f"位置 {pid} 必须恰好出现一次，实际 {counts[pid]} 次" for pid in expected if counts[pid] != 1]
+        errors.extend(f"未知位置 {pid}" for pid in counts if pid not in expected)
+        return errors
 
     def _collect_position_ids(self) -> List[str]:
         """All unique Position IDs used in the script, in first-seen order."""

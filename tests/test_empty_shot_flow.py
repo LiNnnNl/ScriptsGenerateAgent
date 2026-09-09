@@ -27,7 +27,7 @@ class EmptyShotFlowTest(unittest.TestCase):
         protect_empty_shot(beat, ensure_camera=True)
 
         self.assertEqual("scene", beat["shot"])
-        self.assertEqual("5s", beat["duration"])
+        self.assertEqual(5.0, beat["duration"])
         self.assertEqual([], beat["actions"])
         self.assertEqual(1, beat["camera"])
         self.assertNotIn("shot_type", beat)
@@ -128,6 +128,35 @@ class EmptyShotFlowTest(unittest.TestCase):
         self.assertEqual("scene", beat["shot"])
         self.assertEqual(1, beat["camera"])
         self.assertEqual("空间站外部全景。", beat["shot_description"])
+
+    def test_final_generator_preserves_character_emotion_assignments(self):
+        from src.json_generator import ScriptJSONGenerator
+        from src.resource_loader import Scene
+
+        scene = Scene({"id": "TestScene", "name": "TestScene", "description": "test", "valid_positions": []})
+        generator = ScriptJSONGenerator([], scene)
+        emotions = [
+            {"character": "A", "emotion": "sad"},
+            {"character": "B", "emotion": "fear"},
+        ]
+        result = generator.generate_final_json(
+            [{
+                "scene information": {"where": "TestScene"},
+                "initial position": [],
+                "scene": [{
+                    "speaker": "A",
+                    "content": "快走。",
+                    "actions": [],
+                    "current position": [],
+                    "emotion": emotions,
+                }],
+            }],
+            "test",
+        )
+
+        self.assertEqual(emotions, result[0]["scene"][0]["emotion"])
+        # Preservation alone is not proof of validity: this old fixture lacks catalog/role metadata.
+        self.assertFalse(ScriptJSONGenerator.validate_against_spec(result)["valid"])
 
 
 if __name__ == "__main__":

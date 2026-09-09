@@ -911,8 +911,8 @@ const UI = {
                     const durationHtml = isEmptyShot ? `
                         <div class="sv-empty-shot-meta">
                             <span class="sv-label">时长</span>
-                            <input class="sv-duration-input" data-scene="${si}" data-beat="${bi}"
-                                value="${this._esc(beat.duration || '5s')}" placeholder="5s">
+                            <input type="number" min="0.001" step="any" class="sv-duration-input" data-scene="${si}" data-beat="${bi}"
+                                value="${this._esc(beat.duration ?? 5)}" placeholder="秒">
                         </div>` : '';
                     return `
                     <div class="sv-beat sv-beat-dialogue${isEmptyShot ? ' sv-beat-empty-shot' : ''}" data-scene="${si}" data-beat="${bi}">
@@ -1007,9 +1007,8 @@ const UI = {
     _isEmptyShotBeat(beat) {
         return beat
             && beat.speaker !== undefined
-            && beat.content !== undefined
-            && String(beat.speaker || '').trim() === ''
-            && String(beat.content || '').trim() === '';
+            && !beat.move
+            && String(beat.speaker || '').trim() === '';
     },
 
     _buildEmptyShotBeat(data, si) {
@@ -1020,7 +1019,7 @@ const UI = {
         return {
             speaker: '',
             content: '',
-            duration: '5s',
+            duration: 5,
             shot: 'scene',
             shot_blend: 'Cut',
             camera: 1,
@@ -1085,7 +1084,9 @@ const UI = {
 
     _renderActionEditor(si, bi, actions, sceneChars, actionsFlat) {
         const labelMap = this._buildActionLabelMap(actionsFlat);
-        const rows = actions.map((act, ai) => `
+        const rows = actions.map((act, ai) => {
+            const selected = actionsFlat.find(a => a.trigger === act.action);
+            return `
             <div class="sv-action-row" data-ai="${ai}">
                 <select class="sv-action-char" data-scene="${si}" data-beat="${bi}" data-ai="${ai}">
                     ${sceneChars.map(c => `<option value="${this._esc(c)}"${c === act.character ? ' selected' : ''}>${this._esc(c)}</option>`).join('')}
@@ -1094,7 +1095,9 @@ const UI = {
                     ${actionsFlat.map(a => `<option value="${this._esc(a.trigger)}"${a.trigger === act.action ? ' selected' : ''} title="${this._esc(a.description || a.trigger)}">${this._esc(labelMap[a.trigger] || this._actionLabel(a))}</option>`).join('')}
                 </select>
                 <button class="sv-del-action" data-scene="${si}" data-beat="${bi}" data-ai="${ai}">✕</button>
-            </div>`).join('');
+                <div class="sv-action-preview">${this._esc(selected?.description || '暂无动作说明')}</div>
+            </div>`;
+        }).join('');
 
         return `
         <div class="sv-actions-editor">
@@ -1138,7 +1141,7 @@ const UI = {
                     beat.speaker = sel.value;
                     if (!sel.value) {
                         beat.content = '';
-                        beat.duration = beat.duration || '5s';
+                        beat.duration = beat.duration || 5;
                         beat.actions = [];
                         beat.shot = 'scene';
                         beat.camera = beat.camera || 1;
@@ -1163,7 +1166,7 @@ const UI = {
                 const si = parseInt(input.dataset.scene);
                 const bi = parseInt(input.dataset.beat);
                 if (data[si]?.['scene']?.[bi]) {
-                    data[si]['scene'][bi].duration = input.value || '5s';
+                    data[si]['scene'][bi].duration = Number(input.value);
                 }
             });
         });
@@ -1189,7 +1192,8 @@ const UI = {
                 if (data[si]?.['scene']?.[bi]?.actions?.[ai]) {
                     const found = this._flatActions().find(a => a.trigger === sel.value);
                     data[si]['scene'][bi].actions[ai].action = sel.value;
-                    if (found) data[si]['scene'][bi].actions[ai].state = found.state;
+                    const preview = sel.closest('.sv-action-row')?.querySelector('.sv-action-preview');
+                    if (preview) preview.textContent = found?.description || '暂无动作说明';
                 }
             });
         });
@@ -1213,8 +1217,8 @@ const UI = {
                 if (!data[si]['scene'][bi].actions) data[si]['scene'][bi].actions = [];
                 data[si]['scene'][bi].actions.push({
                     character: chars[0] || '',
+                    state: 'standing',
                     action: flat[0]?.trigger || '',
-                    state: flat[0]?.state || 'standing',
                     motion_detail: '',
                 });
                 this._redrawScriptViewer();
@@ -1247,8 +1251,8 @@ const UI = {
                     shot_description: '',
                     actions: flat[0] ? [{
                         character: chars[0] || '',
+                        state: 'standing',
                         action: flat[0].trigger,
-                        state: flat[0].state || 'standing',
                         motion_detail: '',
                     }] : [],
                     'current position': [],
@@ -1329,7 +1333,10 @@ const UI = {
         let bodyHTML = '';
         let labelHTML = '';
 
-        if (fmt === 'script' && Array.isArray(data)) {
+        if (fmt === 'screenplay' && typeof data === 'string') {
+            labelHTML = '<span class="ob-label">自然语言中间稿</span>';
+            bodyHTML = `<pre class="ob-screenplay">${this._esc(data)}</pre>`;
+        } else if (fmt === 'script' && Array.isArray(data)) {
             labelHTML = `<span class="ob-label">剧本 · ${data.length} 幕</span>`;
             bodyHTML = data.map((scene, si) => {
                 const info = scene['scene information'] || {};
@@ -1362,7 +1369,7 @@ const UI = {
                         return `
                         <div class="ob-beat ob-dialogue${isEmptyShot ? ' ob-empty-shot' : ''}">
                             <span class="ob-speaker">${isEmptyShot ? '空镜' : this._esc(beat.speaker)}</span>
-                            <span class="ob-content">${this._esc(isEmptyShot ? (beat.duration || '5s') : content)}</span>
+                            <span class="ob-content">${this._esc(isEmptyShot ? `${beat.duration ?? 5}秒` : content)}</span>
                             ${shotMeta ? `<div class="ob-beat-meta">镜头：${this._esc(shotMeta)}</div>` : ''}
                             ${actions ? `<div class="ob-beat-meta">动作：${this._esc(actions)}</div>` : ''}
                             ${positions ? `<div class="ob-beat-meta">站位：${this._esc(positions)}</div>` : ''}
@@ -1458,8 +1465,8 @@ const UI = {
                 ? `<span class="ob-label ob-pass">✓ 验证通过</span>`
                 : `<span class="ob-label ob-issues">✗ ${errors.length} 个错误</span>`;
             bodyHTML = [
-                ...errors.map(e => `<div class="ob-val-error">✗ ${this._esc(e)}</div>`),
-                ...warnings.map(w => `<div class="ob-val-warn">⚠ ${this._esc(w)}</div>`)
+                ...errors.map(e => `<div class="ob-val-error">✗ ${this._esc(typeof e === 'string' ? e : `${e.path}: ${e.message}`)}</div>`),
+                ...warnings.map(w => `<div class="ob-val-warn">⚠ ${this._esc(typeof w === 'string' ? w : `${w.code} ${w.path}: ${w.message}`)}</div>`)
             ].join('');
         } else if (fmt === 'meeting') {
             const content = typeof data === 'string' ? data : JSON.stringify(data);

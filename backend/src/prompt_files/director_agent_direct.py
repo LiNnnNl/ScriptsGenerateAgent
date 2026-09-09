@@ -13,9 +13,9 @@ director_agent_direct_prompt = """{char_info}{scene_info}{action_info}
 6. **走位按用户「位置」列**：用户每个镜头标了角色所在位置（如「高层主仓/控制台」）。据此为在场角色分配 Position N，并在 `position_descriptions` 里结合上方「可用区域」与物体名称描述（例："Position 1": "高层主仓 - 靠近控制台"）。坐标由摄影流程计算，你只选区域、标注靠近哪个物体。
    - **同一个镜头/片段里，不同角色绝对不能共用同一个 Position 编号。**即使用户写的是同一地点，也要拆成相邻的独立站位（例如控制台左侧=Position 1，控制台右侧=Position 2）。
    - `initial position` 同样必须一人一位；同一个角色跨镜头延续站位时才复用原 Position。
-7. **动作**：只用「可用动作库」里的动作；画面有明确动作就选最贴近的动作 ID，否则 actions 留空。姿态切换只使用 `Sit Down` / `Kneel Down` / `Squat Down` / `Stand Up`，`actions[]` 中禁止填写 `state`。
-8. **镜头字段**：对白/旁白片段 `shot`="character"，移动片段 `shot`="scene"；空镜片段 `speaker` 和 `content` 都填空字符串 `""`，`shot` 必须为 `"scene"`，必须带 `duration`，用户未写时长则填 `"5s"`，`actions` 必须为 `[]`，不得填写 `shot_type` / `Follow`；用户写明的空镜画面逐字整理进 `shot_description`，确实未提供画面时才留空交给摄影阶段补充。
-9. **幕数**：用户内容若分章/幕，按其结构输出对应数量的场景对象；否则输出 1 个场景对象。
+7. **动作**：只用「可用动作库」里的动作；画面有明确动作就选最贴近的动作 ID，否则 actions 留空。姿态切换只使用 `Sit Down` / `Kneel Down` / `Squat Down` / `Stand Up`，`actions[]` 必须填写动作执行前的 `state`。
+8. **镜头字段**：对白/旁白片段 `shot`="character"，移动片段 `shot`="scene"；空镜片段 `speaker` 和 `content` 都填空字符串 `""`，`shot` 必须为 `"scene"`，必须带 `duration`，用户未写时长则填 `5`，`actions` 必须为 `[]`，不得填写 `shot_type` / `Follow`；用户写明的空镜画面逐字整理进 `shot_description`，确实未提供画面时才留空交给摄影阶段补充。
+9. **幕数**：{act_count_rule}；保持原文事件顺序，按请求幕数分配。
 
 **输出格式:** 严格按照以下 JSON 结构输出，直接输出 JSON，不要有其他说明文字。
 
@@ -44,7 +44,7 @@ director_agent_direct_prompt = """{char_info}{scene_info}{action_info}
         "shot_description": "",
         "Follow": 0,
         "actions": [
-          {"character": "角色名", "action": "Standing Speech 2", "motion_detail": "Slight forward lean, hands gesture for emphasis while speaking"}
+          {"character": "角色名", "state": "standing", "action": "Standing Speech 2", "motion_detail": "Slight forward lean, hands gesture for emphasis while speaking"}
         ],
         "current position": [
           {"character": "角色名1", "position": "Position X"}
@@ -53,7 +53,7 @@ director_agent_direct_prompt = """{char_info}{scene_info}{action_info}
       {
         "speaker": "",
         "content": "",
-        "duration": "5s",
+        "duration": 5,
         "shot_blend": "Cut",
         "shot": "scene",
         "camera": 1,
@@ -90,10 +90,10 @@ director_agent_direct_prompt = """{char_info}{scene_info}{action_info}
 
 **字段规则:**
 - `initial position` 中每个角色必须新增 `state`，按用户原文填写 `standing` / `sitting` / `kneeling` / `squatting`；用户未说明时填 `standing`，不改动其他字段
-- `actions[].state` 已废弃，禁止输出；事件内姿态变化只写对应的姿态切换动作
+- `actions[].state` 必需，表示动作执行前姿态；事件内姿态变化只写对应的姿态切换动作
 - 普通片段的 `shot_description` 留空，由摄影指导智能体填写；空镜若有用户原文画面描述则必须保留在该字段
 - `motion_detail` 动作细节英文描述，由导演模型生成
-- **空镜片段必须保留 `speaker` 和 `content` 两个字段且均为空字符串；`shot` 固定为 `"scene"`；必须包含 `duration`，未明确时长时填 `"5s"`；不得添加人物动作或人物镜头字段。**
+- **空镜片段必须保留 `speaker` 为空字符串，`content` 保留原文或填“无台词”；`shot` 固定为 `"scene"`；必须包含 `duration`，未明确时长时填 `5`；不得添加人物动作或人物镜头字段。**
 - **`current position` 是每个片段（对白、旁白、移动）的强制必填字段，绝对不能省略。**
   每个片段必须列出场景内所有在场角色当前所在的 Position 编号。
   同一片段内不同角色的 Position 编号必须互不相同，禁止多个角色共享同一个 Position。
@@ -101,4 +101,4 @@ director_agent_direct_prompt = """{char_info}{scene_info}{action_info}
 - `position_descriptions` 必须包含剧本中所有使用到的 Position N 编号
 - 只使用可用动作库中的动作名称
 - **移动片段不要给正在移动的角色写 `actions`**（走路动作由系统自动驱动）；如需边走边说，在移动片段顶层加 `speaker` + `content` 即可（不是放进 `actions`）。
-- `move` 可以是单个对象或数组（多人同时移动）；每个移动项的 `destination` 必须是真实存在的 `Position N`。"""
+- 最终 `move` 必须是数组（多人同时移动）；每个移动项的 `destination` 必须是真实存在的 `Position N`。"""

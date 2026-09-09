@@ -8,10 +8,25 @@ BACKEND = ROOT / "backend"
 if str(BACKEND) not in sys.path:
     sys.path.insert(0, str(BACKEND))
 
-from src.autogen_pipeline import _normalize_direct_scene, _parse_plaintext_script
+from src.autogen_pipeline import _normalize_direct_scene, _parse_plaintext_script, _render_plaintext_screenplay
 
 
 class DirectModeTests(unittest.TestCase):
+    def test_plaintext_screenplay_format_keeps_dialogue_action_and_empty_shot(self):
+        text = _render_plaintext_screenplay([{
+            "scene information": {"where": "月台", "who": ["阿海"], "what": "深夜候车"},
+            "scene": [
+                {"speaker": "阿海", "content": "你欲去佗位？", "shot_description": "缓慢推近", "actions": [{"motion_detail": "抬头"}]},
+                {"speaker": "", "content": "", "duration": "4s", "shot_description": "末班车驶入"},
+            ],
+        }])
+
+        self.assertIn("第1幕｜月台", text)
+        self.assertIn("【动作】抬头", text)
+        self.assertIn("【镜头】缓慢推近", text)
+        self.assertIn("阿海：你欲去佗位？", text)
+        self.assertIn("【空镜】末班车驶入（4s）", text)
+
     def test_plaintext_direct_scene_gets_required_runtime_fields(self):
         scenes = _parse_plaintext_script("陈屿：醒醒。\n林静：警报还在响。")
         normalized = _normalize_direct_scene(

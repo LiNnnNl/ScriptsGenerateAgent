@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 
-DEFAULT_EMPTY_SHOT_DURATION = "5s"
+DEFAULT_EMPTY_SHOT_DURATION = 5.0
 
 
 def is_empty_shot(segment: Any) -> bool:
@@ -14,9 +14,8 @@ def is_empty_shot(segment: Any) -> bool:
         return False
     return (
         "speaker" in segment
-        and "content" in segment
-        and not str(segment.get("speaker") or "").strip()
-        and not str(segment.get("content") or "").strip()
+        and isinstance(segment.get("speaker"), str)
+        and not segment["speaker"].strip()
     )
 
 
@@ -26,12 +25,13 @@ def protect_empty_shot(segment: dict, *, ensure_camera: bool = False) -> bool:
         return False
 
     segment["speaker"] = ""
-    segment["content"] = ""
+    segment.setdefault("content", "无台词")
     segment["duration"] = segment.get("duration") or DEFAULT_EMPTY_SHOT_DURATION
-    segment["shot"] = "scene"
+    segment["shot"] = 'object' if segment.get('shot') == 'object' else 'scene'
     segment["actions"] = []
     # These fields belong only to character shots.
-    segment.pop("shot_type", None)
+    if segment['shot'] != 'object':
+        segment.pop("shot_type", None)
     segment.pop("Follow", None)
     if ensure_camera and segment.get("camera") is None:
         segment["camera"] = 1

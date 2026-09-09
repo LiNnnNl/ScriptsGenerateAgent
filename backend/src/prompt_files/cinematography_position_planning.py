@@ -46,4 +46,7 @@ cinematography_position_planning_prompt = """你是摄影指导流程中的区�
      "region": "神坛", "neartarget": "中央锚点", "lookat": "center"}
   ]
 }
-```"""
+```
+
+资源来源 backend/resources/cinematography/scene_info/<where>.json 和 LayoutLib.json，由请求注入。Position N 是无坐标逻辑槽，真实坐标由 CoordinateSkill 计算，不把物品锚点当角色位置。不新增交互对象能力；场景锚点不等于可交互对象。single.lookat 可为 center、已规划 Position ID 或本场景锚点（不局限于角色所在区域）；neartarget 必须属于角色所在区域。
+"""

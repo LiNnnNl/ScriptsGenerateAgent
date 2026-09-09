@@ -164,11 +164,10 @@ def validate_script_constraints(
 ) -> dict:
     """
     验证剧本中的全部技术约束：
-    1. current position 中的点位 ID 是否存在于场景
-    2. 移动目标点位 ID 是否存在于场景
-    3. 动作 ID 是否存在于动作库且与状态兼容
-    4. 同一片段内不同角色不得占用同一个 Position
-    5. 【补充】同一对白片段中所有角色是否属于同一 camera_group
+    1. 移动目标点位 ID 是否存在于场景
+    2. 动作 ID 是否存在于动作库且与状态兼容
+    3. 同一片段内不同角色不得占用同一个 Position
+    4. 【补充】同一对白片段中所有角色是否属于同一 camera_group
 
     Returns:
         {"valid": bool, "errors": list[str], "warnings": list[str]}
@@ -202,15 +201,6 @@ def validate_script_constraints(
                     f"场景{scene_idx} 片段{seg_idx}: current position 中多个角色共用同一站位"
                     f"（{_format_shared_positions(shared_current)}）"
                 )
-
-            # ── 检查 current position 有效性 ──
-            for pos_entry in segment.get("current position", []):
-                pos_id = pos_entry.get("position")
-                if pos_id and not scene.get_position(pos_id):
-                    warnings.append(
-                        f"场景{scene_idx} 片段{seg_idx}: "
-                        f"current position '{pos_id}' 不在场景可用点位中"
-                    )
 
             if is_movement:
                 # ── 检查移动目标有效性（抽象占位符跳过，由 PositionAgent 处理）──
@@ -309,15 +299,20 @@ def _check_camera_group_consistency(
         )
 
 
-def validate_json_spec(script: list) -> dict:
+def validate_json_spec(script: list, resource_loader=None) -> dict:
     """
     验证 JSON 结构是否符合 scene_json_spec 规范。
-    直接调用现有的 ScriptJSONGenerator.validate_against_spec。
+    复用最终合同，但允许摄影尚未填写画面描述。
 
     Returns:
         {"valid": bool, "errors": list[str], "warnings": list[str]}
     """
-    return ScriptJSONGenerator.validate_against_spec(script)
+    from .script_contract import normalize_script, validate_script
+    loader = resource_loader or ResourceLoader()
+    normalized, warnings = normalize_script(script, loader)
+    report = validate_script(normalized, loader, final=False)
+    report['warnings'].extend(warnings)
+    return report
 
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -333,10 +328,10 @@ def auto_fix_script(script: list, scene: Scene, resource_loader: ResourceLoader)
     - 缺失/空 Follow → 0
     - 缺失/空 shot_blend → "cut"
     - 缺失 actions 字段 → []
-    - 无效 action_id → 替换为角色当前姿态下动作库第一个有效动作
+    - 无效 action_id 保留，由共享合同返回候选交给模型修复
     - 缺失 current position → 从上一片段继承（初始位置兜底）
     - 缺失 initial position.state → standing
-    - 删除已废弃的 actions[].state，并按姿态切换动作追踪角色当前姿态
+    - 补齐 actions[].state 动作前姿态，并按姿态切换动作追踪角色当前姿态
     - 同一 initial/current position 中多个角色共用同一站位 → 后出现的角色改到未占用 Position
 
     Returns:
@@ -400,15 +395,11 @@ def auto_fix_script(script: list, scene: Scene, resource_loader: ResourceLoader)
 
                 # ── 无效 action_id → 替换为同 state 的合法动作 ──
                 for action in seg.get("actions", []):
-                    action.pop("state", None)
+                    action.setdefault("state", last_states.get(action.get("character"), "standing"))
                     action_id = action.get("action", "")
                     character = action.get("character")
                     current_state = last_states.get(character, "standing")
-                    if action_id and not resource_loader.get_action_by_id(action_id):
-                        candidates = resource_loader.get_actions_by_state(current_state)
-                        if candidates:
-                            action["action"] = candidates[0].action_id
-                            action_id = action["action"]
+                    # Unknown actions are returned to the model by the contract gate.
                     target_state = POSTURE_TRANSITION_TARGETS.get(action_id)
                     if character and target_state:
                         last_states[character] = target_state
@@ -422,18 +413,15 @@ def auto_fix_script(script: list, scene: Scene, resource_loader: ResourceLoader)
                     seg["reason"] = _em["reason"]
 
             # ── 更新位置追踪表 ──
-            # 移动片段：记录目的地
-            for move in seg.get("move", []):
-                char = move.get("character")
-                dest = move.get("destination")
-                if char and dest:
-                    last_positions[char] = dest
             # 所有片段：以 current position 为准更新
             for pos in seg.get("current position", []):
                 char = pos.get("character")
                 pos_id = pos.get("position")
                 if char and pos_id:
                     last_positions[char] = pos_id
+            for move in seg.get("move", []):
+                if move.get("character") and move.get("destination"):
+                    last_positions[move["character"]] = move["destination"]
 
     return result
 
@@ -468,7 +456,7 @@ def make_validation_tools(resource_loader: ResourceLoader, scene: Scene):
             script = json.loads(script_json_str)
         except json.JSONDecodeError as e:
             return json.dumps({"valid": False, "errors": [f"JSON 解析失败: {e}"], "warnings": []}, ensure_ascii=False)
-        result = validate_json_spec(script)
+        result = validate_json_spec(script, resource_loader)
         return json.dumps(result, ensure_ascii=False)
 
     return [

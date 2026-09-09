@@ -11,6 +11,19 @@ if str(BACKEND) not in sys.path:
 
 
 class PromptFilesTest(unittest.TestCase):
+    def test_character_context_preserves_full_reference_names(self):
+        from src.prompt_renderers.autogen_agent_prompts import _render_character_info, _build_stage_common_context
+        from src.resource_loader import ResourceLoader
+
+        loader = ResourceLoader()
+        character = next(c for c in loader.characters if c.name == '艾莉 (F-01)')
+        context = _render_character_info([character], 1, 0)
+        self.assertIn('艾莉 (F-01)', context)
+        self.assertIn('包括空格和括号内编号', context)
+        self.assertIn('不要为补全姓名改写对白', context)
+        common = _build_stage_common_context([character], loader.get_scene_by_id('Auditorium'))
+        self.assertIn('不得缩写', common)
+
     def test_resource_loader_default_path_is_backend_resources(self):
         from src.resource_loader import ResourceLoader
 

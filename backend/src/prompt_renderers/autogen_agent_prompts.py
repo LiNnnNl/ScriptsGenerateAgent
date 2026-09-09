@@ -1,6 +1,9 @@
 """Render AutoGen agent prompts from pure prompt files."""
 
 from typing import Dict, List, Optional
+import json
+from ..script_contract import read_catalogs
+from ..prompt_files.script_contract_rules import script_contract_rules_prompt
 
 from ..prompt_files.stash.character_bios_agent_stash import character_bios_agent_prompt
 from ..prompt_files.character_voice_agent import character_voice_agent_prompt
@@ -43,7 +46,7 @@ def _build_stage_common_context(
         f"角色总数要求：{total_count}",
     ]
     if characters:
-        lines.append("已指定角色（必须保留）：")
+        lines.append("已指定角色（必须保留完整姓名，包括括号内编号，不得缩写）：")
         for char in characters:
             lines.append(f"- {char.name}｜背景：{char.description}｜性格：{char.personality}")
         if extra_count > 0:
@@ -76,6 +79,9 @@ def _render_character_info(characters: List[Character], total_count: int, extra_
         else:
             char_info += f"，其中 {len(characters)} 位已指定，另需 AI 自行创作 **{extra_count}** 位新角色。\n\n"
         char_info += "### 已指定角色\n\n"
+        char_info += ('JSON 中 who、speaker 和所有 character 引用必须逐字使用以下完整姓名，'
+                      '包括空格和括号内编号；不得缩写或用 gameobject_name 代替。'
+                      '对白 content 中的自然称呼不受此限制，不要为补全姓名改写对白。\n\n')
         for char in characters:
             char_info += f"#### {char.name}\n"
             char_info += f"- gameobject_name: {char.gameobject_name}\n"
@@ -172,6 +178,7 @@ def build_director_system_message(
         )
 
     template = director_agent_direct_prompt if direct_mode else director_agent_prompt
+    template += '\n' + script_contract_rules_prompt + '\n当前资源取值库：\n' + json.dumps(read_catalogs(resource_loader), ensure_ascii=False)
     return render_prompt(
         template,
         char_info=_render_character_info(characters, total_count, extra_count),
@@ -219,7 +226,7 @@ def build_director_word_system_message(
         )
 
     return render_prompt(
-        director_agent_word_prompt,
+        director_agent_word_prompt + '\n' + script_contract_rules_prompt + '\n当前资源取值库：\n' + json.dumps(read_catalogs(resource_loader), ensure_ascii=False),
         char_info=_render_character_info(characters, total_count, extra_count),
         scene_info=_render_scene_info(scene, resource_loader, act_count, act_scene_map),
         action_info=_render_action_info(resource_loader),
@@ -272,7 +279,7 @@ def build_critic_system_message(
     script_style_guide: Optional[str] = None,
 ) -> str:
     return render_prompt(
-        critic_agent_prompt,
+        critic_agent_prompt + '\n' + script_contract_rules_prompt,
         constraints=_append_user_constraints(user_constraints, fixed_dialogues),
         video_style_guide=script_style_guide or build_script_style_context(),
     )
@@ -284,7 +291,7 @@ def build_dialogue_system_message(
     script_style_guide: Optional[str] = None,
 ) -> str:
     return render_prompt(
-        dialogue_agent_prompt,
+        dialogue_agent_prompt + '\n' + script_contract_rules_prompt,
         constraints=_append_user_constraints(user_constraints, fixed_dialogues),
         video_style_guide=script_style_guide or build_script_style_context(),
     )

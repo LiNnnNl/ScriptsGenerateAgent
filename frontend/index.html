@@ -101,6 +101,7 @@
                         <span class="number-inner">03</span>
                     </div>
                     <h2 class="step-title">创作灵感</h2>
+                    <button class="idea-file-btn idea-file-btn-header" id="ideaFileBtn" type="button">📄 选择剧本 / 构想文件</button>
                     <div class="step-line"></div>
                     <div class="optional-badge">可选</div>
                 </div>
@@ -154,10 +155,20 @@
                         </button>
                     </div>
                 </div>
-                <div class="idea-file-section">
-                    <button class="idea-file-btn" id="ideaFileBtn" type="button">📄 导入构想文档</button>
+                <div class="generation-options">
+                    <label>台词语言
+                        <select id="dialogueLanguage">
+                            <option value="mandarin">普通话</option>
+                            <option value="minnan">闽南语</option>
+                        </select>
+                    </label>
+                    <label>镜头风格参考
+                        <input id="shotStyleReference" type="text" maxlength="500" placeholder="参考视频 URL，或描述节奏 / 构图 / 运镜风格">
+                    </label>
+                </div>
+                <div class="idea-file-section" id="ideaFileDropzone">
                     <input type="file" id="ideaFileInput" accept=".txt,.md,.json,.csv" style="display:none">
-                    <span class="idea-file-hint">支持 txt / md / json / csv 文本文件，会填入上方输入框</span>
+                    <span class="idea-file-hint">支持拖入或选择 txt / md / json / csv，内容会填入上方输入框</span>
                 </div>
                 <div class="act-count-section">
                     <label class="count-label">剧本幕数：</label>

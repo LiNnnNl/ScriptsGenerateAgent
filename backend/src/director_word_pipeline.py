@@ -13,6 +13,7 @@ from .autogen_agents import create_director_word_agent, create_shot_plan_agent
 from .autogen_bridge import AutoGenStreamBridge
 from .autogen_pipeline import (
     _emit_output,
+    _enforce_contract,
     _emit_stage_log,
     _generate_script_title,
     _run_director_agent,
@@ -20,6 +21,7 @@ from .autogen_pipeline import (
 )
 from .autogen_tools import auto_fix_script, validate_script_constraints
 from .json_generator import ScriptJSONGenerator
+from .script_contract import normalize_script
 from .prompt_files.director_word_user import director_word_user_prompt
 from .prompt_utils import render_prompt
 from .resource_loader import ResourceLoader, Scene
@@ -477,20 +479,15 @@ async def run_director_word_pipeline(
         if not draft_script:
             return
 
-    # Enforce one character per logical slot before exposing the draft.
-    draft_script = auto_fix_script(draft_script, scene, resource_loader)
-    position_validation = validate_script_constraints(draft_script, scene, resource_loader)
-    position_errors = [
-        error for error in position_validation["errors"]
-        if "共用同一站位" in error
-    ]
-    if position_errors:
-        bridge.put_event({
-            "type": "error",
-            "message": "站位校验失败：同一镜头内多个角色不能使用同一个 Position。",
-            "details": {"errors": position_errors},
-        })
-        return
+    director = create_director_word_agent(
+        characters, scene, resource_loader, required_character_count=required_character_count,
+        act_count=act_count, user_constraints=user_constraints,
+        act_scene_map=act_scene_map if multi_scene else None, script_style_guide=script_style_guide,
+    )
+    draft_script, contract_report = await _enforce_contract(
+        draft_script, resource_loader, director, bridge, act_scene_map, act_count,
+        [c.name for c in characters], required_character_count or len(characters) or 2, final=True,
+    )
 
     _emit_output(bridge, "DirectorAgent_Word", draft_script)
 
@@ -510,7 +507,8 @@ async def run_director_word_pipeline(
     )
 
     json_path = output_dir / filename
-    generator.export_to_file(final_json, str(json_path))
+    final_json, _ = normalize_script(final_json, resource_loader)
+    generator.export_to_file(final_json, str(json_path), resource_loader)
 
     docx_path = output_dir / docx_filename
     export_script_to_word(final_json, docx_path)
@@ -534,4 +532,5 @@ async def run_director_word_pipeline(
         "word_filename": docx_filename,
         "session_id": session_id,
         "title": script_title,
+        "warnings": contract_report['warnings'],
     })

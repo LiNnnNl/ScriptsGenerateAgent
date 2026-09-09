@@ -207,6 +207,8 @@ async function generateScript(directMode = false) {
             creative_idea: document.getElementById('creativeIdea').value.trim(),
             script_style_id: APP_STATE.scriptStyleId || 'auto',
             script_tone_id: APP_STATE.scriptToneId || '',
+            dialogue_language: document.getElementById('dialogueLanguage').value,
+            shot_style_reference: document.getElementById('shotStyleReference').value.trim(),
             required_character_count: APP_STATE.requiredCharacterCount,
             act_count: APP_STATE.actCount,
             direct_mode: directMode
@@ -444,9 +446,14 @@ function setupEventListeners() {
     document.getElementById('ideaFileBtn').addEventListener('click', () => {
         document.getElementById('ideaFileInput').click();
     });
-    document.getElementById('ideaFileInput').addEventListener('change', (e) => {
-        const file = e.target.files && e.target.files[0];
+    const ideaInput = document.getElementById('ideaFileInput');
+    const ideaDropzone = document.getElementById('ideaFileDropzone');
+    const importIdeaFile = (file) => {
         if (!file) return;
+        if (!/\.(txt|md|json|csv)$/i.test(file.name)) {
+            alert('请选择 txt、md、json 或 csv 文本文件。');
+            return;
+        }
         const reader = new FileReader();
         reader.onload = () => {
             document.getElementById('creativeIdea').value = String(reader.result || '');
@@ -455,7 +462,20 @@ function setupEventListeners() {
         };
         reader.onerror = () => alert('读取文档失败，请确认文件是文本格式。');
         reader.readAsText(file, 'utf-8');
+    };
+    ideaInput.addEventListener('change', (e) => {
+        importIdeaFile(e.target.files && e.target.files[0]);
         e.target.value = '';
+    });
+    ideaDropzone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        ideaDropzone.classList.add('drag-over');
+    });
+    ideaDropzone.addEventListener('dragleave', () => ideaDropzone.classList.remove('drag-over'));
+    ideaDropzone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        ideaDropzone.classList.remove('drag-over');
+        importIdeaFile(e.dataTransfer.files && e.dataTransfer.files[0]);
     });
 
     // 下载按钮 - 角色档案（始终下载当前编辑后的内容）
@@ -498,8 +518,24 @@ function setupEventListeners() {
     document.getElementById('clearLogBtn').addEventListener('click', UI.clearLog);
 
     // 下载修改后的剧本（从 APP_STATE.currentScriptData 序列化）
-    document.getElementById('downloadScriptEditedBtn').addEventListener('click', () => {
+    document.getElementById('downloadScriptEditedBtn').addEventListener('click', async () => {
         if (!APP_STATE.currentScriptData) return;
+        try {
+            const response = await fetch(`${API_CONFIG.BASE_URL}/api/validate_script`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ script: APP_STATE.currentScriptData }),
+            });
+            const result = await response.json();
+            if (!response.ok || !result.valid) {
+                alert((result.errors || []).map(e => `${e.path}: ${e.message}`).join('\n'));
+                return;
+            }
+            APP_STATE.currentScriptData = result.data;
+            if (result.warnings.length) alert(result.warnings.map(w => `${w.code}: ${w.message}`).join('\n'));
+        } catch (error) {
+            alert(`剧本校验失败：${error.message}`);
+            return;
+        }
         const blob = new Blob(
             [JSON.stringify(APP_STATE.currentScriptData, null, 2)],
             { type: 'application/json' }

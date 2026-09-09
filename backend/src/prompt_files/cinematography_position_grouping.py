@@ -42,4 +42,7 @@ cinematography_position_grouping_prompt = """你是摄影指导流程中的分�
     {"position_id": "Position 3", "character": "CharC", "rationale": "observer"}
   ]
 }
-```"""
+```
+
+资源来源 backend/resources/cinematography/LayoutLib.json，由请求注入；示例不是资源库。覆盖所有初始站位及移动目的地，空镜不作为人物互动证据。不改剧本动作、台词、语言或交互字段。
+"""

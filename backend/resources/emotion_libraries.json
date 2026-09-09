@@ -1,0 +1,39 @@
+{
+  "libraries": {
+    "pixar_cartoon": {
+      "version": 4,
+      "source_style": "pixar_cartoon",
+      "target_characters": ["阿福", "陈阿嫲", "林阿公"],
+      "emotions": [
+        "normal",
+        "happy_soft", "happy_medium", "happy_strong", "happy_extreme",
+        "sad_soft", "sad_medium", "sad_strong", "sad_extreme",
+        "angry_soft", "angry_medium", "angry_strong", "angry_extreme",
+        "surprised_soft", "surprised_medium", "surprised_strong", "surprised_extreme",
+        "disgusted_soft", "disgusted_medium", "disgusted_strong",
+        "fear_soft", "fear_medium", "fear_strong", "fear_extreme",
+        "amused_soft", "amused_medium", "amused_strong",
+        "excited_soft", "excited_medium", "excited_strong", "excited_extreme",
+        "confused_soft", "confused_medium", "confused_strong",
+        "bored_soft", "bored_medium", "bored_strong",
+        "determined_soft", "determined_medium", "determined_strong",
+        "embarrassed_soft", "embarrassed_medium", "embarrassed_strong",
+        "relieved_soft", "relieved_medium", "relieved_strong",
+        "skeptical_soft", "skeptical_medium", "skeptical_strong",
+        "shy_soft", "shy_medium", "shy_strong",
+        "smug_soft", "smug_medium", "smug_strong",
+        "crying_soft", "crying_medium", "crying_strong", "crying_extreme",
+        "laughing_soft", "laughing_medium", "laughing_strong", "laughing_extreme",
+        "nervous_soft", "nervous_medium", "nervous_strong",
+        "sleepy_soft", "sleepy_medium", "sleepy_strong",
+        "helpless_soft", "helpless_medium", "helpless_strong",
+        "无奈_soft", "无奈_medium", "无奈_strong",
+        "thinking_soft", "thinking_medium", "thinking_strong"
+      ],
+      "styles": [
+        "default", "steady", "quick_reaction", "snap_reaction",
+        "slow_morph", "delayed_realize", "reaction_then_control", "conflict"
+      ]
+    }
+  }
+}

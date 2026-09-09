@@ -1,5 +1,7 @@
 # ScriptsGenerateAgent — 项目概述
 
+> 2026-09 最终格式更新：共享合同在 `backend/src/script_contract.py`，完整字段与冲突决策见 `docs/script_contract.md`。技术验证、补全后、摄影后和最终导出均检查；最终剧本、镜头、演员和多幕位置交叉校验通过，才从 `outputs/.pending/<run>` 发布。Word 导出及编辑器下载也复用合同。camera_script 的幕键为 shot_index；多幕位置文件使用 scenes 数组。下述历史多场景规划不改变此发布门禁。
+
 > 面向**接手本项目的人**的完整架构与数据流说明。读完应能理解：系统做什么、一次生成在内部如何流转、关键数据模型、各模块职责、以及目前正在规划的「多场景」改造。
 >
 > 配套文档：`CLAUDE.md`（给 AI 助手的项目规则与红线）、`README.md`（运行说明）、`docs/`（更早期的设计稿）。
@@ -164,7 +166,7 @@ ScriptsGenerateAgent/
 
 - **character beat**：`shot="character"` + `shot_blend` + `shot_type` + `Follow(0/1)` + `motion_detail`（必填，英文动作细节）。
 - **scene beat**：`shot` + `shot_blend` + `camera`。
-- **empty shot**：`speaker=""` 且 `content=""`（非 move）表示环境空镜；固定 `shot="scene"`、默认 `duration="5s"`、`actions=[]`，不含 `shot_type`/`Follow`。统一由 `scene_segments.py` 做确定性保护；文学审查跳过，摄影 Stage 1 生成/保留环境描述，Stage 2 不据此调整人物分组，Stage 3 跳过人物镜头分配。
+- **无说话人事件**：非 move 且 speaker=""，content 保留原文或“无台词”，duration 为正数秒默认 5，actions=[]。普通空镜的中间 shot=scene；最终主剧本不含摄影参数，由独立 camera_script 承载。统一由 scene_segments.py 保护，文学审查及人物镜头分配跳过。
 - **move**：角色移动。对齐下游 `ExecuteMoveEvent` 两种形态：①**基础移动**（只走不说）`{move:[{character, destination}]}`，move 可单对象或数组（多人同移），移动者**不写 action**（走路由系统驱动）；②**边走边说**——在 move 事件**顶层**加 `speaker`/`content`（+可选 emotion），说话人须为真实角色、非 default。落盘 `script` 的 move 事件镜头字段已剥离至 `camera_script`（沿用场景固定机位）。
 - 合法值：`VALID_SHOT_TYPE`（全景/中景/中近景/近景/仰拍/俯拍…）、`VALID_SHOT_BLEND`（运行时归一为 `cut/blend/easein`）、`VALID_LAYOUTS`（two_person/L_shape/triangle/line/square/arc/cluster/layered）。
 

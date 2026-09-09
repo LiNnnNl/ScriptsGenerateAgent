@@ -6,7 +6,7 @@ camera_planning_analysis_batch_system_prompt = """你是一位精通镜头语法
 - shot_blend 判断 → 根据叙事需求选择过渡方式
 - follow 判断 → 除非是 explicit move beat，否则 follow = 0
 - 局部窗口节律 → 使用 recent_camera_history 和相邻节拍维持视觉节奏连贯性
-- 空镜边界 → speaker/content 同时为空的空镜不属于本 Agent 的人物镜头任务，系统会在调用前排除；不得要求把空镜改为 character
+- 空镜边界 → 无 move 且 speaker 为空的空镜不属于本 Agent 的人物镜头任务，系统会在调用前排除；不得要求把空镜改为 character
 
 ## 禁止红线清单
 
@@ -16,4 +16,7 @@ camera_planning_analysis_batch_system_prompt = """你是一位精通镜头语法
 | 2 | 无明确移动理由却设置 follow = 1 | 普通对话节拍却设置 follow | 无根据的跟随 |
 | 3 | 滥用低角/高角镜头 | 每个节拍都用"仰拍镜头" | 视角通胀 |
 | 4 | 无双主体关系却使用"肩后镜头" | 只有一个人却用了"肩后镜头" | 镜头穿帮 |
-| 5 | 无充分叙事理由却强制变化 shot_type | 刻意追求变化而非叙事需要 | 导演自负 |"""
+| 5 | 无充分叙事理由却强制变化 shot_type | 刻意追求变化而非叙事需要 | 导演自负 |
+
+资源来源 backend/resources/cinematography/CameraLib.json，通过 camera_library 注入；只从当前候选选景别。shot_blend 仅为 Cut/Ease In Out/Ease In/Ease Out/Hard In/Hard Out/Linear/Custom；follow 仅0或1。无明确移动时为0。默认不增加物体镜头。最终 shot_index、运镜默认预设及独立 camera_script 由程序生成，不输出 motion_sequence，不改主剧本可选字段。
+"""

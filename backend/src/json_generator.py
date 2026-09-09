@@ -148,15 +148,15 @@ class ScriptJSONGenerator:
         for field in fields_to_strip:
             seg.pop(field, None)
         for action in seg.get("actions", []):
-            action.pop("state", None)
             action.setdefault("motion_detail", "")
         if is_empty_shot(seg):
             protect_empty_shot(seg, ensure_camera=preserve_shot_fields)
-        # 情绪分类（规则化，非LLM）
-        emotion_info = self.classify_segment(seg, prev)
-        seg["emotion"] = emotion_info["emotion"]
-        seg["confidence"] = emotion_info["confidence"]
-        seg["reason"] = emotion_info["reason"]
+        # Unity 支持按角色传入 emotion 数组；仅在未提供该结构时做单情绪分类。
+        if "emotion" not in seg:
+            emotion_info = self.classify_segment(seg, prev)
+            seg["emotion"] = emotion_info["emotion"]
+            seg["confidence"] = emotion_info["confidence"]
+            seg["reason"] = emotion_info["reason"]
         return seg
 
     # ── 情绪分类 ──
@@ -379,134 +379,18 @@ class ScriptJSONGenerator:
                 })
         return positions
     
-    def export_to_file(self, output_data: List[Dict], filepath: str):
+    def export_to_file(self, output_data: List[Dict], filepath: str, resource_loader=None):
         """导出为JSON文件"""
         import json
+        report = self.validate_against_spec(output_data, resource_loader)
+        if not report['valid']:
+            raise ValueError('拒绝导出不合规剧本: ' + json.dumps(report['errors'], ensure_ascii=False))
         with open(filepath, 'w', encoding='utf-8') as f:
-            json.dump(output_data, f, ensure_ascii=False, indent=2)
+            json.dump(output_data, f, ensure_ascii=False, indent=2, allow_nan=False)
     
     @staticmethod
-    def validate_against_spec(json_data: List[Dict]) -> Dict[str, any]:
-        # 允许的 emotion 标签（规则化分类）
-        EMOTION_WHITELIST = ["normal", "happy", "sad", "angry", "surprised", "disgusted", "fear"]
-        """
-        验证生成的JSON是否符合scene_json_spec.md规范
-        """
-        errors = []
-        warnings = []
-
-        # 检查根结构
-        if not isinstance(json_data, list):
-            errors.append("根结构必须是数组")
-            return {"valid": False, "errors": errors, "warnings": warnings}
-
-        for idx, scene_obj in enumerate(json_data):
-            # 检查scene information
-            if "scene information" not in scene_obj:
-                errors.append(f"场景{idx}: 缺少'scene information'字段")
-            else:
-                info = scene_obj["scene information"]
-                if "who" not in info or not isinstance(info["who"], list):
-                    errors.append(f"场景{idx}: 'who'字段必须是数组")
-                if "where" not in info:
-                    errors.append(f"场景{idx}: 缺少'where'字段")
-                if "what" not in info:
-                    errors.append(f"场景{idx}: 缺少'what'字段")
-
-            # initial position：每个角色必须声明初始姿态，且不得共用站位
-            initial_positions = scene_obj.get("initial position")
-            if not isinstance(initial_positions, list):
-                errors.append(f"场景{idx}: 'initial position'字段必须是数组")
-            else:
-                initial_occupants = {}
-                for pos_idx, entry in enumerate(initial_positions):
-                    if not isinstance(entry, dict):
-                        errors.append(f"场景{idx} initial position[{pos_idx}]: 必须是对象")
-                        continue
-                    if not str(entry.get("state") or "").strip():
-                        errors.append(f"场景{idx} initial position[{pos_idx}]: 缺少非空'state'字段")
-                    character = str(entry.get("character") or "").strip()
-                    position = str(entry.get("position") or "").strip()
-                    if character and position:
-                        initial_occupants.setdefault(position, set()).add(character)
-                for position, characters in initial_occupants.items():
-                    if len(characters) > 1:
-                        errors.append(
-                            f"场景{idx}: initial position 中不同人物不得共用 {position} "
-                            f"（{', '.join(sorted(characters))}）"
-                        )
-
-            # 检查scene数组
-            if "scene" not in scene_obj:
-                errors.append(f"场景{idx}: 缺少'scene'字段")
-            elif not isinstance(scene_obj["scene"], list):
-                errors.append(f"场景{idx}: 'scene'字段必须是数组")
-            else:
-                # 检查每个场景片段
-                for seg_idx, segment in enumerate(scene_obj["scene"]):
-                    current_occupants = {}
-                    for entry in segment.get("current position", []) or []:
-                        if not isinstance(entry, dict):
-                            continue
-                        character = str(entry.get("character") or "").strip()
-                        position = str(entry.get("position") or "").strip()
-                        if character and position:
-                            current_occupants.setdefault(position, set()).add(character)
-                    for position, characters in current_occupants.items():
-                        if len(characters) > 1:
-                            errors.append(
-                                f"场景{idx}片段{seg_idx}: current position 中不同人物不得共用 "
-                                f"{position}（{', '.join(sorted(characters))}）"
-                            )
-
-                    # ── emotion 字段验证 ──
-                    # 有 speaker 且有 content 的才是真正台词行（移动行跳过）
-                    is_dialogue = segment.get("speaker") and segment.get("content")
-                    if is_dialogue:
-                        emotion = segment.get("emotion")
-                        if emotion is None:
-                            errors.append(
-                                f"场景{idx}片段{seg_idx}: 缺少'emotion'字段 "
-                                f"（台词：'{segment.get('content', '')[:20]}'）"
-                            )
-                        elif emotion not in EMOTION_WHITELIST:
-                            errors.append(
-                                f"场景{idx}片段{seg_idx}: emotion='{emotion}' 不在白名单 "
-                                f"（允许值：{EMOTION_WHITELIST}）"
-                            )
-                        conf = segment.get("confidence")
-                        if conf is not None and not (0.0 <= conf <= 1.0):
-                            errors.append(
-                                f"场景{idx}片段{seg_idx}: confidence={conf} 超出 [0,1] 范围"
-                            )
-
-                    # 检查必填字段
-                    if "move" in segment:
-                        # 移动场景
-                        if "shot" not in segment:
-                            warnings.append(f"场景{idx}片段{seg_idx}: 移动场景缺少'shot'字段")
-                        if "current position" not in segment:
-                            errors.append(f"场景{idx}片段{seg_idx}: 缺少'current position'字段")
-                    else:
-                        # 对白/描述场景
-                        if "speaker" not in segment:
-                            errors.append(f"场景{idx}片段{seg_idx}: 缺少'speaker'字段")
-                        if "content" not in segment:
-                            errors.append(f"场景{idx}片段{seg_idx}: 缺少'content'字段")
-                        empty_shot = is_empty_shot(segment)
-                        if empty_shot and not segment.get("duration"):
-                            errors.append(f"场景{idx}片段{seg_idx}: 空镜缺少'duration'字段")
-                        if empty_shot and segment.get("shot") not in (None, "scene"):
-                            errors.append(f"场景{idx}片段{seg_idx}: 空镜的'shot'必须为'scene'")
-                        if "shot" not in segment:
-                            warnings.append(f"场景{idx}片段{seg_idx}: 缺少'shot'字段")
-                        if "actions" not in segment:
-                            errors.append(f"场景{idx}片段{seg_idx}: 缺少'actions'字段")
-                        if "current position" not in segment:
-                            errors.append(f"场景{idx}片段{seg_idx}: 缺少'current position'字段")
-
-        return {
-            "valid": len(errors) == 0,
-            "errors": errors,
-            "warnings": warnings
-        }
+    def validate_against_spec(json_data: List[Dict], resource_loader=None) -> Dict:
+        """Validate final script structure and resources using the shared contract."""
+        from .script_contract import validate_script
+        from .resource_loader import ResourceLoader
+        return validate_script(json_data, resource_loader or ResourceLoader())

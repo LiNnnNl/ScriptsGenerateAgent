@@ -71,6 +71,7 @@ class CameraPlanningStage:
         output_dir=None,
         stage_output_dir=None,
         progress_callback=None,
+        validation_feedback="",
     ):
         self.raw_script_json = self._load_json_like(script_json)
         self.scene_info_json = self._load_json_like(scene_info_json)
@@ -85,6 +86,7 @@ class CameraPlanningStage:
         self.stage_output_dir.mkdir(parents=True, exist_ok=True)
         self.output_path = self.output_dir / self.OUTPUT_FILENAME
         self.progress_callback = progress_callback
+        self.validation_feedback = validation_feedback
 
         self.script_payload = copy.deepcopy(self.raw_script_json)
         self.timeline_root = self._extract_timeline_root(self.script_payload)
@@ -257,7 +259,7 @@ class CameraPlanningStage:
         return build_analysis_system_prompt()
 
     def _analysis_batch_system_prompt(self) -> str:
-        return build_analysis_batch_system_prompt()
+        return build_analysis_batch_system_prompt() + ('\n修复上次镜头校验错误，按注入的 CameraLib 重选：\n' + self.validation_feedback if self.validation_feedback else '')
 
     def _analysis_user_prompt_payload(self, line_payload, fallback):
         return {

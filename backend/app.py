@@ -576,6 +576,22 @@ def get_script_content(filename):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@app.route('/api/validate_script', methods=['POST'])
+def validate_edited_script():
+    """Edited downloads use the same final-format gate as generated scripts."""
+    from src.script_contract import normalize_script, validate_script
+    body = request.get_json(silent=True)
+    if not isinstance(body, dict) or 'script' not in body:
+        return jsonify({'valid': False, 'errors': [{'path': '$', 'code': 'REQUEST', 'message': '缺少 script'}], 'warnings': []}), 400
+    try:
+        data, warnings = normalize_script(body['script'], resource_loader)
+        report = validate_script(data, resource_loader)
+        report['warnings'].extend(warnings)
+        return jsonify({**report, 'data': data if report['valid'] else None}), 200 if report['valid'] else 422
+    except (ValueError, TypeError, KeyError) as exc:
+        return jsonify({'valid': False, 'errors': [{'path': '$', 'code': 'SCHEMA', 'message': str(exc)}], 'warnings': []}), 422
+
+
 @app.route('/api/character_image/<gameobject_name>', methods=['GET'])
 def character_image(gameobject_name):
     """返回角色模型预览图（Images/<gameobject_name>.png）"""

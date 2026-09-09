@@ -950,7 +950,15 @@ body {
 .ob-beat.ob-dialogue {
     align-items: baseline;
     flex-wrap: wrap;
-    border-bottom: 1px dashed rgba(255,255,255,0.06);
+    margin: 4px 0;
+    padding: 7px 9px;
+    border: 1px solid rgba(212,175,55,0.2);
+    border-radius: 4px;
+    background: rgba(212,175,55,0.06);
+}
+.ob-beat.ob-empty-shot {
+    border-color: rgba(72,210,196,0.55);
+    background: rgba(45,160,150,0.18);
 }
 .ob-beat.ob-empty-shot .ob-speaker {
     color: #80cbc4;
@@ -1444,15 +1452,30 @@ body {
 
 /* 对白幕 */
 .sv-beat-dialogue {
-    background: rgba(255,255,255,0.03);
-    border: 1px solid rgba(212,175,55,0.12);
+    background: rgba(212,175,55,0.08);
+    border: 1px solid rgba(212,175,55,0.32);
     border-radius: 4px;
     padding: 14px 16px;
+    transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+}
+
+.sv-beat-dialogue:focus-within {
+    border-color: rgba(255,210,80,0.95);
+    background: rgba(212,175,55,0.16);
+    box-shadow: 0 0 0 2px rgba(212,175,55,0.25), 0 8px 24px rgba(0,0,0,0.24);
 }
 
 .sv-beat-empty-shot {
-    border-color: rgba(128,203,196,0.22);
-    background: rgba(128,203,196,0.045);
+    border-color: rgba(72,210,196,0.68);
+    border-left: 5px solid #48d2c4;
+    background: rgba(45,160,150,0.2);
+}
+
+.sv-beat-empty-shot:focus-within {
+    border-color: #6ff7e8;
+    border-left-color: #6ff7e8;
+    background: rgba(45,180,165,0.3);
+    box-shadow: 0 0 0 2px rgba(72,210,196,0.24), 0 8px 24px rgba(0,0,0,0.24);
 }
 
 .sv-speaker {
@@ -1558,7 +1581,9 @@ body {
     padding: 8px 16px;
     font-family: 'Roboto Mono', monospace;
     font-size: 0.75rem;
-    color: rgba(224,224,224,0.45);
+    color: rgba(224,224,224,0.78);
+    border-left: 3px solid rgba(180,120,255,0.7);
+    background: rgba(130,75,190,0.12);
 }
 
 .sv-move-arrow {
@@ -1690,6 +1715,9 @@ body {
     flex-wrap: wrap;
     gap: 6px;
     margin-top: 6px;
+    padding: 8px;
+    border-left: 3px solid rgba(100,160,255,0.75);
+    background: rgba(70,120,210,0.12);
 }
 .sv-shot-editor .sv-label {
     line-height: 26px;
@@ -1733,6 +1761,9 @@ body {
     flex-direction: column;
     gap: 4px;
     margin-top: 8px;
+    padding: 8px;
+    border-left: 3px solid rgba(255,170,70,0.7);
+    background: rgba(200,115,35,0.1);
 }
 .sv-action-list {
     display: flex;
@@ -1742,7 +1773,14 @@ body {
 .sv-action-row {
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: 6px;
+}
+.sv-action-preview {
+    flex-basis: 100%;
+    margin-left: 96px;
+    color: rgba(224,224,224,0.56);
+    font: 0.7rem/1.5 'Roboto Mono', monospace;
 }
 .sv-action-char,
 .sv-action-name {
@@ -2322,6 +2360,41 @@ select.cast-input optgroup {
     gap: 12px;
     margin-top: 10px;
     flex-wrap: wrap;
+    border: 1px dashed rgba(212, 175, 55, 0.25);
+    padding: 10px;
+    transition: border-color 0.2s, background 0.2s;
+}
+
+.idea-file-section.drag-over {
+    border-color: var(--gold);
+    background: rgba(212, 175, 55, 0.09);
+}
+
+.generation-options {
+    display: grid;
+    grid-template-columns: minmax(150px, 0.35fr) minmax(260px, 1fr);
+    gap: 12px;
+    margin-bottom: 18px;
+}
+
+.generation-options label { color: var(--gold); font-size: 0.85em; }
+.generation-options input,
+.generation-options select {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    margin-top: 6px;
+    padding: 9px 10px;
+    border: 1px solid rgba(212,175,55,0.3);
+    background: rgba(31,31,31,0.82);
+    color: var(--text-light);
+}
+
+.ob-screenplay {
+    margin: 0;
+    white-space: pre-wrap;
+    font: 0.8rem/1.8 'Roboto Mono', monospace;
+    color: var(--text-light);
 }
 
 .idea-file-btn {
@@ -2336,6 +2409,11 @@ select.cast-input optgroup {
 
 .idea-file-btn:hover {
     background: rgba(212, 175, 55, 0.15);
+}
+
+.idea-file-btn-header {
+    flex-shrink: 0;
+    margin-left: 4px;
 }
 
 .idea-file-hint {

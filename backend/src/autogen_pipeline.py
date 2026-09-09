@@ -58,6 +58,7 @@ from .resource_loader import ResourceLoader, Character, Scene
 from .script_style_skill import ScriptStyleSkill
 from .script_tone_skill import ScriptToneSkill
 from .json_generator import ScriptJSONGenerator, normalize_initial_position_states
+from .script_contract import normalize_script, validate_script, validate_bundle, normalize_camera_resources
 from .scene_segments import is_empty_shot, protect_empty_shot, protect_empty_shots
 from .cinematography import run_cinematography_pipeline
 from .schema import (
@@ -68,6 +69,79 @@ from .schema import (
 
 # 最大审查轮次（超限后强制进入验证阶段）
 MAX_REVIEW_ROUNDS = 3
+
+
+async def _enforce_contract(script, loader, director, bridge, scene_map, act_count,
+                            required_names, character_count, *, final=False, preserve_story=True):
+    """At most three model repairs; no invalid script can pass this gate."""
+    import copy
+    candidate = copy.deepcopy(script)
+    locked_text = [[(e.get('speaker'), e.get('content')) for e in a.get('scene', [])]
+                   for a in script] if isinstance(script, list) else None
+    seen_errors = set()
+    for attempt in range(4):
+        if isinstance(candidate, list):
+            for i, act in enumerate(candidate):
+                if isinstance(act, dict) and isinstance(act.get('scene information'), dict) and i in scene_map:
+                    act['scene information']['where'] = scene_map[i].id
+        normalized, empty_warnings = normalize_script(candidate, loader)
+        report = validate_script(normalized, loader, final=final, act_count=act_count,
+                                 required_names=required_names, character_count=character_count)
+        report['warnings'] = list({json.dumps(w, sort_keys=True, ensure_ascii=False): w
+                                   for w in empty_warnings + report['warnings']}.values())
+        if report['valid']:
+            # Preserve only the camera/position intermediates needed by cinematography.
+            for act, clean in zip(candidate, normalized):
+                act['scene information'] = clean['scene information']
+                act['initial position'] = clean['initial position']
+                for beat, clean_beat in zip(act['scene'], clean['scene']):
+                    beat.update(clean_beat)
+            _emit_output(bridge, 'ValidationAgent', report, fmt='validation')
+            return candidate, report
+        fingerprint = json.dumps(report['errors'], sort_keys=True, ensure_ascii=False)
+        _emit_output(bridge, 'ValidationAgent', report, fmt='validation')
+        if attempt == 3 or fingerprint in seen_errors:
+            raise ValueError('剧本格式校验失败，未发布最终文件：' + fingerprint)
+        seen_errors.add(fingerprint)
+        _emit_stage_log(bridge, 'warning', 'validation', 'repair', f'格式修复 {attempt + 1}/3：{len(report["errors"])} 个错误')
+        story_rule = ('保留幕数、事件数、顺序及每个事件的 speaker/content 原文。' if preserve_story else
+                      '保留幕数和各幕事件数、已有非空对白及其说话人、动作和移动数量。'
+                      '这是 AI 创作草稿：允许在同一幕调整事件顺序来修复姿态连续性，'
+                      '允许为错误的空台词补写短句；重新编号 event_index 并更新位置快照。')
+        prompt = ('仅修复下列 JSON 路径的格式、资源选择和连续性错误。' + story_rule +
+                  '不得删除事件或合法可选字段；不得用空动作绕过非法动作。'
+                  'candidates 是真实合法候选；空资源库名称留空。输出完整 JSON 数组。\n'
+                  + json.dumps({'errors': report['errors'], 'script': candidate}, ensure_ascii=False))
+        repaired = await _run_director_agent(director, prompt, bridge, 'DirectorAgent（格式修复）')
+        if not isinstance(repaired, list):
+            raise ValueError('格式修复未返回剧本数组')
+        repaired_text = [[(e.get('speaker'), e.get('content')) for e in a.get('scene', [])] for a in repaired]
+        if preserve_story and repaired_text != locked_text:
+            raise ValueError('格式修复改变了事件数量、顺序或对白，已拒绝发布')
+        if not preserve_story:
+            from collections import Counter
+            if len(repaired) != len(candidate):
+                raise ValueError('格式修复改变了幕数，已拒绝发布')
+            for old_act, new_act in zip(candidate, repaired):
+                old_beats, new_beats = old_act['scene'], new_act['scene']
+                lines = lambda beats: Counter((e.get('speaker'), e.get('content')) for e in beats if e.get('content'))
+                if len(old_beats) != len(new_beats) or lines(old_beats) - lines(new_beats):
+                    raise ValueError('格式修复删除了事件或改写了已有对白，已拒绝发布')
+                for key in ('actions', 'move'):
+                    if sum(len(e.get(key, [])) for e in old_beats) != sum(len(e.get(key, [])) for e in new_beats):
+                        raise ValueError('格式修复增删了动作或移动，已拒绝发布')
+            candidate = repaired
+            continue
+        for old_act, new_act in zip(candidate, repaired):
+            for old, new in zip(old_act['scene'], new_act['scene']):
+                for key in ('actions', 'move'):
+                    if isinstance(old.get(key), list) and len(new.get(key, [])) != len(old[key]):
+                        raise ValueError('格式修复增删了动作或移动，已拒绝发布')
+                for key in ('content_variants', 'language_track', 'then-interact'):
+                    if key in old and key not in new:
+                        raise ValueError('格式修复删除了可选字段，已拒绝发布')
+        candidate = repaired
+
 
 
 def _emit_output(bridge: "AutoGenStreamBridge", agent: str, content, fmt: str = 'script') -> None:
@@ -246,6 +320,49 @@ def _filter_script_for_review(script: list) -> str:
             })
         filtered.append(filtered_scene)
     return json.dumps(filtered, ensure_ascii=False, indent=2)
+
+
+def _render_plaintext_screenplay(script: list) -> str:
+    """将结构化初稿转成适合人读的中间剧本，不引入第二次 AI 改写。"""
+    lines = ["《中间剧本》", "格式：幕 / 场景 / 人物 / 画面、动作与台词"]
+    for scene_index, scene in enumerate(script or [], 1):
+        info = scene.get("scene information", {}) or {}
+        lines.extend([
+            "",
+            f"第{scene_index}幕｜{info.get('where') or '未指定场景'}",
+            f"人物：{'、'.join(info.get('who') or []) or '未指定'}",
+        ])
+        if info.get("what"):
+            lines.append(f"场景：{info['what']}")
+        for beat in scene.get("scene", []) or []:
+            if beat.get("move"):
+                moves = beat["move"] if isinstance(beat["move"], list) else [beat["move"]]
+                text = "；".join(
+                    f"{move.get('character', '角色')}走向{move.get('destination', '指定位置')}"
+                    for move in moves if isinstance(move, dict)
+                )
+                if text:
+                    lines.append(f"【动作】{text}")
+            if "speaker" not in beat:
+                continue
+            speaker = (beat.get("speaker") or "").strip()
+            content = (beat.get("content") or "").strip()
+            description = (beat.get("shot_description") or beat.get("motion_description") or "").strip()
+            if is_empty_shot(beat):
+                duration = beat.get('duration') or 5
+                duration_text = f'{duration}秒' if isinstance(duration, (int, float)) else str(duration)
+                lines.append(f"【空镜】{description or '环境画面'}（{duration_text}）")
+                continue
+            if description:
+                lines.append(f"【镜头】{description}")
+            actions = "；".join(
+                action.get("motion_detail") or action.get("action") or ""
+                for action in beat.get("actions", []) or [] if isinstance(action, dict)
+            )
+            if actions:
+                lines.append(f"【动作】{actions}")
+            lines.append(f"{speaker or '旁白'}：{content}")
+    return "\n".join(lines)
 
 
 def _build_title_input(script: list) -> str:
@@ -1104,6 +1221,8 @@ async def run_autogen_pipeline(
     creative_idea = (request_params.get('creative_idea') or '').strip()
     requested_script_style_id = str(request_params.get('script_style_id') or '').strip()
     requested_script_tone_id = str(request_params.get('script_tone_id') or '').strip()
+    dialogue_language = str(request_params.get('dialogue_language') or 'mandarin').strip()
+    shot_style_reference = str(request_params.get('shot_style_reference') or '').strip()[:500]
     required_character_count = int(request_params.get('required_character_count', 0) or 0)
     act_count = max(1, min(10, int(request_params.get('act_count', 3) or 3)))
     # 直接模式：跳过创意会议/起草/审查，直接用用户提供的剧本（creative_idea），只补必要字段
@@ -1132,6 +1251,16 @@ async def run_autogen_pipeline(
     # 去重，保持顺序
     seen = set()
     user_constraints = [c for c in user_constraints if not (tuple(c) in seen or seen.add(tuple(c)))]
+    if dialogue_language == 'minnan' and not direct_mode:
+        user_constraints.append(
+            '所有人物台词使用自然、口语化的闽南语（优先台湾闽南语常用汉字表达），'
+            '必要时可在生僻词后用括号补普通话释义；场景、动作和镜头说明仍使用普通话。'
+        )
+    if shot_style_reference and not direct_mode:
+        user_constraints.append(
+            f'镜头风格参考：{shot_style_reference}。仅参考其节奏、构图、运镜和剪辑气质，'
+            '不得照搬受版权保护的具体画面或内容。'
+        )
 
     # ── 剧本风格 Skill：由导演入口统一锁定一次，供所有 Agent 共享 ──
     style_skill = ScriptStyleSkill()
@@ -1492,6 +1621,7 @@ async def run_autogen_pipeline(
 
             logger.info("[DirectorAgent] 生成完成，场景数=%d（尝试%d）", len(draft_script), shot_attempt + 1)
             _emit_output(bridge, label, draft_script)
+            _emit_output(bridge, 'DirectorAgent（自然语言中间稿）', _render_plaintext_screenplay(draft_script), fmt='screenplay')
 
             shot_struct = validate_script_shot_structure(draft_script)
             if shot_struct["valid"]:
@@ -1579,14 +1709,15 @@ async def run_autogen_pipeline(
 
             revision_prompt = (
                 f"请根据以下审查意见修改剧本，输出完整的修改后 JSON，不要有其他说明文字：\n\n"
+                + f"用户原始要求（不得被审查建议覆盖）：{creative_idea}\n\n"
                 + "\n".join(revision_parts)
                 + "\n\n重要：\n"
                 "- 每个角色动作的 `motion_detail` 字段必须保留原有内容，不得将其置为空字符串。\n"
-                "- 空镜（speaker/content 同时为空）必须原样保留；shot 固定为 `scene`，不得补台词、人物动作或人物镜头字段。\n"
+                "- 无说话人事件（无 move 且 speaker 为空）必须保留 content 原文、duration 和 actions=[]，不得补配音台词。\n"
                 + ("".join(f"- 用户约束：{c}（不得违背）\n" for c in user_constraints) if user_constraints else "")
                 + ("".join(f"- 固定对白（不得修改）：{d['speaker']}：{d['content']}\n" for d in fixed_dialogues) if fixed_dialogues else "")
                 + (f"- 目标对白行数：至少 {target_dialogue_lines} 行，当前不足请扩充。\n" if target_dialogue_lines else "")
-                + "\n当前剧本：\n```json\n{json.dumps(draft_script, ensure_ascii=False, indent=2)}\n```"
+                + f"\n当前剧本：\n```json\n{json.dumps(draft_script, ensure_ascii=False, indent=2)}\n```"
             )
 
             _emit_stage_log(
@@ -1644,68 +1775,20 @@ async def run_autogen_pipeline(
 
     validation_result = None
 
-    if model_supports_tools:
-        # 模型支持工具调用：由 ValidationAgent 调用 FunctionTool 验证
-        draft_json_str = json.dumps(draft_script, ensure_ascii=False)
-        async for event in validator.on_messages_stream(
-            [TextMessage(content=f"请验证以下剧本 JSON 字符串：\n{draft_json_str}", source="user")],
-            cancellation_token=CancellationToken()
-        ):
-            if hasattr(event, 'inner_messages'):
-                for msg in (event.inner_messages or []):
-                    if isinstance(msg, ToolCallExecutionEvent):
-                        _emit_stage_log(bridge, 'info', 'validation', 'tool', '🔍 [技术验证期] 正在执行技术验证...')
-            elif hasattr(event, 'chat_message') and event.chat_message:
-                validation_result = _extract_validation_json(event.chat_message.content)
-
-    if validation_result is None:
-        # 直接用 Python 函数验证（主路径，或 Agent 输出解析失败时的兜底）
-        logger.info("使用 Python 直接验证")
-        constraints_result = validate_script_constraints(draft_script, scene, resource_loader)
-        spec_result = validate_json_spec(draft_script)
-        validation_result = {
-            'valid': constraints_result['valid'] and spec_result['valid'],
-            'errors': constraints_result['errors'] + spec_result['errors'],
-            'warnings': constraints_result['warnings'] + spec_result['warnings'],
-        }
-
-    for w in validation_result.get('warnings', []):
-        _emit_stage_log(bridge, 'warning', 'validation', 'warning', f'⚠️  {w}')
-
-    if not validation_result.get('valid', False):
-        errors = validation_result.get('errors', [])
-        logger.warning("验证未通过 errors=%d，执行 Python 自动修复", len(errors))
-        _emit_stage_log(bridge, 'info', 'validation', 'autofix', '🔧 [技术验证期] 执行自动修复...')
-
-        draft_script = auto_fix_script(draft_script, scene, resource_loader)
-        protect_empty_shots(draft_script, ensure_camera=True)
-
-        # 修复后二次验证，确认结果
-        constraints_result = validate_script_constraints(draft_script, scene, resource_loader)
-        spec_result = validate_json_spec(draft_script)
-        validation_result = {
-            'valid': constraints_result['valid'] and spec_result['valid'],
-            'errors': constraints_result['errors'] + spec_result['errors'],
-            'warnings': constraints_result['warnings'] + spec_result['warnings'],
-        }
-        for w in validation_result.get('warnings', []):
-            _emit_stage_log(bridge, 'warning', 'validation', 'warning', f'⚠️  {w}')
-        for e in validation_result.get('errors', []):
-            _emit_stage_log(bridge, 'warning', 'validation', 'remaining_error', f'⚠️  自动修复后仍存在错误（将强制输出）: {e}')
-
-    if validation_result.get('valid', False):
-        _emit_stage_log(bridge, 'success', 'validation', 'result', '✅ [技术验证期] 技术约束验证通过')
-    else:
-        _emit_stage_log(bridge, 'warning', 'validation', 'result', '⚠️  [技术验证期] 部分技术错误无法自动修复，强制输出')
-
-    _emit_output(bridge, 'ValidationAgent', validation_result, fmt='validation')
+    # ValidationAgent is advisory; Python is always the authoritative gate.
+    draft_script, validation_result = await _enforce_contract(
+        draft_script, resource_loader, director, bridge, act_scene_map,
+        act_count, [c.name for c in characters],
+        required_character_count or len(characters) or 2,
+        preserve_story=direct_mode,
+    )
 
     # ── 阶段四 后半：最终封包输出（纯 Python）──
     import asyncio as _asyncio
     _running_loop = _asyncio.get_running_loop()
     timestamp = time.time_ns()
-    output_dir = Path('outputs')
-    output_dir.mkdir(exist_ok=True)
+    output_dir = Path('outputs') / '.pending' / str(timestamp)
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     _emit_stage_log(bridge, 'info', 'output', 'start', '💾 [输出阶段] 正在生成最终 JSON 并保存文件...')
 
@@ -1758,8 +1841,13 @@ async def run_autogen_pipeline(
                                 f'⚠️ [对白补写] 补写请求失败，保留原始剧本: {_e}')
             if filled_script:
                 protect_empty_shots(filled_script, ensure_camera=True)
+                draft_script, validation_result = await _enforce_contract(
+                    filled_script, resource_loader, director, bridge, act_scene_map,
+                    act_count, [c.name for c in characters], required_character_count or len(characters) or 2,
+                    preserve_story=direct_mode,
+                )
                 # 补写结果仍需经过 generator 规范化（补充 emotion 字段等）
-                final_json = generator.generate_final_json(filled_script, plot_summary, act_scene_ids=act_scene_ids)
+                final_json, _ = normalize_script(draft_script, resource_loader)
                 new_lines = sum(
                     1 for act in final_json
                     for line in act.get('scene', [])
@@ -1771,7 +1859,6 @@ async def run_autogen_pipeline(
 
     filename = f"script_{timestamp}.json"
     filepath = output_dir / filename
-    generator.export_to_file(final_json, str(filepath))
 
     script_title = await _generate_script_title(final_json, bridge)
 
@@ -1798,7 +1885,7 @@ async def run_autogen_pipeline(
                 if speaker and content:
                     total_lines += 1
                     total_chars += len(content)
-                elif 'speaker' in line and 'content' in line and not str(speaker).strip() and not str(content).strip():
+                elif is_empty_shot(line):
                     empty_shot_secs += _parse_duration_secs(line.get('duration', '5s'))
         # 按每字5字符/秒估算，附加场景/动作描述用时
         dialogue_secs = total_chars / 5
@@ -1825,7 +1912,7 @@ async def run_autogen_pipeline(
         json.dump(_base_detail, _pdf, ensure_ascii=False, indent=2)
 
     # ── 阶段五：摄影指导后处理（默认启用） ──
-    if True:
+    for cine_attempt in range(3):
         _emit_stage_log(bridge, 'info', 'cinematography', 'start', '🎥 [摄影指导期] 摄影指导智能体开始规划画面和镜头...')
 
         try:
@@ -1849,33 +1936,37 @@ async def run_autogen_pipeline(
                 camera_script_filename = cine_result.get("camera_script_filename")
                 position_plan_filename = cine_result.get("position_plan_filename")
                 position_detail_filename = cine_result.get("position_detail_filename")
-                # 摄影管线返回的 position_plan/position_detail 可能已被 Stage3 部分覆写；
-                # 重新从 Stage2 的原始产出读取（未被 Stage3 破坏的版本）以确保 region/lookat 正确
-                _stage2_plan_path = output_dir / "CinematographyStages" / "position_stage2_planning.json"
-                _stage2_detail_path = output_dir / "CinematographyStages" / "director_stage2_position_planning.json"
-                if _stage2_plan_path.exists():
-                    with open(_stage2_plan_path, "r", encoding="utf-8") as _f:
-                        _stage2_plan = json.load(_f)
-                    with open(output_dir / position_plan_filename, "w", encoding="utf-8") as _f:
-                        json.dump(_stage2_plan, _f, ensure_ascii=False, indent=2)
-                if _stage2_detail_path.exists():
-                    with open(_stage2_detail_path, "r", encoding="utf-8") as _f:
-                        _raw = json.load(_f)
-                        _stage2_detail = _raw.get("position_detail") or _raw
-                    with open(output_dir / position_detail_filename, "w", encoding="utf-8") as _f:
-                        json.dump(_stage2_detail, _f, ensure_ascii=False, indent=2)
-                # 用摄影指导结果重新生成并覆写 script_*.json（保留已填写的摄影字段）
-                final_json = generator.generate_final_json(draft_script, plot_summary, preserve_shot_fields=True, act_scene_ids=act_scene_ids)
-                generator.export_to_file(final_json, str(filepath))
+                # Per-act position files from this run are authoritative; never read shared stale stage files.
+                checked, _ = normalize_script(draft_script, resource_loader)
+                final_check = validate_script(checked, resource_loader, act_count=act_count,
+                    required_names=[c.name for c in characters], character_count=required_character_count or len(characters) or 2)
+                if not final_check['valid']:
+                    if cine_attempt == 2:
+                        raise ValueError(json.dumps(final_check['errors'], ensure_ascii=False))
+                    draft_script, validation_result = await _enforce_contract(
+                        draft_script, resource_loader, director, bridge, act_scene_map,
+                        act_count, [c.name for c in characters], required_character_count or len(characters) or 2,
+                        final=True,
+                        preserve_story=direct_mode,
+                    )
+                    continue
                 _emit_stage_log(bridge, 'success', 'cinematography', 'result',
                                 f'✅ [摄影指导期] 摄影规划完成，镜头参数已写入 camera_script')
+                break
             else:
-                _emit_stage_log(bridge, 'warning', 'cinematography', 'failed',
-                                f'⚠️ [摄影指导期] 摄影规划失败（{cine_result.get("error")}），使用基础镜头参数继续')
+                raise ValueError(f'摄影规划失败：{cine_result.get("error")}')
         except Exception as _cine_exc:
             logger.exception("[Cinematography] 阶段五异常")
-            _emit_stage_log(bridge, 'warning', 'cinematography', 'exception',
-                            f'⚠️ [摄影指导期] 摄影规划异常：{_cine_exc}，继续使用基础镜头参数')
+            raise ValueError(f'摄影规划未通过，未发布最终文件：{_cine_exc}') from _cine_exc
+
+    final_json, empty_warnings = normalize_script(draft_script, resource_loader)
+    validation_result = validate_script(final_json, resource_loader, act_count=act_count,
+        required_names=[c.name for c in characters], character_count=required_character_count or len(characters) or 2)
+    validation_result['warnings'].extend(empty_warnings)
+    if not validation_result['valid']:
+        raise ValueError('摄影后剧本校验失败：' + json.dumps(validation_result['errors'], ensure_ascii=False))
+    duration_info = _calc_duration(final_json)
+    generator.export_to_file(final_json, str(filepath), resource_loader)
 
     # 提取出现的角色，生成 actors_profile.json
     actor_names = []
@@ -1973,6 +2064,24 @@ async def run_autogen_pipeline(
     with open(actors_filepath, 'w', encoding='utf-8') as f:
         _json.dump(actors_profile, f, ensure_ascii=False, indent=2)
 
+    def read_output(name):
+        return json.loads((output_dir / name).read_text(encoding='utf-8'))
+    camera_document = normalize_camera_resources(read_output(camera_script_filename), final_json, resource_loader)
+    (output_dir / camera_script_filename).write_text(json.dumps(camera_document, ensure_ascii=False, indent=2), encoding='utf-8')
+    bundle_report = validate_bundle(final_json, camera_document, actors_profile,
+        resource_loader, read_output(position_plan_filename), read_output(position_detail_filename))
+    validation_result['errors'].extend(bundle_report['errors'])
+    validation_result['warnings'].extend(bundle_report['warnings'])
+    validation_result['valid'] = not validation_result['errors']
+    report_filename = f'validation_{timestamp}.json'
+    (output_dir / report_filename).write_text(json.dumps(validation_result, ensure_ascii=False, indent=2), encoding='utf-8')
+    if not validation_result['valid']:
+        raise ValueError('最终产物交叉校验失败：' + json.dumps(validation_result['errors'], ensure_ascii=False))
+    # Only validated artifacts are made downloadable and registered as successful.
+    for name in (filename, camera_script_filename, actors_profile_filename,
+                 position_plan_filename, position_detail_filename, report_filename):
+        os.replace(output_dir / name, Path('outputs') / name)
+
     _emit_stage_log(bridge, 'success', 'output', 'actors_profile', f'✅ 已生成角色档案：{len(actors_profile)} 位演员')
 
     session_id = str(timestamp)
@@ -1986,6 +2095,7 @@ async def run_autogen_pipeline(
             "actors_profile": actors_profile_filename,
             "position_plan": position_plan_filename,
             "position_detail": position_detail_filename,
+            "validation": report_filename,
         },
         scene_id=session_scene_id,
         act_count=act_count,
@@ -2003,6 +2113,7 @@ async def run_autogen_pipeline(
         'position_plan_filename': position_plan_filename,
         'position_detail_filename': position_detail_filename,
         'session_id': session_id,
+        'validation_filename': report_filename,
         'title': script_title,
         'estimated_duration': duration_info,
         'warnings': validation_result.get('warnings', []) if validation_result else []

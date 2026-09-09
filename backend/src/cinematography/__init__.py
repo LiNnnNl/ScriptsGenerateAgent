@@ -96,6 +96,8 @@ def run_cinematography_pipeline(script, scene, resource_dir, output_dir, timesta
         stage3_all = []
         last_position_plan = None
         last_position_detail = None
+        all_position_plans = []
+        all_position_details = []
         # Per-scene data kept for the Stage-3 retry loop
         _scene_retry_data = []
 
@@ -170,7 +172,7 @@ def run_cinematography_pipeline(script, scene, resource_dir, output_dir, timesta
                 logger.info("[Cinematography] Stage 2 done: %s",
                             scene_obj.get("scene information", {}).get("where", "?"))
             except Exception as e:
-                logger.warning("[Cinematography] Stage 2 failed, skipping position plan: %s", e)
+                raise ValueError(f'站位规划失败，禁止发布不完整结果: {e}') from e
 
             # ── Stage 3: CameraPlanningStage ────────────────────────
             try:
@@ -203,6 +205,8 @@ def run_cinematography_pipeline(script, scene, resource_dir, output_dir, timesta
             _normalise_shot_blend(final_scene)
 
             enriched_script.append(final_scene)
+            all_position_plans.append(position_plan_json)
+            all_position_details.append(position_detail_json)
             _scene_retry_data.append({
                 "scene_obj": final_scene,
                 "scene_info": scene_info,
@@ -228,6 +232,8 @@ def run_cinematography_pipeline(script, scene, resource_dir, output_dir, timesta
                 logger.warning("[Cinematography] camera_script validation failed:\n%s", error_desc)
 
                 failed_scene_indices = {err["scene_index"] for err in validation["errors"]}
+                if -1 in failed_scene_indices:
+                    failed_scene_indices = set(range(len(_scene_retry_data)))
                 for retry_si in failed_scene_indices:
                     if retry_si >= len(_scene_retry_data):
                         continue
@@ -241,6 +247,7 @@ def run_cinematography_pipeline(script, scene, resource_dir, output_dir, timesta
                         )
                     try:
                         stage3_retry = CameraPlanningStage(
+                            validation_feedback=error_desc,
                             script_json=data["scene_obj"],
                             scene_info_json=data["scene_info"],
                             camera_lib_json=camera_lib,
@@ -270,14 +277,11 @@ def run_cinematography_pipeline(script, scene, resource_dir, output_dir, timesta
                 if retry_validation["valid"]:
                     logger.info("[Cinematography] camera_script validation passed after Stage 3 retry")
                 else:
-                    logger.warning(
-                        "[Cinematography] camera_script still invalid after retry (using best-effort):\n%s",
-                        _format_camera_script_errors(retry_validation["errors"]),
-                    )
+                    raise ValueError(_format_camera_script_errors(retry_validation['errors']))
             else:
                 logger.info("[Cinematography] camera_script validation passed")
         except Exception as val_exc:
-            logger.warning("[Cinematography] camera_script validation error (skipped): %s", val_exc)
+            raise ValueError(f'镜头校验失败: {val_exc}') from val_exc
 
         camera_script_filename = f"camera_script_{timestamp}.json"
         with open(output_dir / camera_script_filename, "w", encoding="utf-8") as f:
@@ -287,9 +291,9 @@ def run_cinematography_pipeline(script, scene, resource_dir, output_dir, timesta
         position_plan_filename = f"position_plan_{timestamp}.json"
         position_detail_filename = f"position_detail_{timestamp}.json"
         with open(output_dir / position_plan_filename, "w", encoding="utf-8") as f:
-            json.dump(last_position_plan or {"where": "", "groups": [], "singles": []}, f, ensure_ascii=False, indent=2)
+            json.dump(all_position_plans[0] if len(all_position_plans) == 1 else {"scenes": all_position_plans}, f, ensure_ascii=False, indent=2)
         with open(output_dir / position_detail_filename, "w", encoding="utf-8") as f:
-            json.dump(last_position_detail or {"where": "", "groups": [], "singles": []}, f, ensure_ascii=False, indent=2)
+            json.dump(all_position_details[0] if len(all_position_details) == 1 else {"scenes": all_position_details}, f, ensure_ascii=False, indent=2)
 
         return {
             "ok": True,
@@ -319,7 +323,7 @@ def _backup_scene_shots(scene_obj):
             continue
         empty_shot = is_empty_shot(beat)
         if "move" in beat or empty_shot:
-            entry = {"shot": "scene", "empty_shot": empty_shot}
+            entry = {"shot": beat.get('shot') if beat.get('shot') == 'object' else 'scene', "empty_shot": empty_shot}
             if "camera" in beat:
                 entry["camera"] = beat["camera"]
             if empty_shot:
@@ -413,13 +417,15 @@ def _build_camera_script(enriched_script, camera_lib):
             if not isinstance(beat, dict):
                 continue
 
-            shot_type = beat.get("shot_type", "")
+            shot_type = beat.get("shot_type") or ("全景" if beat.get('shot') == 'scene' else "中景")
             cam_def = camera_lib.get(shot_type, {})
             default_preset = cam_def.get("DefaultMotionPreset", "none")
-            motion_enabled = default_preset != "none"
+            motion_enabled = default_preset != "none" and beat.get('shot') != 'scene'
+            if not motion_enabled:
+                default_preset = 'none'
 
             # Camera subject: speaker for dialogue beats, first mover for move beats
-            target = beat.get("speaker") or ""
+            target = beat.get('target', '') if beat.get('shot') == 'object' else beat.get("speaker") or ""
             if not target:
                 moves = beat.get("move") or []
                 if moves and isinstance(moves, list):
@@ -458,6 +464,12 @@ def _build_camera_script(enriched_script, camera_lib):
                 "motion_enabled": motion_enabled,
                 "motion_preset": default_preset,
             }
+            if beat.get('shot') == 'object':
+                event['target'] = beat.get('target', '')
+                if 'target_anchor' in beat:
+                    event['target_anchor'] = beat['target_anchor']
+                if 'duration' in beat:
+                    event['duration'] = beat['duration']
             if motion_enabled:
                 event["play_motion_on_activate"] = True
                 event["motion_start_delay"] = 0.0
@@ -465,7 +477,7 @@ def _build_camera_script(enriched_script, camera_lib):
 
             events.append(event)
 
-        scenes.append({"scene_index": scene_index, "events": events})
+        scenes.append({"shot_index": scene_index, "events": events})
 
     return {"scenes": scenes}
 

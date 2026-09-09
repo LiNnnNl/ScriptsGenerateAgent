@@ -1,0 +1,201 @@
+[
+  {
+    "scene information": {
+      "who": [
+        "RC-01 观测者",
+        "TR-4 检修者"
+      ],
+      "where": "Auditorium",
+      "what": "排练后一起离开礼堂",
+      "emotionLibrary": "",
+      "language_config": {
+        "version": 1,
+        "default_track": "zh_hans_cmn",
+        "tracks": [
+          {
+            "id": "zh_hans_cmn",
+            "label": "中文-普通话",
+            "content_language": "zh-Hans",
+            "speech_language": "cmn-Hans-CN",
+            "tts_prompt_suffix": "普通话。"
+          },
+          {
+            "id": "en_us",
+            "label": "English-英语",
+            "content_language": "en",
+            "speech_language": "en-US",
+            "tts_prompt_suffix": "英语。"
+          }
+        ]
+      }
+    },
+    "initial position": [
+      {
+        "character": "RC-01 观测者",
+        "position": "Position 1",
+        "state": "standing"
+      },
+      {
+        "character": "TR-4 检修者",
+        "position": "Position 2",
+        "state": "sitting"
+      }
+    ],
+    "scene": [
+      {
+        "speaker": "RC-01 观测者",
+        "content": "我们该走了。",
+        "actions": [],
+        "current position": [
+          {
+            "character": "RC-01 观测者",
+            "position": "Position 1"
+          },
+          {
+            "character": "TR-4 检修者",
+            "position": "Position 2"
+          }
+        ],
+        "shot_description": "RC-01 观测者 stands on the left facing TR-4 检修者 on the right in the foreground.",
+        "language_track": "zh_hans_cmn",
+        "content_variants": {
+          "zh_hans_cmn": "我们该走了。",
+          "en_us": "We should go."
+        },
+        "emotion": [
+          {
+            "character": "RC-01 观测者",
+            "emotion": "",
+            "emotionStyle": ""
+          }
+        ],
+        "event_index": 0,
+        "confidence": 0,
+        "reason": "未提供情绪判断",
+        "then-interact": [
+          {
+            "target": "",
+            "action": "",
+            "delay": 0
+          }
+        ]
+      },
+      {
+        "speaker": "TR-4 检修者",
+        "content": "等我站起来。",
+        "language_track": "zh_hans_cmn",
+        "content_variants": {
+          "zh_hans_cmn": "等我站起来。",
+          "en_us": "Let me stand up."
+        },
+        "actions": [
+          {
+            "character": "TR-4 检修者",
+            "state": "sitting",
+            "action": "Stand Up",
+            "motion_detail": "Rises slowly from the seat.",
+            "then-interact": {
+              "target": "",
+              "action": "",
+              "delay": 0.2
+            }
+          }
+        ],
+        "current position": [
+          {
+            "character": "RC-01 观测者",
+            "position": "Position 1"
+          },
+          {
+            "character": "TR-4 检修者",
+            "position": "Position 2"
+          }
+        ],
+        "shot_description": "TR-4 检修者 stands on the left facing RC-01 观测者 on the right in the foreground.",
+        "event_index": 1,
+        "confidence": 0,
+        "reason": "未提供情绪判断",
+        "emotion": ""
+      },
+      {
+        "move": [
+          {
+            "character": "RC-01 观测者",
+            "destination": "Position 3",
+            "then-interact": {
+              "target": "",
+              "action": "",
+              "delay": 0
+            }
+          }
+        ],
+        "current position": [
+          {
+            "character": "RC-01 观测者",
+            "position": "Position 1"
+          },
+          {
+            "character": "TR-4 检修者",
+            "position": "Position 2"
+          }
+        ],
+        "shot_description": "RC-01 观测者 remains centered in the foreground while the frame stays open around RC-01 观测者 while TR-4 检修者 remain visible in the background observing. RC-01 观测者 continue approaching through the midground.",
+        "event_index": 2,
+        "confidence": 0,
+        "reason": "空台词",
+        "emotion": ""
+      },
+      {
+        "move": [
+          {
+            "character": "TR-4 检修者",
+            "destination": "Position 4"
+          }
+        ],
+        "current position": [
+          {
+            "character": "RC-01 观测者",
+            "position": "Position 3"
+          },
+          {
+            "character": "TR-4 检修者",
+            "position": "Position 2"
+          }
+        ],
+        "shot_description": "TR-4 检修者 stands on the left facing RC-01 观测者 on the right in the foreground. TR-4 检修者 continue approaching through the midground.",
+        "speaker": "TR-4 检修者",
+        "content": "走吧。",
+        "language_track": "zh_hans_cmn",
+        "content_variants": {
+          "zh_hans_cmn": "走吧。",
+          "en_us": "Let's go."
+        },
+        "event_index": 3,
+        "confidence": 0,
+        "reason": "未提供情绪判断",
+        "emotion": ""
+      },
+      {
+        "speaker": "",
+        "content": "无台词",
+        "duration": 3,
+        "actions": [],
+        "current position": [
+          {
+            "character": "RC-01 观测者",
+            "position": "Position 3"
+          },
+          {
+            "character": "TR-4 检修者",
+            "position": "Position 4"
+          }
+        ],
+        "shot_description": "整齐排列的礼堂座椅从前景向中景延伸，背景处的走道尽头亮着一盏柔和的灯，整个空间空无一人。",
+        "event_index": 4,
+        "confidence": 0,
+        "reason": "空台词",
+        "emotion": ""
+      }
+    ]
+  }
+]

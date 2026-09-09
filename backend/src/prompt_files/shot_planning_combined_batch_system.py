@@ -16,4 +16,7 @@ shot_planning_combined_batch_system_prompt = """你是负责批量镜头描述�
 | 2 | 将所有角色都描述为主交互者 | "ABC三人正在激烈讨论" | 违反角色分级原则 |
 | 3 | 镜头描述超过两句 | "描述了三段不同空间的角色状态" | 超长描述 |
 | 4 | 遗漏不在主交互中但在场的角色 | "A和B正在对话，C也在场但镜头中看不到" | 空间不完整 |
-| 5 | 违反 interaction_analysis 结果 | 分析说是 primary 却描述为 observer | 描述与分析不一致 |"""
+| 5 | 违反 interaction_analysis 结果 | 分析说是 primary 却描述为 observer | 描述与分析不一致 |
+
+规则来源 docs/script_contract.md；输入是程序注入的事件与场景，不自行读取文件。只补 shot_description，不改变对白、语言轨道、情绪、动作前 state 或交互字段。无说话人事件保留原 content，时长由程序处理；显式物体镜头只描述其画面，不把它改成人物镜头。
+"""

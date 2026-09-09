@@ -18,7 +18,7 @@ camera_script：
 from __future__ import annotations
 
 from typing import Any, List, Literal, Optional, Union
-from pydantic import BaseModel, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from .resource_loader import VALID_CHARACTER_STATES
 from .scene_segments import is_empty_shot
 
@@ -40,7 +40,7 @@ VALID_LAYOUTS = Literal[
 ]
 
 VALID_SHOT_TYPE = {
-    "全景", "中景", "中近景", "近景",
+    "全景", "中景", "中近景", "近景", "特写",
     "第一人称镜头", "肩后镜头", "侧跟镜头", "环绕镜头",
     "仰拍镜头", "俯拍镜头",
 }
@@ -477,20 +477,42 @@ VALID_CAMERA_SHOT_BLEND = {"cut", "blend", "easein"}
 
 
 class CameraScriptEvent(BaseModel):
+    model_config = ConfigDict(extra='forbid', strict=True, allow_inf_nan=False)
     event_index: int
-    shot: str
+    shot: Literal['character', 'scene', 'object']
     target: str
     target_position: str
     shot_type: str
     shot_blend: str
     follow: int
-    camera: Optional[int] = None
+    camera: Optional[int]
+    duration: Optional[float] = Field(default=None, gt=0)
+    target_anchor: Optional[str] = None
     shot_description: str
     motion_enabled: bool
     motion_preset: str
     play_motion_on_activate: Optional[bool] = None
     motion_start_delay: Optional[float] = None
     motion_reset_on_replay: Optional[bool] = None
+
+    @model_validator(mode='after')
+    def check_conditions(self):
+        if self.event_index < 0:
+            raise ValueError('event_index 必须非负')
+        if self.shot == 'scene' and (self.camera is None or self.camera < 0):
+            raise ValueError('scene 镜头必须指定非负整数 camera')
+        if self.shot == 'character' and not self.target.strip():
+            raise ValueError('character 镜头必须有 target')
+        if self.motion_enabled:
+            if not self.motion_preset or self.motion_preset == 'none':
+                raise ValueError('启用运镜必须选择预设')
+            if any(v is None for v in (self.play_motion_on_activate, self.motion_start_delay, self.motion_reset_on_replay)):
+                raise ValueError('启用运镜必须提供三个控制字段')
+            if self.motion_start_delay < 0:
+                raise ValueError('motion_start_delay 必须非负')
+        elif self.motion_preset != 'none':
+            raise ValueError('关闭运镜必须使用 none')
+        return self
 
     @field_validator("shot_type")
     @classmethod
@@ -529,11 +551,13 @@ class CameraScriptEvent(BaseModel):
 
 
 class CameraScriptScene(BaseModel):
-    scene_index: int
+    model_config = ConfigDict(extra='forbid', strict=True)
+    shot_index: int
     events: List[CameraScriptEvent]
 
 
 class CameraScriptModel(BaseModel):
+    model_config = ConfigDict(extra='forbid', strict=True)
     scenes: List[CameraScriptScene]
 
 
@@ -543,8 +567,12 @@ def validate_camera_script(camera_script: dict) -> dict:
     返回 {"valid": bool, "errors": [...]}
     """
     all_errors = []
+    try:
+        CameraScriptModel.model_validate(camera_script)
+    except Exception as exc:
+        return {'valid': False, 'errors': [{'scene_index': -1, 'event_index': -1, 'errors': [str(exc)]}]}
     for scene in camera_script.get("scenes", []):
-        scene_index = scene.get("scene_index", 0)
+        scene_index = scene.get("shot_index", 0)
         for event in scene.get("events", []):
             event_index = event.get("event_index", 0)
             try:
