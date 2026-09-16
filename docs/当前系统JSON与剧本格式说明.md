@@ -228,8 +228,8 @@
         // 以一个 {} 为一条镜头事件，根据 event_index 和主剧本事件一一对应
         {
           "event_index": 0, // 事件索引，对应主剧本中的同一个 event_index
-          "shot": "character", // 镜头类型，可选 character 或 scene
-          // character：以角色为拍摄目标；scene：使用场景中预先设置的摄像机
+          "shot": "character", // 镜头类型，可选 character、object 或 scene
+          // character：角色；object：scene_markers 中的物体；scene：预设摄像机
 
           "target": "角色A", // 主要拍摄目标；移动事件通常取第一个移动角色
           "target_position": "Position 1", // target 在当前事件开始时所在的 Position
@@ -242,9 +242,6 @@
           // 切镜方式，当前最终输出可选：cut、blend、easein
 
           "follow": 0, // 是否跟随目标，1 为跟随，0 为不跟随
-          "camera": null,
-          // character 镜头通常填 null；scene 镜头填写场景摄像机编号
-
           "shot_description": "角色A位于前景说话，角色B在后景倾听。",
           // 画面描述，由摄影指导生成；最终文件中必须是非空字符串
 
@@ -258,20 +255,31 @@
           "motion_reset_on_replay": true // 重播时是否重置镜头位置
         },
 
-        // scene 镜头示例
+        // object 镜头示例（不含 target_position）
         {
           "event_index": 1,
-          "shot": "scene",
-          "target": "角色A",
-          "target_position": "Position 1",
-          "shot_type": "全景",
+          "shot": "object",
+          "target": "香炉 (2)",
+          "target_anchor": "center",
+          "shot_type": "物体特写",
           "shot_blend": "blend",
-          "follow": 1,
-          "camera": 1, // scene 镜头使用场景摄像机编号
-          "shot_description": "角色A从左侧走向场景中央。",
+          "follow": 0,
+          "shot_description": "香炉内的香灰微微震动。",
           "motion_enabled": false,
           "motion_preset": "none"
           // motion_enabled 为 false 时，不需要填写后面的三个运镜控制字段
+        },
+
+        // scene 镜头只需要预设机位
+        {
+          "event_index": 2,
+          "shot": "scene",
+          "shot_blend": "cut",
+          "follow": 0,
+          "camera": 1,
+          "shot_description": "场景全貌。",
+          "motion_enabled": false,
+          "motion_preset": "none"
         }
       ]
     }

@@ -2,11 +2,11 @@
 
 > 2026-09 最终格式更新：共享合同在 `backend/src/script_contract.py`，完整字段与冲突决策见 `docs/script_contract.md`。技术验证、补全后、摄影后和最终导出均检查；最终剧本、镜头、演员和多幕位置交叉校验通过，才从 `outputs/.pending/<run>` 发布。Word 导出及编辑器下载也复用合同。camera_script 的幕键为 shot_index；多幕位置文件使用 scenes 数组。下述历史多场景规划不改变此发布门禁。
 
-> 面向**接手本项目的人**的完整架构与数据流说明。读完应能理解：系统做什么、一次生成在内部如何流转、关键数据模型、各模块职责、以及目前正在规划的「多场景」改造。
+> 面向**接手本项目的人**的完整架构与数据流说明。读完应能理解：系统做什么、一次生成在内部如何流转、关键数据模型、各模块职责，以及多场景能力的当前边界。
 >
-> 配套文档：`CLAUDE.md`（给 AI 助手的项目规则与红线）、`README.md`（运行说明）、`docs/`（更早期的设计稿）。
+> 配套文档：`AGENTS.md`（项目规则与红线）、`README.md`（运行说明）、`docs/script_contract.md`（最终合同）、`docs/`（格式说明与历史设计稿）。
 >
-> **维护约定**：改了架构/数据流/约定后，请同步更新本文件；本文件描述「现状」，规划中的内容统一放在文末「多场景改造」章节，落地后再并入正文。
+> **维护约定**：改了架构、数据流或最终合同后，同步更新本文件、`README.md` 与对应 `docs/` 文档；规划内容只放在 Roadmap，避免与现状混写。
 
 ---
 
@@ -25,8 +25,8 @@
 
 - **后端**：Python + Flask；多 Agent 基于 AutoGen（`RoundRobinGroupChat` / `AssistantAgent`）。入口 `backend/app.py`，跑 `uv run python backend/app.py`，服务在 `:5001`；本地开发时主要提供 `/api/*`，在反代 / Tunnel 的 `/script/*` 场景下也可直接托管前端静态文件，debug 热重载。
 - **前端**：原生 HTML/JS/CSS，**无框架、无构建步骤**。`frontend/index.html` + `frontend/js/{config,api,main,ui}.js` + `frontend/css/style.css`；本地推荐 `python3 -m http.server 8080` 独立开发，也可由 Flask 在 `/script/*` 下统一托管。
-- **LLM 调用**：通过 OpenAI 兼容接口（`backend/src/autogen_agents.py` 的 `make_model_client`，主模型 + 额度耗尽后的 `make_fallback_model_client` 备用模型）。
-- **Git**：分支 `autogen_agents`，远程 `LiNnnNl/ScriptsGenerateAgent`。
+- **LLM 调用**：通过 OpenAI 兼容接口（`backend/src/autogen_agents.py` 的 `make_model_client`）。Director、创意、文学与摄影等复杂任务使用 `MODEL`；TitleAgent、MeetingSummaryAgent、StoryIRAgent 和 ShotPlanAgent 使用 `SIMPLE_MODEL`；额度耗尽后使用 `FALLBACK_MODEL`。
+- **Git**：远程 `LiNnnNl/ScriptsGenerateAgent`；功能分支按任务创建，实际分支与上游关系以 `git status -sb` / `git branch -vv` 为准。
 
 ### 验证命令（改完必跑）
 
@@ -52,13 +52,29 @@ ScriptsGenerateAgent/
 │   │   ├── cinematography/             # 🔴 摄影权威资源（坐标命根子）
 │   │   │   ├── CameraLib.json              # 镜头库
 │   │   │   ├── LayoutLib.json              # 站位布局库（按人数选站位方式）
-│   │   │   └── scene_info/                 # 真实 x/y/z 锚点（唯一权威，仅 2 套）
-│   │   │       ├── SpaceStation.json
-│   │   │       └── LotusTown.json
+│   │   │   └── scene_info/                 # 真实 x/y/z 锚点；存在该文件的场景才可进入摄影流程
 │   │   ├── Images/ , position_templates/ , scene_exports/
 │   ├── src/
 │   │   ├── autogen_pipeline.py     # ⭐ 主流程编排（一次生成的全过程）
-│   │   ├── autogen_agents.py       # 各 Agent 的 system_message 构建 + 工厂函数
+│   │   ├── autogen_agents.py       # 模型路由 + 未迁移 Agent 工厂 + 旧接口兼容层
+│   │   ├── agents/                 # 可独立维护、后续可拆仓库的 Agent 包
+│   │   │   ├── title/                  # TitleAgent：工厂 + 系统/用户提示词
+│   │   │   ├── concept_pitch/          # 创意概念顾问
+│   │   │   ├── character_voice/        # 人物逻辑顾问
+│   │   │   ├── narrative_arch/         # 叙事结构顾问
+│   │   │   ├── meeting_summary/        # 创意会议摘要
+│   │   │   ├── treatment/              # 分场大纲
+│   │   │   ├── director/               # 导演起草（普通/直接模式）
+│   │   │   ├── director_word/          # 可读 Word 分镜导演
+│   │   │   ├── shot_plan/              # Word 长镜号分幕规划
+│   │   │   ├── story_ir/               # 冻结剧情事件中间格式
+│   │   │   ├── critic/                 # 叙事一致性审查
+│   │   │   ├── dialogue/               # 对白质量审查
+│   │   │   ├── revision/               # 文学审查后的对白局部返修
+│   │   │   ├── contract_repair/        # 最终合同局部修复
+│   │   │   ├── concept/ , synopsis/    # 旧创作链兼容 Agent
+│   │   │   ├── character_bios/         # 旧人物小传兼容 Agent
+│   │   │   └── validation/ , position/ # 技术校验/旧位置映射兼容 Agent
 │   │   ├── resource_loader.py      # 加载资源、scene_info（含文件名模糊匹配）
 │   │   ├── json_generator.py       # 组装最终剧本 JSON
 │   │   ├── schema.py               # Pydantic 校验（shot/position/camera_script）
@@ -76,7 +92,7 @@ ScriptsGenerateAgent/
 │   ├── index.html
 │   ├── js/{config,api,main,ui}.js
 │   └── css/style.css
-├── CLAUDE.md                       # 给 AI 的项目规则与红线
+├── AGENTS.md                       # 项目规则与资源修改红线
 ├── PROJECT_OVERVIEW.md             # 本文件
 ├── README.md
 └── docs/                           # 早期设计稿
@@ -91,32 +107,37 @@ ScriptsGenerateAgent/
 ### 4.1 前端侧（`frontend/js/main.js`）
 
 1. 页面加载：拉取场景/角色/动作/拍摄手法列表（`init` → `loadScenes` 等）。
-2. 用户**选场景** → **设角色数** → 填**创作灵感** → 设**幕数**。
+2. 用户建立**场景池**并指定逐幕场景 → **设角色数** → 选风格/语言/模式 → 填**创作灵感或原始剧本** → 设**幕数**。
 3. （可选，推荐）点 **GENERATE CAST**：调 `POST /api/generate_characters` 先生成角色档案，供预览/替换。
 4. 点 **ACTION!**：调 `POST /api/generate`（NDJSON 流），`handleStreamData` 实时渲染日志与最终结果。
 
-提交给 `/api/generate` 的关键字段：`custom_characters`、`scene_id`、`creative_idea`、`required_character_count`、`act_count`、`direct_mode`。
+提交给 `/api/generate` 的关键字段：`custom_characters`、`scene_pool`、`act_scenes`、兼容字段 `scene_id`、`creative_idea`、`required_character_count`、`act_count`、`script_style_id`、`script_tone_id`、`dialogue_language`、`shot_style_reference`、`direct_mode`。
 
 > 注：前端**始终传 `act_count`**（用户在 UI 设定），所以后端「按时长反推 act_count」的分支实际只在直接调 API 不传幕数时才会触发；时长真正影响的是「目标对白行数」。
 
 ### 4.2 后端主流程（`backend/src/autogen_pipeline.py: run_autogen_pipeline`）
 
+Pipeline 持有阶段顺序、重试、模型路由、资源和最终合同；`backend/src/agents/<agent_name>/` 持有对应 Agent 的提示词、专属规则和创建入口。所有 `autogen_agents.py` 工厂现已委托到独立包；该文件保留原函数签名并集中处理模型选择、工具与资源注入，避免模块迁移改变现有调用方。
+
 1. **解析参数**：从 `creative_idea` 用正则提取 `user_constraints`（「不要…/必须…」）、`fixed_dialogues`（「角色名: 对白」原样保留）、目标时长 → 推算目标对白行数。
-2. **加载场景**：`resource_loader.get_scene_by_id(scene_id)`（当前**只加载一个 scene**，全流程共用）。
+2. **加载场景**：优先解析 `scene_pool`，缺省时回退 `scene_id`；预加载池中场景并按 `act_scenes` 构建 `act_scene_map`，无效或缺失的逐幕分配回退到池中第一个场景。
 3. **构建角色**：有 `custom_characters` 则 `build_custom_characters`，否则交给 AI 自由创作。
 4. **创意阶段**（direct_mode 整体跳过）：
    - **创意会议**：`RoundRobinGroupChat`（ConceptPitch / CharacterVoice / NarrativeArch 三顾问轮流发言，最多 6 条消息或出现 `[AGREE]` 提前终止）。
    - **创意摘要**：`MeetingSummaryAgent` 将会议原文压缩为角色、冲突、幕目标、保留项和场景/风格约束；后续阶段不再接收会议全文。
    - **分场规划**：`TreatmentAgent` 把创意摘要转成分场大纲（数组长度恰好 = `act_count`）。
-   - **剧本起草**：`DirectorAgent` 输出剧本 JSON 初稿（shot 结构不合规时最多重试 `MAX_SHOT_STRUCT_RETRIES=2` 次）；完整请求网络重试耗尽时，自动按幕请求单个 JSON 并按顺序合并。
+   - **Story IR 冻结**：代码先建立稳定 `event_id` 清单。用户输入编号分镜时，代码冻结镜头边界和对白原文，`StoryIRAgent` 只识别同镜头内的对白/动作/移动组合；自由创作时它只填充代码预分配的事件槽，每次最多 8 个事件。
+   - **剧本起草**：`DirectorAgent` 每次只能看到并返回当前最多 8 个 Story IR 事件，ID、顺序、speaker/content 必须一一对应；代码合并后移除临时 ID，并确定性补 `event_index`、全员位置快照、默认情绪/理由、语言副本和空 `shot_description`。
+   - **无状态与局部返修**：每次模型请求通过 AutoGen `on_reset` 清空历史；方舟上的 Story IR、Director 和局部修复 Agent 默认关闭深度思考；文学审查以 `act_index/event_index` 定位，返修最多返回 6 个对白补丁；合同修复只发送错误事件或幕元数据。正文为空但 reasoning channel 整体是合法 JSON 时可恢复为候选结果；`finish_reason=length` 前缀续写仅作异常恢复。
    - 文学审查 / 对白补写（`CriticAgent` / `DialogueAgent`）。
-   - direct_mode 分支：`DirectorAgent_Direct` 经 `_build_direct_draft` 把用户剧本结构化。
+   - direct_mode 分支：`DirectorAgent_Direct` 经 `_build_direct_draft` 把用户剧本结构化；JSON 输入仍直接解析，超过 8 条且具有明确逐行边界的对白/编号分镜按事件数和字符预算双重切批，以代码生成的 `source_event_id` 校验数量、顺序和原文后合并。自由格式文本不盲拆。
    - 导演 Word 模式：识别到超过 12 个 `S01` 式镜号时，`ShotPlanAgent` 先规划镜号到幕的连续归属，再按 6-8 镜头批量补全；每批经 NDJSON 回传预览，后端按镜号顺序合并。
 5. **时长估算**：按对白字数 + 行数估算影片秒数。
 6. **位置兜底**：`_extract_position_files` 从剧本直接抽 position_plan/detail（无 LLM，摄影未开启时的兜底；摄影默认开启故通常被覆盖）。
 7. **摄影指导**（默认启用，`run_cinematography_pipeline`，详见 §5）：逐幕跑三阶段，产出 camera_script 与含坐标的 position_plan/detail，并回填镜头字段重写剧本。
 8. **演员档案**：从最终剧本提取出现的角色，匹配 `characters_resource.json`（`gameobject_name` 必须来自资源库，缺失时 `_find_fallback_gameobject_name` 按名称/性别近似兜底）→ `actors_profile.json`。
-9. **注册 session** 并发 `success` 事件，回传所有产出文件名。
+9. **最终发布**：产物先进入 `outputs/.pending/<run>/`；统一合同和跨文件引用校验通过后原子移动到 `outputs/`。
+10. **注册 session**：请求开始即登记 `running` 与输入快照；异常改为 `failed`，成功后写入标题、产物索引并发出 `success` 事件。
 
 ### 4.3 产出文件（`backend/outputs/`，`{ts}` = 时间戳）
 
@@ -127,26 +148,25 @@ ScriptsGenerateAgent/
 | `actors_profile_{ts}.json` | 演员档案（name/gender/gameobject_name/appearance/traits…） |
 | `position_plan_{ts}.json` | 站位规划（`where`/`groups`/`singles`，含 region/lookat） |
 | `position_detail_{ts}.json` | 站位详情（更细的 neartarget 等） |
+| `validation_{ts}.json` | 最终合同与跨文件引用的错误/警告报告 |
 | `CinematographyStages/` | 摄影各阶段中间产物（调试用） |
+
+position_plan/detail 在单幕时直接输出对象；多幕时统一输出 `{"scenes":[幕1, 幕2, ...]}`。
 
 ---
 
 ## 5. 摄影指导管线（`backend/src/cinematography/__init__.py`）
 
-入口 `run_cinematography_pipeline(script, scene, resource_dir, output_dir, timestamp)`，同步执行（在 executor 里跑）。
+入口 `run_cinematography_pipeline(script, scene, resource_dir, output_dir, timestamp, act_scene_map=None, progress_callback=None)`，同步执行（在 executor 里跑）。
 
-- 先从资源构建 `base_scene_info`（`get_scene_info_json`，含文件名模糊匹配）。
+- 先从默认场景构建 `base_scene_info`（`get_scene_info_json`，含文件名模糊匹配），多场景时按场景 id 缓存各自的 scene_info。
 - **逐幕循环**（`for scene_obj in script`）：
   - **Stage 1 `ShotPlanningStage`**：补镜头描述。
-  - **Stage 2 `CinematographyPositionStage`**：分组 → 规划 `region` + `neartarget` → `CoordinateSkill` 用锚点坐标 + `LayoutLib`（按人数选站位方式）算出 x/y/z。产出 position_plan/detail。
+  - **Stage 2 `CinematographyPositionStage`**：按 `act_scene_map[幕序号]` 选择本幕锚点，分组 → 规划 `region` + `neartarget` → `CoordinateSkill` 用锚点坐标 + `LayoutLib`（按人数选站位方式）算出 x/y/z。产出 position_plan/detail；失败时禁止发布不完整结果。
   - **Stage 3 `CameraPlanningStage`**：生成镜头计划。
   - 冲突修复：备份/还原 move 节点的 `shot:"scene"`、归一化 `shot_blend` 为运行时的 `cut/blend/easein`、按脚本 `where` 覆盖 `scene_info.where`。
 - 循环后构建 `camera_script` 并用 schema 校验；失败则对失败的幕重试 Stage 3 一次。
-- 落盘 camera_script、position_plan、position_detail。
-
-> ⚠️ **关键现状**：position_plan/detail 落盘时取的是 `last_position_plan`（**最后一幕**的 Stage2 结果），并非合并全部幕——这是既有行为。
->
-> ⚠️ **多场景核心点**：循环内所有幕**共用同一个 `base_scene_info`（单一 scene 的锚点）**。要支持「不同幕不同场景」，关键就是让循环内按每幕的场景取对应锚点（见 §10）。
+- 落盘 camera_script、position_plan、position_detail；多幕位置文件使用 `scenes` 数组完整保留每幕结果。
 
 ---
 
@@ -165,6 +185,7 @@ ScriptsGenerateAgent/
 ### 6.2 Beat 类型（`backend/src/schema.py`）
 
 - **character beat**：`shot="character"` + `shot_blend` + `shot_type` + `Follow(0/1)` + `motion_detail`（必填，英文动作细节）。
+- **object beat**：`shot="object"` + `target` + `target_anchor` + 物体专用 `shot_type`；target 从当前场景 `scene_markers.name` 选择，不输出 `target_position`。
 - **scene beat**：`shot` + `shot_blend` + `camera`。
 - **无说话人事件**：非 move 且 speaker=""，content 保留原文或“无台词”，duration 为正数秒默认 5，actions=[]。普通空镜的中间 shot=scene；最终主剧本不含摄影参数，由独立 camera_script 承载。统一由 scene_segments.py 保护，文学审查及人物镜头分配跳过。
 - **move**：角色移动。对齐下游 `ExecuteMoveEvent` 两种形态：①**基础移动**（只走不说）`{move:[{character, destination}]}`，move 可单对象或数组（多人同移），移动者**不写 action**（走路由系统驱动）；②**边走边说**——在 move 事件**顶层**加 `speaker`/`content`（+可选 emotion），说话人须为真实角色、非 default。落盘 `script` 的 move 事件镜头字段已剥离至 `camera_script`（沿用场景固定机位）。
@@ -174,12 +195,12 @@ ScriptsGenerateAgent/
 
 | 数据源 | 性质 | 用途 |
 |--------|------|------|
-| `cinematography/scene_info/*.json` 的 anchors/scene_markers | **带真实 x/y/z 坐标的物品锚点**，唯一权威 | 摄影算角色坐标的依据 |
+| `cinematography/scene_info/*.json` 的 anchors/scene_markers | **带真实 x/y/z 坐标的物品锚点**，唯一权威 | 摄影算角色坐标；scene_markers.name 也是物体镜头 target 候选 |
 | `scenes_resource.json` 的 `valid_positions`（Position 1~N） | **无坐标的逻辑槽**，旧版 | 导演点位菜单 + 同框约束 + 校验 |
 
 - **角色坐标全部由摄影 Stage2 计算**（region+neartarget → CoordinateSkill + LayoutLib）。`Position N` 本身不带坐标。
 - 锚点是场景中**标志性物体（雕像/树/石柱…）的坐标，不是角色站立点**——导演只为站位选「区域名」，坐标交给摄影。
-- 目前**只有 `SpaceStation` / `LotusTown` 两套**有 scene_info 锚点文件。
+- 可用性由 `scene_info/*.json` 是否存在决定；前端禁用无锚点场景，后端再次校验。不要在代码或文档中硬编码可用场景数量。
 
 ---
 
@@ -193,83 +214,54 @@ ScriptsGenerateAgent/
 | GET | `/api/characters` `/api/characters/<style_tag>` | 角色列表 |
 | POST | `/api/characters` | 新增角色 |
 | GET | `/api/actions` `/api/shot_types` `/api/styles` | 动作/拍摄手法/画风列表 |
-| POST | `/api/generate_characters` | AI 生成角色档案（按场景） |
+| POST | `/api/generate_characters` | AI 生成角色档案（参考整个场景池） |
 | POST | `/api/generate` | **生成剧本（NDJSON 流式）** |
+| POST | `/api/generate_director_word` | 导演 Word 模式（NDJSON 流式） |
 | GET | `/api/script_content/<filename>` | 读剧本内容 |
+| POST | `/api/validate_script` | 校验编辑后的剧本 |
 | GET | `/api/character_image/<gameobject_name>` | 角色形象图 |
 | GET | `/api/download/<filename>` | 下载产出文件 |
 | GET | `/api/position_plan/<session_id>` | 读 position_plan |
+| GET | `/api/download_session/<session_id>` | 下载完整会话 ZIP |
+| GET | `/api/download_word/<filename>` | 导出并下载 Word |
 | GET | `/api/history` ; PATCH `/api/history/<session_id>/label` | 历史记录 / 改版本名 |
 
 ---
 
 ## 8. 前端结构（`frontend/`）
 
-- `config.js`：全局 `APP_STATE`（选中场景、角色、幕数、生成结果、当前 session 等）。
+- `config.js`：全局 `APP_STATE`（场景池、逐幕场景、角色、幕数、生成结果、历史 session 等）。
 - `api.js`：`fetch` 封装（含 NDJSON 流式解析）。
-- `main.js`：流程编排 + 事件监听 + 流数据处理（`generateScript` / `generateCast` / `handleStreamData`）。
-- `ui.js`：DOM 渲染（场景信息、角色卡、剧本可读视图、历史面板、Position→锚点名映射展示等）。
+- `main.js`：流程编排 + 事件监听 + 流数据处理（生成、直接模式、Word 模式、历史输入复填）。
+- `ui.js`：DOM 渲染（场景池/逐幕分配、角色卡、剧本可读视图、生成状态历史面板、Position→锚点名映射等）。
+- `local-projects.js`：浏览器本地项目文件、自动保存与版本快照；不支持 File System Access API 时退化为导入/下载。
 
 ---
 
 ## 9. 关键约定与已知陷阱
 
-- **资源改动三级**（与 `CLAUDE.md`、`.claude/settings.local.json` 的 `autoMode` 一致）：
+- **资源改动三级**（与 `AGENTS.md` 一致）：
   - 🟢 `frontend/**`：可放手改（展示层，可逆）。
   - 🟡 `backend/**`（pipeline、cinematography、`app.py`）+ git 写 + 装依赖 + `mv`/`rm`：先讲清再动，提交/推送等用户确认。
   - 🔴 `backend/resources/cinematography/**`（尤其 `scene_info/*.json`、`LayoutLib.json`、`CameraLib.json`）：离线产出的权威坐标，**任何修改必须显式获得用户同意**。破坏性 git（`push --force`、推 main、`reset --hard`、`git clean`）一律禁止。
-- 场景锚点只有 2 套 → 任何「多场景」功能越多越依赖每个场景都备好锚点文件。
+- 多场景只允许选择存在 `scene_info` 的场景；新增场景时必须同时提供并人工确认权威锚点。
 - 直接模式里用户的「位置」是自由文本，可能对不上锚点 → 当**偏好提示**喂摄影，摄影只从已有锚点挑、对不上优雅降级，不硬塞。
 - 动作资源只有 `description` + FBX 文件名，**无 gif/mp4/图片预览**；动作可视化预览类需求当前素材做不了（属素材生产问题）。
 - `gameobject_name` 必须来自 `characters_resource.json`；AI/自定义角色缺失时按名称/性别近似兜底。
+- `outputs/`、`backend/outputs/`、日志、虚拟环境、`.codex-runtime/`、本机启动脚本和临时验收渲染不得提交；`backend/.env` 与密钥文件始终只留本地。
 
 ---
 
-## 10. 多场景改造（一期已落地 2026-06-16｜二期规划中）
+## 10. 多场景现状
 
-> 目标：支持**不同幕使用不同场景**。**一期（正常生成模式）已实现并提交**，下方设计即现状；二期（直接模式接入、按幕换角色）仍为规划。
->
-> 一期落地要点：请求新增可选 `scene_pool`/`act_scenes`；导演按幕注场景并分场景列区域；摄影按幕序号取对应场景锚点；角色生成喂整个场景池概述；每幕 `scene information.where` 由 generator 按 `act_scene_ids` 逐幕写对应**场景 id**（**不再有 `scene_id` 字段**，场景标识统一由 `where` 表达）；无锚点场景前端禁用、后端校验挡掉。不传 `scene_pool` 完全回退单场景旧行为。
+- `scene_pool: [sceneId, ...]` 表示本次生成允许使用的场景；未传时兼容旧的 `scene_id`。
+- `act_scenes: [sceneId, ...]` 按数组下标指定每幕场景；缺失、越界或不在池中的值回退到池中第一个场景。
+- 前端只允许选择具备 `scene_info` 锚点的场景；后端仍会校验，避免绕过 UI 后生成无坐标产物。
+- 创意会议和角色生成参考整个场景池；Director 按幕收到对应场景与区域；代码确定性覆盖每幕 `scene information.where`。
+- 摄影通过 `act_scene_map` 按幕选择锚点并缓存 scene_info；多幕 position_plan/detail 用 `scenes` 数组保存全部幕。
+- 不传新字段时保持单场景旧行为。当前角色池跨幕复用；“每幕独立换角色”尚未实现。
 
-### 10.1 现状限制
-
-1 幕 = JSON 数组的 1 个 scene_obj，但全流程**只加载一个 scene**（`get_scene_by_id`），导演、摄影、角色生成共用。
-
-### 10.2 产品形态（已与需求方确认）
-
-- **两步式场景池**：用户一开始**多选**一组场景（场景池）；剧本生成（创意会议/导演）**参考整个池**把剧情分布到这些场景；每一幕的场景从池子里挑。
-- **角色生成不绑定单一场景**：跨幕复用同一批角色，角色生成参考**整个场景池概述**作为环境参考。
-- **幕数由用户确定**（前端始终传 `act_count`），逐幕分配场景无歧义。
-
-### 10.3 数据模型（最小侵入、向后兼容）
-
-- 请求新增可选字段：
-  - `scene_pool: [sceneId, ...]`：用户选的场景池（≥1）。
-  - `act_scenes: [sceneId, ...]`：下标=幕序号，每幕用池里哪个场景。
-- **缺省回退**：没传 `scene_pool` → 用现有单 `scene_id`（旧行为）；`act_scenes[i]` 缺失/越界 → 回退 `scene_pool[0]`。
-- 生成后由**代码强制**给每个 scene_obj 的 `scene information` 写入 `scene_id`（按 `act_scenes[i]`），不靠 AI 填。
-
-### 10.4 改动分层
-
-| 层 | 文件 | 改动 |
-|----|------|------|
-| 解析/编排 | `autogen_pipeline.py` | 解析 `scene_pool`/`act_scenes`，预加载池内所有 scene + scene_info（校验锚点存在），构建 `act_scene_map[i]=scene`，`scene=scene_pool[0]` 作默认 |
-| 导演提示 | `autogen_agents.py` | `build_director_system_message` 新增可选 `act_scene_map`：多场景时按幕注明所属场景 + 分别列出各场景可用区域；缺省等价旧逻辑 |
-| 创意会议 | `autogen_pipeline.py` | 会议 brief 列出场景池概述，让头脑风暴场景感知 |
-| 写 scene_id | `autogen_pipeline.py` | 生成后按 `act_scenes` 给每个 scene_obj 写 `scene_id` |
-| 摄影 | `cinematography/__init__.py` | `run_cinematography_pipeline` 新增 `scene_resolver`；循环内按 scene_obj 的 `scene_id` 解析对应场景 scene_info（缓存），缺省回退 `base_scene_info` |
-| 角色生成 | `app.py /api/generate_characters` | 接收 `scene_pool`，提示注入整池概述；缺省回退单 scene |
-| 前端 | `index.html`/`main.js`/`ui.js`/`config.js` | 场景改多选（池）；幕数确定后渲染 N 个「幕→场景」下拉（选项限池内）；提交带 `scene_pool`+`act_scenes`；角色生成传 `scene_pool` |
-
-### 10.5 分期
-
-- **一期 ✅ 已落地（2026-06-16）**：正常生成模式多场景（数据模型 + 前端 UI + 导演按幕注场景 + 摄影按幕取锚点 + 角色生成喂场景池概述）。
-- **二期**：直接生成模式接入多场景 + 按幕换角色（如需）。
-
-### 10.6 风险
-
-- 场景库只有 `SpaceStation`/`LotusTown` 有锚点 → 池内只能选这两个；选了无锚点的场景须在校验阶段挡掉并提示。
-- position_plan/detail 落盘目前只保留最后一幕（既有行为）；多场景下不同幕在不同场景，若下游需要按幕区分的位置文件，需要单独评估聚合方式。
+直接模式会按 `act_count` 整理输入，但用户自由文本中的位置仍只是偏好，最终只能落到所选场景已有锚点。
 
 ---
 

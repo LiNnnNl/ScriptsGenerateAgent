@@ -349,6 +349,7 @@ function handleStreamData(data) {
             UI.addLog('error', JSON.stringify(data.details, null, 2));
         }
         UI.showError(data.message, data.details);
+        loadHistory();
     }
 }
 
@@ -654,10 +655,69 @@ function updateActCount(count) {
 async function loadHistory() {
     try {
         const result = await API.getHistory();
-        if (result.success) UI.renderHistoryPanel(result.data);
+        if (result.success) {
+            APP_STATE.historySessions = result.data || [];
+            UI.renderHistoryPanel(APP_STATE.historySessions);
+        }
     } catch (e) {
         console.error('加载历史记录失败:', e);
     }
+}
+
+// 将某次成功生成时保存的表单快照恢复到当前页面
+function refillHistoryForm(sessionId) {
+    const session = (APP_STATE.historySessions || []).find(item => item.session_id === sessionId);
+    const data = session && session.form_data;
+    if (!data) {
+        alert('这条旧记录没有保存输入快照，无法完整复填。');
+        return;
+    }
+
+    document.getElementById('creativeIdea').value = data.creative_idea || '';
+    document.getElementById('shotStyleReference').value = data.shot_style_reference || '';
+
+    const language = data.dialogue_language || 'mandarin';
+    const languageInput = document.getElementById('dialogueLanguage');
+    if (Array.from(languageInput.options).some(option => option.value === language)) {
+        languageInput.value = language;
+    }
+
+    APP_STATE.scriptStyleId = '';
+    selectScriptStyle(data.script_style_id === 'auto' ? '' : data.script_style_id);
+    APP_STATE.scriptToneId = '';
+    selectScriptTone(data.script_tone_id || '');
+
+    const availableSceneIds = new Set(
+        (APP_STATE.scenes || []).filter(scene => scene.regions?.length).map(scene => scene.id)
+    );
+    const savedPool = Array.isArray(data.scene_pool) && data.scene_pool.length
+        ? data.scene_pool
+        : String(data.scene_id || session.scene_id || '').split(',');
+    APP_STATE.scenePool = savedPool.filter(id => availableSceneIds.has(id));
+    APP_STATE.selectedScene = APP_STATE.scenePool[0] || null;
+    UI.renderScenes(APP_STATE.scenes);
+    UI.showSceneInfo(APP_STATE.scenePool.map(id => APP_STATE.scenes.find(scene => scene.id === id)).filter(Boolean));
+
+    const characterCount = Math.min(10, Math.max(1, Number(data.required_character_count) || 2));
+    updateCount(characterCount);
+    const characters = Array.isArray(data.custom_characters) ? data.custom_characters : [];
+    APP_STATE.generatedCharacters = characters.length ? characters.map(character => ({...character})) : null;
+    UI.renderCastPreview(characters);
+    document.getElementById('downloadCastBtn').style.display = characters.length ? '' : 'none';
+
+    const actCount = Math.min(10, Math.max(1, Number(data.act_count) || Number(session.act_count) || 3));
+    const savedActScenes = Array.isArray(data.act_scenes) ? data.act_scenes : [];
+    APP_STATE.actScenes = Array.from({length: actCount}, (_, index) =>
+        APP_STATE.scenePool.includes(savedActScenes[index])
+            ? savedActScenes[index]
+            : (APP_STATE.scenePool.length ? APP_STATE.scenePool[index % APP_STATE.scenePool.length] : null)
+    );
+    updateActCount(actCount);
+    checkFormComplete();
+
+    if (APP_STATE.historyPanelOpen) toggleHistoryPanel();
+    document.getElementById('step1').scrollIntoView({ behavior: 'smooth' });
+    alert(`已复填“${session.label || '未命名记录'}”的输入和选项。`);
 }
 
 // 切换历史面板

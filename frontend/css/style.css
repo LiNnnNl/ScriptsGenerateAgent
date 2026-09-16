@@ -2534,6 +2534,31 @@ select.cast-input optgroup {
 .history-session-item:hover {
     border-color: rgba(212,175,55,0.3);
 }
+.history-session-item.status-failed {
+    background: rgba(244,67,54,0.12);
+    border-color: rgba(244,67,54,0.75);
+}
+.history-session-item.status-running {
+    border-color: rgba(255,193,7,0.65);
+}
+.history-status-badge {
+    border: 1px solid currentColor;
+    border-radius: 10px;
+    color: #7bd88f;
+    font: 0.68em 'Roboto Mono', monospace;
+    padding: 1px 6px;
+    white-space: nowrap;
+}
+.status-failed .history-status-badge { color: #ff6b63; }
+.status-running .history-status-badge { color: #ffd05a; }
+.history-session-error {
+    color: #ff8a84;
+    font-size: 0.72em;
+    margin-bottom: 8px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
 .history-session-header {
     display: flex;
     align-items: baseline;
@@ -2567,6 +2592,7 @@ select.cast-input optgroup {
 }
 .history-session-actions {
     display: flex;
+    flex-wrap: wrap;
     gap: 8px;
 }
 .history-action-btn {

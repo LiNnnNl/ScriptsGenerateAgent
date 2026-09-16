@@ -14,6 +14,7 @@ from flask import Flask, request, jsonify, send_file, Response, stream_with_cont
 from flask_cors import CORS
 import json
 import logging
+import time
 from datetime import datetime
 from pathlib import Path
 from dotenv import load_dotenv
@@ -45,6 +46,29 @@ logging.basicConfig(
     ],
 )
 logger = logging.getLogger(__name__)
+
+
+def _prepare_history_request(data, label):
+    request_data = dict(data or {})
+    session_id = str(time.time_ns())
+    scene_pool = request_data.get('scene_pool')
+    scene_id = ','.join(str(item) for item in scene_pool) if isinstance(scene_pool, list) else ''
+    scene_id = scene_id or str(request_data.get('scene_id') or '')
+    try:
+        act_count = int(request_data.get('act_count') or 3)
+    except (TypeError, ValueError):
+        act_count = 3
+    _registry.register_session(
+        ts=session_id,
+        files={},
+        scene_id=scene_id,
+        act_count=act_count,
+        label=label,
+        form_data=_registry.snapshot_form_data(request_data),
+        status='running',
+    )
+    request_data['_history_session_id'] = session_id
+    return session_id, request_data
 
 
 def _create_chat_completion_with_quota_fallback(client, primary_model, fallback_model, **kwargs):
@@ -529,11 +553,14 @@ def generate_characters():
 @app.route('/api/generate', methods=['POST'])
 def generate_script():
     """生成剧本（流式输出，AutoGen 多 Agent 版）"""
+    session_id, request_data = _prepare_history_request(request.get_json(silent=True), '生成中')
 
     def generate():
-        bridge = AutoGenStreamBridge()
+        bridge = AutoGenStreamBridge(
+            on_error=lambda message: _registry.update_session_status(session_id, 'failed', message)
+        )
         bridge.run_in_thread(
-            run_autogen_pipeline(bridge, resource_loader, request.json)
+            run_autogen_pipeline(bridge, resource_loader, request_data)
         )
         yield from bridge.flask_generator()
 
@@ -547,11 +574,14 @@ def generate_script():
 @app.route('/api/generate_director_word', methods=['POST'])
 def generate_director_word():
     """导演 Word 模式：只调用 DirectorAgent，生成可读分镜剧本并导出 Word。"""
+    session_id, request_data = _prepare_history_request(request.get_json(silent=True), '导演 Word 生成中')
 
     def generate():
-        bridge = AutoGenStreamBridge()
+        bridge = AutoGenStreamBridge(
+            on_error=lambda message: _registry.update_session_status(session_id, 'failed', message)
+        )
         bridge.run_in_thread(
-            run_director_word_pipeline(bridge, resource_loader, request.json or {})
+            run_director_word_pipeline(bridge, resource_loader, request_data)
         )
         yield from bridge.flask_generator()
 

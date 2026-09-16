@@ -33,7 +33,7 @@ def protect_empty_shot(segment: dict, *, ensure_camera: bool = False) -> bool:
     if segment['shot'] != 'object':
         segment.pop("shot_type", None)
     segment.pop("Follow", None)
-    if ensure_camera and segment.get("camera") is None:
+    if ensure_camera and segment["shot"] == "scene" and segment.get("camera") is None:
         segment["camera"] = 1
     return True
 

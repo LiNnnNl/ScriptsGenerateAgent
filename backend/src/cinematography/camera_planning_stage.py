@@ -19,6 +19,7 @@ class CameraPlanningStage:
     ASSIGNMENT_STAGE_FILENAME = "director_stage3_substage2_camera_assignment.json"
     OUTPUT_FILENAME = "script_with_camera_plan.json"
     WINDOW_SIZE = 4
+    OBJECT_SHOT_TYPES = {"物体中景", "物体特写", "插入镜头"}
 
     VALID_SHOT_BLEND = {
         "Cut",
@@ -97,7 +98,7 @@ class CameraPlanningStage:
         self.initial_position_state = self._build_initial_position_state(self.timeline_root)
         self.region_map = self._build_region_map(self.scene_info_json)
         self.camera_lib_map = self._build_camera_lib_map(self.raw_camera_lib_json)
-        self.valid_shot_types = set(self.camera_lib_map.keys())
+        self.valid_shot_types = set(self.camera_lib_map) - self.OBJECT_SHOT_TYPES
         self.position_context_by_id, self.group_context_by_id = self._build_position_contexts()
 
         self.analysis_results = []
@@ -119,6 +120,10 @@ class CameraPlanningStage:
                 for char, pos_id in current_position_state.items()
             ]
             current_positions = self._resolve_current_positions(beat, current_position_state)
+            if beat.get("shot") == "object":
+                protect_empty_shot(beat)
+                current_position_state = self._advance_position_state(current_position_state, beat)
+                continue
             if is_empty_shot(beat):
                 protect_empty_shot(beat, ensure_camera=True)
                 current_position_state = self._advance_position_state(current_position_state, beat)
@@ -342,6 +347,7 @@ class CameraPlanningStage:
                 "purpose": entry.get("purpose", ""),
             }
             for shot_type, entry in self.camera_lib_map.items()
+            if shot_type in self.valid_shot_types
         }
 
     def _build_region_map(self, scene_info_json):
@@ -1151,7 +1157,7 @@ class CameraPlanningStage:
         for fallback in ("中景", "中近景", "全景", "近景"):
             if fallback in self.valid_shot_types:
                 return fallback
-        return next(iter(self.camera_lib_map))
+        return next(shot_type for shot_type in self.camera_lib_map if shot_type in self.valid_shot_types)
 
     def _first_present(self, mapping, keys, default=None):
         if not isinstance(mapping, dict):

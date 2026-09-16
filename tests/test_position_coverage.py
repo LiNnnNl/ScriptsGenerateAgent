@@ -7,9 +7,27 @@ from unittest.mock import Mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'backend'))
 from src.cinematography.cinematography_position_stage import CinematographyPositionStage
+from src.schema import validate_position_plan
 
 
 class PositionCoverageTests(unittest.TestCase):
+    def test_group_target_lookat_requires_explicit_target_field(self):
+        base = {
+            'where': 'Office Conference Room',
+            'groups': [{
+                'group_id': 'G2',
+                'layout': 'triangle',
+                'region': '工作室',
+                'positions': [{'position_id': 'Position 5', 'character': '陈阿嫲'}],
+                'lookat': {'mode': 'target', 'target': '电视机锚点'},
+            }],
+            'singles': [],
+        }
+        self.assertFalse(validate_position_plan(base)['valid'])
+
+        base['groups'][0]['lookat'] = {'mode': 'target', 'target_object': '电视机锚点'}
+        self.assertTrue(validate_position_plan(base)['valid'])
+
     def test_coordinates_do_not_overlap_when_singles_share_anchor(self):
         planning = {'where': 'Auditorium', 'groups': [], 'singles': [
             {'position_id': 'Position 1', 'region': 'Judges', 'neartarget': 'Desk'},

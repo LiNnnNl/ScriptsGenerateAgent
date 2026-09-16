@@ -75,6 +75,70 @@ class PromptFilesTest(unittest.TestCase):
         self.assertIn('"title"', build_title_system_message())
         self.assertIn("_validate_constraints", build_validation_system_message())
 
+    def test_title_agent_package_owns_factory_and_prompts(self):
+        from src.agents.title import build_system_message, build_user_prompt, create_agent
+
+        class FakeAgent:
+            def __init__(self, **kwargs):
+                self.kwargs = kwargs
+
+        agent = create_agent(object(), assistant_agent_cls=FakeAgent)
+
+        self.assertEqual("TitleAgent", agent.kwargs["name"])
+        self.assertIn('"title"', build_system_message())
+        self.assertEqual("请为以下剧本摘要命名：\n测试摘要", build_user_prompt("测试摘要"))
+
+    def test_creative_agent_packages_own_factories(self):
+        from importlib import import_module
+
+        class FakeAgent:
+            def __init__(self, **kwargs):
+                self.kwargs = kwargs
+
+        for package, agent_name in {
+            "concept_pitch": "ConceptPitchAgent",
+            "character_voice": "CharacterVoiceAgent",
+            "narrative_arch": "NarrativeArchAgent",
+            "meeting_summary": "MeetingSummaryAgent",
+            "treatment": "TreatmentAgent",
+            "critic": "CriticAgent",
+            "dialogue": "DialogueAgent",
+            "director_word": "DirectorAgent_Word",
+            "concept": "ConceptAgent",
+            "position": "PositionAgent",
+        }.items():
+            module = import_module(f"src.agents.{package}")
+            agent = module.create_agent(object(), "测试提示词", assistant_agent_cls=FakeAgent)
+            self.assertEqual(agent_name, agent.kwargs["name"])
+            self.assertEqual("测试提示词", agent.kwargs["system_message"])
+
+        for package, agent_name in {
+            "story_ir": "StoryIRAgent",
+            "revision": "RevisionAgent",
+            "contract_repair": "ContractRepairAgent",
+            "shot_plan": "ShotPlanAgent",
+            "synopsis": "SynopsisAgent",
+            "character_bios": "CharacterBiosAgent",
+        }.items():
+            module = import_module(f"src.agents.{package}")
+            agent = module.create_agent(object(), assistant_agent_cls=FakeAgent)
+            self.assertEqual(agent_name, agent.kwargs["name"])
+            self.assertEqual(module.build_system_message(), agent.kwargs["system_message"])
+
+        director = import_module("src.agents.director")
+        direct_agent = director.create_agent(
+            object(), "测试提示词", direct_mode=True, assistant_agent_cls=FakeAgent
+        )
+        self.assertEqual("DirectorAgent_Direct", direct_agent.kwargs["name"])
+        self.assertEqual("测试提示词", direct_agent.kwargs["system_message"])
+
+        validation = import_module("src.agents.validation")
+        validation_agent = validation.create_agent(
+            object(), ["tool"], assistant_agent_cls=FakeAgent
+        )
+        self.assertEqual("ValidationAgent", validation_agent.kwargs["name"])
+        self.assertEqual(["tool"], validation_agent.kwargs["tools"])
+
     def test_action_prompt_is_compact_without_losing_action_ids(self):
         from src.prompt_renderers.action_info import render_action_info
         from src.resource_loader import ACTION_POSTURE_CATEGORIES, ResourceLoader
@@ -94,6 +158,26 @@ class PromptFilesTest(unittest.TestCase):
         self.assertTrue(actions)
         self.assertTrue(all(action.action_id in compact for action in actions))
         self.assertLess(len(compact), len(expanded) * 0.75)
+
+    def test_director_prompt_uses_compact_intermediate_contract(self):
+        from src.prompt_renderers.autogen_agent_prompts import (
+            build_director_system_message,
+            build_story_ir_system_message,
+        )
+        from src.resource_loader import ResourceLoader
+
+        loader = ResourceLoader()
+        scene = loader.get_scene_by_id("Auditorium") or loader.get_all_scenes()[0]
+        prompt = build_director_system_message([], scene, loader, 2, 1)
+
+        self.assertIn("精简剧本 JSON", prompt)
+        self.assertIn("event_id", prompt)
+        self.assertIn("`current position`", prompt)
+        self.assertNotIn("## 最终格式合同", prompt)
+        self.assertNotIn("当前资源取值库", prompt)
+        self.assertIn('shot="object"', prompt)
+        self.assertIn("scene_markers", prompt)
+        self.assertIn('"events"', build_story_ir_system_message())
 
     def test_cinematography_prompt_modules_are_importable(self):
         from src.prompt_files.cinematography_position_grouping import cinematography_position_grouping_prompt

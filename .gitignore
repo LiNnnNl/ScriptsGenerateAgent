@@ -60,6 +60,9 @@ CHANGELOG.md
 # Cursor / AI tooling local state
 .cursor/
 .claude/
+.agents/
+.codex/
+.codex-runtime/
 
 # Project runtime artifacts
 backend/outputs/
@@ -71,3 +74,11 @@ backend/outputs/
 *.orig
 output/
 CLAUDE.md
+
+# Local verification/report artifacts
+test_outputs/contract_acceptance/
+test_outputs/weekly_report_*/
+
+# Machine-specific Conda launch helpers
+tmp_run_*_conda.py
+tmp_start_*_conda.bat

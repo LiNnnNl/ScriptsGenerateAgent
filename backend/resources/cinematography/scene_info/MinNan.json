@@ -1,0 +1,1309 @@
+{
+    "where": "MinNan",
+    "regions": [
+        {
+            "name": "老厝_入口门廊",
+            "description": "入口门廊是老厝的过渡空间，约7×6米，半开放式，设有门联和扫把等生活细节，连通天井、餐厅和厨房。适合迎送、寒暄或短暂驻足的对话站位。",
+            "spatial_relations": [
+                {
+                    "region": "老厝_天井",
+                    "relation": "adjacent",
+                    "connected": true,
+                    "distance_m": 6
+                },
+                {
+                    "region": "老厝_餐厅",
+                    "relation": "adjacent",
+                    "connected": true,
+                    "distance_m": 6
+                },
+                {
+                    "region": "老厝_厨房",
+                    "relation": "adjacent",
+                    "connected": true,
+                    "distance_m": 7
+                },
+                {
+                    "region": "老厝_正厅",
+                    "relation": "adjacent",
+                    "connected": true,
+                    "distance_m": 12
+                },
+                {
+                    "region": "妈祖庙_入口门廊",
+                    "relation": "near",
+                    "connected": true,
+                    "distance_m": 26
+                },
+                {
+                    "region": "妈祖庙_前厅",
+                    "relation": "near",
+                    "connected": true,
+                    "distance_m": 28
+                },
+                {
+                    "region": "妈祖庙_东侧廊",
+                    "relation": "near",
+                    "connected": true,
+                    "distance_m": 34
+                },
+                {
+                    "region": "妈祖庙_西侧廊",
+                    "relation": "near",
+                    "connected": true,
+                    "distance_m": 35
+                },
+                {
+                    "region": "妈祖庙_主殿",
+                    "relation": "medium",
+                    "connected": true,
+                    "distance_m": 38
+                },
+                {
+                    "region": "妈祖庙_祭坛区",
+                    "relation": "disconnected",
+                    "connected": false,
+                    "distance_m": 0
+                },
+                {
+                    "region": "老厝_卧房",
+                    "relation": "disconnected",
+                    "connected": false,
+                    "distance_m": 0
+                },
+                {
+                    "region": "老厝_后院",
+                    "relation": "disconnected",
+                    "connected": false,
+                    "distance_m": 0
+                }
+            ],
+            "anchors": [
+                {
+                    "name": "门口",
+                    "position": {
+                        "x": -69.88300323486328,
+                        "y": -5.99399995803833,
+                        "z": 3.0859999656677248
+                    }
+                },
+                {
+                    "name": "靠近餐厅",
+                    "position": {
+                        "x": -72.99800109863281,
+                        "y": -5.99399995803833,
+                        "z": 2.055000066757202
+                    }
+                }
+            ],
+            "scene_markers": [
+                {
+                    "name": "扫把",
+                    "position": {
+                        "x": -72.58110046386719,
+                        "y": -5.996557235717773,
+                        "z": 0.34048548340797427
+                    }
+                },
+                {
+                    "name": "门联1",
+                    "position": {
+                        "x": -67.94416809082031,
+                        "y": -3.7807281017303469,
+                        "z": 2.6462912559509279
+                    }
+                }
+            ]
+        },
+        {
+            "name": "老厝_餐厅",
+            "description": "餐厅空间紧凑，约4×3米，以圆桌为核心，是家庭日常聚餐的核心场所。空间较小，适合近距离的家庭对话、围桌交谈或亲密互动站位。",
+            "spatial_relations": [
+                {
+                    "region": "老厝_厨房",
+                    "relation": "adjacent",
+                    "connected": true,
+                    "distance_m": 5
+                },
+                {
+                    "region": "老厝_天井",
+                    "relation": "adjacent",
+                    "connected": true,
+                    "distance_m": 5
+                },
+                {
+                    "region": "老厝_入口门廊",
+                    "relation": "adjacent",
+                    "connected": true,
+                    "distance_m": 6
+                },
+                {
+                    "region": "老厝_正厅",
+                    "relation": "adjacent",
+                    "connected": true,
+                    "distance_m": 8
+                },
+                {
+                    "region": "妈祖庙_入口门廊",
+                    "relation": "near",
+                    "connected": true,
+                    "distance_m": 31
+                },
+                {
+                    "region": "妈祖庙_前厅",
+                    "relation": "near",
+                    "connected": true,
+                    "distance_m": 34
+                },
+                {
+                    "region": "妈祖庙_东侧廊",
+                    "relation": "medium",
+                    "connected": true,
+                    "distance_m": 40
+                },
+                {
+                    "region": "妈祖庙_西侧廊",
+                    "relation": "medium",
+                    "connected": true,
+                    "distance_m": 40
+                },
+                {
+                    "region": "妈祖庙_主殿",
+                    "relation": "medium",
+                    "connected": true,
+                    "distance_m": 43
+                },
+                {
+                    "region": "妈祖庙_祭坛区",
+                    "relation": "disconnected",
+                    "connected": false,
+                    "distance_m": 0
+                },
+                {
+                    "region": "老厝_卧房",
+                    "relation": "disconnected",
+                    "connected": false,
+                    "distance_m": 0
+                },
+                {
+                    "region": "老厝_后院",
+                    "relation": "disconnected",
+                    "connected": false,
+                    "distance_m": 0
+                }
+            ],
+            "anchors": [
+                {
+                    "name": "靠近外侧",
+                    "position": {
+                        "x": -75.37300109863281,
+                        "y": -5.99399995803833,
+                        "z": -0.2879999876022339
+                    }
+                },
+                {
+                    "name": "靠近内侧",
+                    "position": {
+                        "x": -76.95099639892578,
+                        "y": -5.99399995803833,
+                        "z": -3.188999891281128
+                    }
+                }
+            ],
+            "scene_markers": [
+                {
+                    "name": "圆桌",
+                    "position": {
+                        "x": -75.9500732421875,
+                        "y": -6.085747718811035,
+                        "z": -1.793423056602478
+                    }
+                }
+            ]
+        },
+        {
+            "name": "老厝_天井",
+            "description": "天井是老厝的中心露天庭院，约5×6米，四面围合、采光通风，是整个老厝的交通枢纽，连通正厅、餐厅、厨房和入口。空间开阔，适合多人聚集、过渡性对话或情感转折的站位。",
+            "spatial_relations": [
+                {
+                    "region": "老厝_餐厅",
+                    "relation": "adjacent",
+                    "connected": true,
+                    "distance_m": 5
+                },
+                {
+                    "region": "老厝_入口门廊",
+                    "relation": "adjacent",
+                    "connected": true,
+                    "distance_m": 6
+                },
+                {
+                    "region": "老厝_正厅",
+                    "relation": "adjacent",
+                    "connected": true,
+                    "distance_m": 6
+                },
+                {
+                    "region": "老厝_厨房",
+                    "relation": "adjacent",
+                    "connected": true,
+                    "distance_m": 7
+                },
+                {
+                    "region": "妈祖庙_入口门廊",
+                    "relation": "near",
+                    "connected": true,
+                    "distance_m": 32
+                },
+                {
+                    "region": "妈祖庙_前厅",
+                    "relation": "near",
+                    "connected": true,
+                    "distance_m": 34
+                },
+                {
+                    "region": "妈祖庙_东侧廊",
+                    "relation": "medium",
+                    "connected": true,
+                    "distance_m": 40
+                },
+                {
+                    "region": "妈祖庙_西侧廊",
+                    "relation": "medium",
+                    "connected": true,
+                    "distance_m": 41
+                },
+                {
+                    "region": "妈祖庙_主殿",
+                    "relation": "medium",
+                    "connected": true,
+                    "distance_m": 44
+                },
+                {
+                    "region": "妈祖庙_祭坛区",
+                    "relation": "disconnected",
+                    "connected": false,
+                    "distance_m": 0
+                },
+                {
+                    "region": "老厝_卧房",
+                    "relation": "disconnected",
+                    "connected": false,
+                    "distance_m": 0
+                },
+                {
+                    "region": "老厝_后院",
+                    "relation": "disconnected",
+                    "connected": false,
+                    "distance_m": 0
+                }
+            ],
+            "anchors": [
+                {
+                    "name": "中央",
+                    "position": {
+                        "x": -75.94300079345703,
+                        "y": -5.99399995803833,
+                        "z": 3.0859999656677248
+                    }
+                }
+            ],
+            "scene_markers": []
+        },
+        {
+            "name": "老厝_厨房",
+            "description": "厨房是老厝最具生活气息的功能空间，约7.5×4米，陈设有八仙桌、红龟稞、红曲粉等制作传统食物的器具。空间较长，适合劳作中的对话、手把手教学或家常闲聊的站位。",
+            "spatial_relations": [
+                {
+                    "region": "老厝_餐厅",
+                    "relation": "adjacent",
+                    "connected": true,
+                    "distance_m": 5
+                },
+                {
+                    "region": "老厝_入口门廊",
+                    "relation": "adjacent",
+                    "connected": true,
+                    "distance_m": 7
+                },
+                {
+                    "region": "老厝_天井",
+                    "relation": "adjacent",
+                    "connected": true,
+                    "distance_m": 7
+                },
+                {
+                    "region": "老厝_正厅",
+                    "relation": "adjacent",
+                    "connected": true,
+                    "distance_m": 12
+                },
+                {
+                    "region": "妈祖庙_入口门廊",
+                    "relation": "near",
+                    "connected": true,
+                    "distance_m": 32
+                },
+                {
+                    "region": "妈祖庙_前厅",
+                    "relation": "near",
+                    "connected": true,
+                    "distance_m": 34
+                },
+                {
+                    "region": "妈祖庙_东侧廊",
+                    "relation": "medium",
+                    "connected": true,
+                    "distance_m": 41
+                },
+                {
+                    "region": "妈祖庙_西侧廊",
+                    "relation": "medium",
+                    "connected": true,
+                    "distance_m": 41
+                },
+                {
+                    "region": "妈祖庙_主殿",
+                    "relation": "medium",
+                    "connected": true,
+                    "distance_m": 44
+                },
+                {
+                    "region": "妈祖庙_祭坛区",
+                    "relation": "disconnected",
+                    "connected": false,
+                    "distance_m": 0
+                },
+                {
+                    "region": "老厝_卧房",
+                    "relation": "disconnected",
+                    "connected": false,
+                    "distance_m": 0
+                },
+                {
+                    "region": "老厝_后院",
+                    "relation": "disconnected",
+                    "connected": false,
+                    "distance_m": 0
+                }
+            ],
+            "anchors": [
+                {
+                    "name": "案板前",
+                    "position": {
+                        "x": -71.47000122070313,
+                        "y": -5.99399995803833,
+                        "z": -1.843000054359436
+                    }
+                }
+            ],
+            "scene_markers": [
+                {
+                    "name": "红龟稞 (3)",
+                    "position": {
+                        "x": -71.67503356933594,
+                        "y": -5.547787666320801,
+                        "z": -2.69012188911438
+                    }
+                },
+                {
+                    "name": "八仙桌",
+                    "position": {
+                        "x": -71.26774597167969,
+                        "y": -6.058791160583496,
+                        "z": -2.8816230297088625
+                    }
+                },
+                {
+                    "name": "扫把",
+                    "position": {
+                        "x": -72.58110046386719,
+                        "y": -5.996557235717773,
+                        "z": 0.34048548340797427
+                    }
+                },
+                {
+                    "name": "红曲粉",
+                    "position": {
+                        "x": -72.04598236083985,
+                        "y": -5.453644275665283,
+                        "z": -2.98101544380188
+                    }
+                }
+            ]
+        },
+        {
+            "name": "老厝_卧房",
+            "description": "卧房是老厝的私密休息空间，约6.5×3.6米，与其他区域在导航上完全隔离。空间狭长私密，适合独处沉思、私密对话或情感独白的站位。",
+            "spatial_relations": [
+                {
+                    "region": "妈祖庙_东侧廊",
+                    "relation": "disconnected",
+                    "connected": false,
+                    "distance_m": 0
+                },
+                {
+                    "region": "妈祖庙_主殿",
+                    "relation": "disconnected",
+                    "connected": false,
+                    "distance_m": 0
+                },
+                {
+                    "region": "妈祖庙_入口门廊",
+                    "relation": "disconnected",
+                    "connected": false,
+                    "distance_m": 0
+                },
+                {
+                    "region": "妈祖庙_前厅",
+                    "relation": "disconnected",
+                    "connected": false,
+                    "distance_m": 0
+                },
+                {
+                    "region": "妈祖庙_祭坛区",
+                    "relation": "disconnected",
+                    "connected": false,
+                    "distance_m": 0
+                },
+                {
+                    "region": "妈祖庙_西侧廊",
+                    "relation": "disconnected",
+                    "connected": false,
+                    "distance_m": 0
+                },
+                {
+                    "region": "老厝_入口门廊",
+                    "relation": "disconnected",
+                    "connected": false,
+                    "distance_m": 0
+                },
+                {
+                    "region": "老厝_厨房",
+                    "relation": "disconnected",
+                    "connected": false,
+                    "distance_m": 0
+                },
+                {
+                    "region": "老厝_后院",
+                    "relation": "disconnected",
+                    "connected": false,
+                    "distance_m": 0
+                },
+                {
+                    "region": "老厝_天井",
+                    "relation": "disconnected",
+                    "connected": false,
+                    "distance_m": 0
+                },
+                {
+                    "region": "老厝_正厅",
+                    "relation": "disconnected",
+                    "connected": false,
+                    "distance_m": 0
+                },
+                {
+                    "region": "老厝_餐厅",
+                    "relation": "disconnected",
+                    "connected": false,
+                    "distance_m": 0
+                }
+            ],
+            "anchors": [],
+            "scene_markers": []
+        },
+        {
+            "name": "老厝_正厅",
+            "description": "正厅是老厝最庄重的核心空间，约7×6米，供奉妈祖像和祖先牌位，陈设有照片和红龟稞等祭祀物品。空间宽敞肃穆，适合祭祀仪式、家族议事或情感厚重的正式对话站位。",
+            "spatial_relations": [
+                {
+                    "region": "老厝_天井",
+                    "relation": "adjacent",
+                    "connected": true,
+                    "distance_m": 6
+                },
+                {
+                    "region": "老厝_餐厅",
+                    "relation": "adjacent",
+                    "connected": true,
+                    "distance_m": 8
+                },
+                {
+                    "region": "老厝_入口门廊",
+                    "relation": "adjacent",
+                    "connected": true,
+                    "distance_m": 12
+                },
+                {
+                    "region": "老厝_厨房",
+                    "relation": "adjacent",
+                    "connected": true,
+                    "distance_m": 12
+                },
+                {
+                    "region": "妈祖庙_入口门廊",
+                    "relation": "medium",
+                    "connected": true,
+                    "distance_m": 38
+                },
+                {
+                    "region": "妈祖庙_前厅",
+                    "relation": "medium",
+                    "connected": true,
+                    "distance_m": 40
+                },
+                {
+                    "region": "妈祖庙_东侧廊",
+                    "relation": "medium",
+                    "connected": true,
+                    "distance_m": 46
+                },
+                {
+                    "region": "妈祖庙_西侧廊",
+                    "relation": "medium",
+                    "connected": true,
+                    "distance_m": 47
+                },
+                {
+                    "region": "妈祖庙_主殿",
+                    "relation": "far",
+                    "connected": true,
+                    "distance_m": 49
+                },
+                {
+                    "region": "妈祖庙_祭坛区",
+                    "relation": "disconnected",
+                    "connected": false,
+                    "distance_m": 0
+                },
+                {
+                    "region": "老厝_卧房",
+                    "relation": "disconnected",
+                    "connected": false,
+                    "distance_m": 0
+                },
+                {
+                    "region": "老厝_后院",
+                    "relation": "disconnected",
+                    "connected": false,
+                    "distance_m": 0
+                }
+            ],
+            "anchors": [
+                {
+                    "name": "中央",
+                    "position": {
+                        "x": -81.87699890136719,
+                        "y": -5.99399995803833,
+                        "z": 3.196000099182129
+                    }
+                }
+            ],
+            "scene_markers": [
+                {
+                    "name": "妈祖像",
+                    "position": {
+                        "x": -84.87516021728516,
+                        "y": -3.8974528312683107,
+                        "z": 2.6970279216766359
+                    }
+                },
+                {
+                    "name": "红龟稞 (6)",
+                    "position": {
+                        "x": -84.23551177978516,
+                        "y": -5.082768440246582,
+                        "z": 2.3452911376953127
+                    }
+                },
+                {
+                    "name": "照片_祖母海边",
+                    "position": {
+                        "x": -84.15899658203125,
+                        "y": -5.008600234985352,
+                        "z": 1.951200008392334
+                    }
+                }
+            ]
+        },
+        {
+            "name": "老厝_后院",
+            "description": "后院是老厝背面的室外空间，约5×13米，纵深较长，与其他区域在导航上完全隔离。空间开阔但孤立，适合独处、回忆性独白或远离人群的情感宣泄场景。",
+            "spatial_relations": [
+                {
+                    "region": "妈祖庙_东侧廊",
+                    "relation": "disconnected",
+                    "connected": false,
+                    "distance_m": 0
+                },
+                {
+                    "region": "妈祖庙_主殿",
+                    "relation": "disconnected",
+                    "connected": false,
+                    "distance_m": 0
+                },
+                {
+                    "region": "妈祖庙_入口门廊",
+                    "relation": "disconnected",
+                    "connected": false,
+                    "distance_m": 0
+                },
+                {
+                    "region": "妈祖庙_前厅",
+                    "relation": "disconnected",
+                    "connected": false,
+                    "distance_m": 0
+                },
+                {
+                    "region": "妈祖庙_祭坛区",
+                    "relation": "disconnected",
+                    "connected": false,
+                    "distance_m": 0
+                },
+                {
+                    "region": "妈祖庙_西侧廊",
+                    "relation": "disconnected",
+                    "connected": false,
+                    "distance_m": 0
+                },
+                {
+                    "region": "老厝_入口门廊",
+                    "relation": "disconnected",
+                    "connected": false,
+                    "distance_m": 0
+                },
+                {
+                    "region": "老厝_卧房",
+                    "relation": "disconnected",
+                    "connected": false,
+                    "distance_m": 0
+                },
+                {
+                    "region": "老厝_厨房",
+                    "relation": "disconnected",
+                    "connected": false,
+                    "distance_m": 0
+                },
+                {
+                    "region": "老厝_天井",
+                    "relation": "disconnected",
+                    "connected": false,
+                    "distance_m": 0
+                },
+                {
+                    "region": "老厝_正厅",
+                    "relation": "disconnected",
+                    "connected": false,
+                    "distance_m": 0
+                },
+                {
+                    "region": "老厝_餐厅",
+                    "relation": "disconnected",
+                    "connected": false,
+                    "distance_m": 0
+                }
+            ],
+            "anchors": [],
+            "scene_markers": [
+                {
+                    "name": "妈祖像",
+                    "position": {
+                        "x": -84.87516021728516,
+                        "y": -3.8974528312683107,
+                        "z": 2.6970279216766359
+                    }
+                },
+                {
+                    "name": "红龟稞 (6)",
+                    "position": {
+                        "x": -84.23551177978516,
+                        "y": -5.082768440246582,
+                        "z": 2.3452911376953127
+                    }
+                },
+                {
+                    "name": "照片_祖母海边",
+                    "position": {
+                        "x": -84.15899658203125,
+                        "y": -5.008600234985352,
+                        "z": 1.951200008392334
+                    }
+                }
+            ]
+        },
+        {
+            "name": "妈祖庙_入口门廊",
+            "description": "妈祖庙入口门廊约9.5×4.4米，是进入庙宇的过渡空间，气氛由世俗转向神圣。空间较宽敞，适合进庙前的准备、礼仪性对话或信众聚集的站位。",
+            "spatial_relations": [
+                {
+                    "region": "妈祖庙_前厅",
+                    "relation": "adjacent",
+                    "connected": true,
+                    "distance_m": 4
+                },
+                {
+                    "region": "妈祖庙_东侧廊",
+                    "relation": "adjacent",
+                    "connected": true,
+                    "distance_m": 9
+                },
+                {
+                    "region": "妈祖庙_西侧廊",
+                    "relation": "adjacent",
+                    "connected": true,
+                    "distance_m": 9
+                },
+                {
+                    "region": "妈祖庙_主殿",
+                    "relation": "adjacent",
+                    "connected": true,
+                    "distance_m": 11
+                },
+                {
+                    "region": "老厝_入口门廊",
+                    "relation": "near",
+                    "connected": true,
+                    "distance_m": 26
+                },
+                {
+                    "region": "老厝_餐厅",
+                    "relation": "near",
+                    "connected": true,
+                    "distance_m": 31
+                },
+                {
+                    "region": "老厝_厨房",
+                    "relation": "near",
+                    "connected": true,
+                    "distance_m": 32
+                },
+                {
+                    "region": "老厝_天井",
+                    "relation": "near",
+                    "connected": true,
+                    "distance_m": 32
+                },
+                {
+                    "region": "老厝_正厅",
+                    "relation": "medium",
+                    "connected": true,
+                    "distance_m": 38
+                },
+                {
+                    "region": "妈祖庙_祭坛区",
+                    "relation": "disconnected",
+                    "connected": false,
+                    "distance_m": 0
+                },
+                {
+                    "region": "老厝_卧房",
+                    "relation": "disconnected",
+                    "connected": false,
+                    "distance_m": 0
+                },
+                {
+                    "region": "老厝_后院",
+                    "relation": "disconnected",
+                    "connected": false,
+                    "distance_m": 0
+                }
+            ],
+            "anchors": [
+                {
+                    "name": "门口",
+                    "position": {
+                        "x": -69.6050033569336,
+                        "y": -5.804999828338623,
+                        "z": -17.909000396728517
+                    }
+                }
+            ],
+            "scene_markers": []
+        },
+        {
+            "name": "妈祖庙_前厅",
+            "description": "妈祖庙前厅约9.7×4.1米，设有香亭，是信众上香祈福的主要活动区域。空间庄重而开阔，适合祈祷、问询神意或虔诚对话的站位。",
+            "spatial_relations": [
+                {
+                    "region": "妈祖庙_入口门廊",
+                    "relation": "adjacent",
+                    "connected": true,
+                    "distance_m": 4
+                },
+                {
+                    "region": "妈祖庙_东侧廊",
+                    "relation": "adjacent",
+                    "connected": true,
+                    "distance_m": 8
+                },
+                {
+                    "region": "妈祖庙_西侧廊",
+                    "relation": "adjacent",
+                    "connected": true,
+                    "distance_m": 12
+                },
+                {
+                    "region": "妈祖庙_主殿",
+                    "relation": "adjacent",
+                    "connected": true,
+                    "distance_m": 13
+                },
+                {
+                    "region": "老厝_入口门廊",
+                    "relation": "near",
+                    "connected": true,
+                    "distance_m": 28
+                },
+                {
+                    "region": "老厝_厨房",
+                    "relation": "near",
+                    "connected": true,
+                    "distance_m": 34
+                },
+                {
+                    "region": "老厝_天井",
+                    "relation": "near",
+                    "connected": true,
+                    "distance_m": 34
+                },
+                {
+                    "region": "老厝_餐厅",
+                    "relation": "near",
+                    "connected": true,
+                    "distance_m": 34
+                },
+                {
+                    "region": "老厝_正厅",
+                    "relation": "medium",
+                    "connected": true,
+                    "distance_m": 40
+                },
+                {
+                    "region": "妈祖庙_祭坛区",
+                    "relation": "disconnected",
+                    "connected": false,
+                    "distance_m": 0
+                },
+                {
+                    "region": "老厝_卧房",
+                    "relation": "disconnected",
+                    "connected": false,
+                    "distance_m": 0
+                },
+                {
+                    "region": "老厝_后院",
+                    "relation": "disconnected",
+                    "connected": false,
+                    "distance_m": 0
+                }
+            ],
+            "anchors": [
+                {
+                    "name": "中央",
+                    "position": {
+                        "x": -65.93000030517578,
+                        "y": -15.050000190734864,
+                        "z": -17.100000381469728
+                    }
+                }
+            ],
+            "scene_markers": [
+                {
+                    "name": "香亭",
+                    "position": {
+                        "x": -69.34800720214844,
+                        "y": -5.552469730377197,
+                        "z": -20.085323333740236
+                    }
+                }
+            ]
+        },
+        {
+            "name": "妈祖庙_主殿",
+            "description": "妈祖庙主殿约9.8×4.2米，是庙宇最核心的礼拜空间，设有座垫供信众跪拜。空间肃穆庄严，适合跪拜祈愿、神圣对话或情感高潮的站位。",
+            "spatial_relations": [
+                {
+                    "region": "妈祖庙_西侧廊",
+                    "relation": "adjacent",
+                    "connected": true,
+                    "distance_m": 5
+                },
+                {
+                    "region": "妈祖庙_东侧廊",
+                    "relation": "adjacent",
+                    "connected": true,
+                    "distance_m": 8
+                },
+                {
+                    "region": "妈祖庙_入口门廊",
+                    "relation": "adjacent",
+                    "connected": true,
+                    "distance_m": 11
+                },
+                {
+                    "region": "妈祖庙_前厅",
+                    "relation": "adjacent",
+                    "connected": true,
+                    "distance_m": 14
+                },
+                {
+                    "region": "老厝_入口门廊",
+                    "relation": "medium",
+                    "connected": true,
+                    "distance_m": 39
+                },
+                {
+                    "region": "老厝_天井",
+                    "relation": "medium",
+                    "connected": true,
+                    "distance_m": 44
+                },
+                {
+                    "region": "老厝_餐厅",
+                    "relation": "medium",
+                    "connected": true,
+                    "distance_m": 44
+                },
+                {
+                    "region": "老厝_厨房",
+                    "relation": "medium",
+                    "connected": true,
+                    "distance_m": 45
+                },
+                {
+                    "region": "老厝_正厅",
+                    "relation": "far",
+                    "connected": true,
+                    "distance_m": 50
+                },
+                {
+                    "region": "妈祖庙_祭坛区",
+                    "relation": "disconnected",
+                    "connected": false,
+                    "distance_m": 0
+                },
+                {
+                    "region": "老厝_卧房",
+                    "relation": "disconnected",
+                    "connected": false,
+                    "distance_m": 0
+                },
+                {
+                    "region": "老厝_后院",
+                    "relation": "disconnected",
+                    "connected": false,
+                    "distance_m": 0
+                }
+            ],
+            "anchors": [
+                {
+                    "name": "中央",
+                    "position": {
+                        "x": -70.36000061035156,
+                        "y": -12.869999885559082,
+                        "z": -29.889999389648439
+                    }
+                }
+            ],
+            "scene_markers": [
+                {
+                    "name": "座垫 (1)",
+                    "position": {
+                        "x": -69.381103515625,
+                        "y": -6.464117527008057,
+                        "z": -25.98106575012207
+                    }
+                },
+                {
+                    "name": "座垫 (2)",
+                    "position": {
+                        "x": -70.65110778808594,
+                        "y": -6.464117527008057,
+                        "z": -25.98106575012207
+                    }
+                }
+            ]
+        },
+        {
+            "name": "妈祖庙_祭坛区",
+            "description": "祭坛区约8.2×4.7米，是妈祖庙最神圣的核心区域，供奉妈祖神像，陈设香炉、蜡烛、八仙桌和圣杯等祭祀器具。空间庄严肃穆，与其他区域导航隔离，适合祭祀仪式、神明对话或最高潮的宗教情感场景。",
+            "spatial_relations": [
+                {
+                    "region": "妈祖庙_东侧廊",
+                    "relation": "disconnected",
+                    "connected": false,
+                    "distance_m": 0
+                },
+                {
+                    "region": "妈祖庙_主殿",
+                    "relation": "disconnected",
+                    "connected": false,
+                    "distance_m": 0
+                },
+                {
+                    "region": "妈祖庙_入口门廊",
+                    "relation": "disconnected",
+                    "connected": false,
+                    "distance_m": 0
+                },
+                {
+                    "region": "妈祖庙_前厅",
+                    "relation": "disconnected",
+                    "connected": false,
+                    "distance_m": 0
+                },
+                {
+                    "region": "妈祖庙_西侧廊",
+                    "relation": "disconnected",
+                    "connected": false,
+                    "distance_m": 0
+                },
+                {
+                    "region": "老厝_入口门廊",
+                    "relation": "disconnected",
+                    "connected": false,
+                    "distance_m": 0
+                },
+                {
+                    "region": "老厝_卧房",
+                    "relation": "disconnected",
+                    "connected": false,
+                    "distance_m": 0
+                },
+                {
+                    "region": "老厝_厨房",
+                    "relation": "disconnected",
+                    "connected": false,
+                    "distance_m": 0
+                },
+                {
+                    "region": "老厝_后院",
+                    "relation": "disconnected",
+                    "connected": false,
+                    "distance_m": 0
+                },
+                {
+                    "region": "老厝_天井",
+                    "relation": "disconnected",
+                    "connected": false,
+                    "distance_m": 0
+                },
+                {
+                    "region": "老厝_正厅",
+                    "relation": "disconnected",
+                    "connected": false,
+                    "distance_m": 0
+                },
+                {
+                    "region": "老厝_餐厅",
+                    "relation": "disconnected",
+                    "connected": false,
+                    "distance_m": 0
+                }
+            ],
+            "anchors": [],
+            "scene_markers": [
+                {
+                    "name": "蜡烛 (7)",
+                    "position": {
+                        "x": -70.81703186035156,
+                        "y": -5.537932395935059,
+                        "z": -30.394006729125978
+                    }
+                },
+                {
+                    "name": "八仙桌 (1)",
+                    "position": {
+                        "x": -69.32133483886719,
+                        "y": -6.568905830383301,
+                        "z": -28.787534713745118
+                    }
+                },
+                {
+                    "name": "妈祖像",
+                    "position": {
+                        "x": -69.36153411865235,
+                        "y": -4.682064056396484,
+                        "z": -31.18699073791504
+                    }
+                },
+                {
+                    "name": "香炉 (2)",
+                    "position": {
+                        "x": -69.30599212646485,
+                        "y": -5.4933366775512699,
+                        "z": -29.988882064819337
+                    }
+                },
+                {
+                    "name": "圣杯",
+                    "position": {
+                        "x": -69.12934875488281,
+                        "y": -5.970361709594727,
+                        "z": -28.542510986328126
+                    }
+                }
+            ]
+        },
+        {
+            "name": "妈祖庙_东侧廊",
+            "description": "东侧廊是妈祖庙东侧的狭长走廊，约2.1×9.8米，空间极为狭窄，连通入口门廊、前厅和主殿。适合过路、低声交谈或单人独行的站位，不适合多人聚集。",
+            "spatial_relations": [
+                {
+                    "region": "妈祖庙_主殿",
+                    "relation": "adjacent",
+                    "connected": true,
+                    "distance_m": 8
+                },
+                {
+                    "region": "妈祖庙_前厅",
+                    "relation": "adjacent",
+                    "connected": true,
+                    "distance_m": 8
+                },
+                {
+                    "region": "妈祖庙_入口门廊",
+                    "relation": "adjacent",
+                    "connected": true,
+                    "distance_m": 9
+                },
+                {
+                    "region": "妈祖庙_西侧廊",
+                    "relation": "adjacent",
+                    "connected": true,
+                    "distance_m": 9
+                },
+                {
+                    "region": "老厝_入口门廊",
+                    "relation": "near",
+                    "connected": true,
+                    "distance_m": 35
+                },
+                {
+                    "region": "老厝_天井",
+                    "relation": "medium",
+                    "connected": true,
+                    "distance_m": 40
+                },
+                {
+                    "region": "老厝_餐厅",
+                    "relation": "medium",
+                    "connected": true,
+                    "distance_m": 40
+                },
+                {
+                    "region": "老厝_厨房",
+                    "relation": "medium",
+                    "connected": true,
+                    "distance_m": 42
+                },
+                {
+                    "region": "老厝_正厅",
+                    "relation": "medium",
+                    "connected": true,
+                    "distance_m": 46
+                },
+                {
+                    "region": "妈祖庙_祭坛区",
+                    "relation": "disconnected",
+                    "connected": false,
+                    "distance_m": 0
+                },
+                {
+                    "region": "老厝_卧房",
+                    "relation": "disconnected",
+                    "connected": false,
+                    "distance_m": 0
+                },
+                {
+                    "region": "老厝_后院",
+                    "relation": "disconnected",
+                    "connected": false,
+                    "distance_m": 0
+                }
+            ],
+            "anchors": [],
+            "scene_markers": []
+        },
+        {
+            "name": "妈祖庙_西侧廊",
+            "description": "西侧廊是妈祖庙西侧的狭长走廊，约2.1×9.8米，与东侧廊对称，空间极为狭窄，紧邻主殿。适合过路、低声交谈或单人独行的站位，不适合多人聚集。",
+            "spatial_relations": [
+                {
+                    "region": "妈祖庙_主殿",
+                    "relation": "adjacent",
+                    "connected": true,
+                    "distance_m": 5
+                },
+                {
+                    "region": "妈祖庙_东侧廊",
+                    "relation": "adjacent",
+                    "connected": true,
+                    "distance_m": 9
+                },
+                {
+                    "region": "妈祖庙_入口门廊",
+                    "relation": "adjacent",
+                    "connected": true,
+                    "distance_m": 9
+                },
+                {
+                    "region": "妈祖庙_前厅",
+                    "relation": "adjacent",
+                    "connected": true,
+                    "distance_m": 12
+                },
+                {
+                    "region": "老厝_入口门廊",
+                    "relation": "near",
+                    "connected": true,
+                    "distance_m": 35
+                },
+                {
+                    "region": "老厝_餐厅",
+                    "relation": "medium",
+                    "connected": true,
+                    "distance_m": 40
+                },
+                {
+                    "region": "老厝_厨房",
+                    "relation": "medium",
+                    "connected": true,
+                    "distance_m": 41
+                },
+                {
+                    "region": "老厝_天井",
+                    "relation": "medium",
+                    "connected": true,
+                    "distance_m": 41
+                },
+                {
+                    "region": "老厝_正厅",
+                    "relation": "medium",
+                    "connected": true,
+                    "distance_m": 46
+                },
+                {
+                    "region": "妈祖庙_祭坛区",
+                    "relation": "disconnected",
+                    "connected": false,
+                    "distance_m": 0
+                },
+                {
+                    "region": "老厝_卧房",
+                    "relation": "disconnected",
+                    "connected": false,
+                    "distance_m": 0
+                },
+                {
+                    "region": "老厝_后院",
+                    "relation": "disconnected",
+                    "connected": false,
+                    "distance_m": 0
+                }
+            ],
+            "anchors": [],
+            "scene_markers": []
+        }
+    ]
+}

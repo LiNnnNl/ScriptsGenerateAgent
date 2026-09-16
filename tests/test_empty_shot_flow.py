@@ -94,6 +94,31 @@ class EmptyShotFlowTest(unittest.TestCase):
         self.assertNotIn("Follow", beat)
         self.assertEqual([], stage.assignment_results)
 
+    def test_camera_stage_preserves_explicit_object_shot(self):
+        from src.cinematography.camera_planning_stage import CameraPlanningStage
+
+        script = {
+            "scene information": {"where": "TestScene"},
+            "initial position": [],
+            "scene": [{
+                "speaker": "", "content": "香炉特写。", "duration": 3.0, "actions": [],
+                "shot": "object", "target": "香炉", "target_anchor": "center",
+                "shot_type": "物体特写", "shot_blend": "Cut",
+            }],
+        }
+        scene_info = {"where": "TestScene", "regions": [{"name": "Main", "scene_markers": [{"name": "香炉"}]}]}
+        camera_lib = {"物体特写": {"画面范围": "detail", "主要用途": "object"}}
+
+        with tempfile.TemporaryDirectory() as tmp:
+            stage = CameraPlanningStage(script, scene_info, camera_lib, output_dir=tmp, stage_output_dir=tmp)
+            result = stage.run()
+
+        beat = result["script_with_camera_plan"]["scene"][0]
+        self.assertEqual("object", beat["shot"])
+        self.assertEqual("香炉", beat["target"])
+        self.assertNotIn("camera", beat)
+        self.assertEqual([], stage.assignment_results)
+
     def test_final_generator_preserves_empty_shot_camera_contract(self):
         from src.json_generator import ScriptJSONGenerator
         from src.resource_loader import Scene

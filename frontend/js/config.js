@@ -81,6 +81,7 @@ const APP_STATE = {
     actCount: 3,
     currentSessionId: null,
     historyPanelOpen: false,
+    historySessions: [],
     availableActions: {},  // { state: [{trigger, description, state}] }
     shotTypes: [],         // 合法 shot_type 列表
     shotBlends: [],        // 合法 shot_blend 列表

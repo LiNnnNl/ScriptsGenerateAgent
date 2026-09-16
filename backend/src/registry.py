@@ -6,10 +6,23 @@
 
 import json
 import os
+import threading
 from datetime import datetime
 from pathlib import Path
 
 REGISTRY_PATH = Path("outputs/registry.json")
+_LOCK = threading.Lock()
+FORM_DATA_KEYS = (
+    "creative_idea", "scene_id", "scene_pool", "act_scenes",
+    "custom_characters", "required_character_count", "act_count",
+    "script_style_id", "script_tone_id", "dialogue_language",
+    "shot_style_reference", "direct_mode",
+)
+
+
+def snapshot_form_data(params: dict) -> dict:
+    """Keep only fields needed to refill the generation form."""
+    return {key: params.get(key) for key in FORM_DATA_KEYS}
 
 
 def load_registry() -> dict:
@@ -36,33 +49,57 @@ def register_session(
     scene_id: str = "",
     act_count: int = 3,
     label: str = "",
+    form_data: dict | None = None,
+    status: str = "success",
+    error: str = "",
 ) -> None:
-    data = load_registry()
-    data["sessions"][ts] = {
-        "label": label,
-        "created_at": datetime.now().isoformat(timespec="seconds"),
-        "scene_id": scene_id,
-        "act_count": act_count,
-        "files": files,
-        "word_export": None,
-    }
-    save_registry(data)
+    with _LOCK:
+        data = load_registry()
+        previous = data["sessions"].get(ts, {})
+        data["sessions"][ts] = {
+            "label": label,
+            "created_at": previous.get("created_at") or datetime.now().isoformat(timespec="seconds"),
+            "scene_id": scene_id,
+            "act_count": act_count,
+            "files": files,
+            "word_export": previous.get("word_export"),
+            "form_data": form_data if form_data is not None else previous.get("form_data"),
+            "status": status,
+            "error": error,
+        }
+        save_registry(data)
+
+
+def update_session_status(session_id: str, status: str, error: str = "") -> bool:
+    with _LOCK:
+        data = load_registry()
+        session = data["sessions"].get(session_id)
+        if not session:
+            return False
+        if session.get("status") == "success":
+            return True
+        session["status"] = status
+        session["error"] = str(error)[:2000]
+        save_registry(data)
+        return True
 
 
 def update_label(session_id: str, label: str) -> bool:
-    data = load_registry()
-    if session_id not in data["sessions"]:
-        return False
-    data["sessions"][session_id]["label"] = label
-    save_registry(data)
-    return True
+    with _LOCK:
+        data = load_registry()
+        if session_id not in data["sessions"]:
+            return False
+        data["sessions"][session_id]["label"] = label
+        save_registry(data)
+        return True
 
 
 def update_word_export(session_id: str, docx_filename: str) -> None:
-    data = load_registry()
-    if session_id in data["sessions"]:
-        data["sessions"][session_id]["word_export"] = docx_filename
-        save_registry(data)
+    with _LOCK:
+        data = load_registry()
+        if session_id in data["sessions"]:
+            data["sessions"][session_id]["word_export"] = docx_filename
+            save_registry(data)
 
 
 def list_sessions_desc() -> list:

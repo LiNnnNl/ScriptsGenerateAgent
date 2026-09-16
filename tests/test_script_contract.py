@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'backend'))
 from src.resource_loader import ResourceLoader
-from src.script_contract import MANDARIN, normalize_script, validate_script, validate_bundle
+from src.script_contract import MANDARIN, normalize_camera_resources, normalize_script, validate_script, validate_bundle
 
 
 def sample():
@@ -156,14 +156,14 @@ class ScriptContractTests(unittest.TestCase):
                 pass
         data = sample()
         data[0]['scene'][0]['actions'] = [{'character': 'A', 'state': 'standing', 'action': 'Invented'}]
-        async def repair(agent, prompt, bridge, label):
+        async def repair(agent, prompt):
             self.assertIn('candidates', prompt)
-            fixed = copy.deepcopy(data)
-            fixed[0]['scene'][0]['content'] = 'changed'
-            return fixed
-        with patch('src.autogen_pipeline._run_director_agent', repair):
+            event = copy.deepcopy(data[0]['scene'][0])
+            event['content'] = 'changed'
+            return {'event_repairs': [{'act_index': 0, 'event_index': 0, 'event': event}]}
+        with patch('src.autogen_pipeline._run_stage_agent_json_object', repair):
             with self.assertRaisesRegex(ValueError, '对白'):
-                asyncio.run(_enforce_contract(data, self.loader, None, Bridge(), {0: self.loader.get_scene_by_id('Auditorium')}, 1, ['A'], 1))
+                asyncio.run(_enforce_contract(data, self.loader, Bridge(), {0: self.loader.get_scene_by_id('Auditorium')}, 1, ['A'], 1))
 
     def test_normal_mode_repair_can_fill_only_invalid_empty_dialogue(self):
         from src.autogen_pipeline import _enforce_contract
@@ -172,17 +172,94 @@ class ScriptContractTests(unittest.TestCase):
                 pass
         data = sample()
         data[0]['scene'][0]['content'] = ''
-        async def repair(agent, prompt, bridge, label):
-            self.assertIn('允许为错误的空台词补写短句', prompt)
-            fixed = copy.deepcopy(data)
-            fixed[0]['scene'][0]['content'] = '补全台词。'
-            return fixed
-        with patch('src.autogen_pipeline._run_director_agent', repair):
+        async def repair(agent, prompt):
+            self.assertIn('只有当 errors 明确指出空台词时，才可补写短句', prompt)
+            event = copy.deepcopy(data[0]['scene'][0])
+            event['content'] = '补全台词。'
+            return {'event_repairs': [{'act_index': 0, 'event_index': 0, 'event': event}]}
+        with patch('src.autogen_pipeline._run_stage_agent_json_object', repair):
             fixed, report = asyncio.run(_enforce_contract(
-                data, self.loader, None, Bridge(), {0: self.loader.get_scene_by_id('Auditorium')},
+                data, self.loader, Bridge(), {0: self.loader.get_scene_by_id('Auditorium')},
                 1, ['A'], 1, preserve_story=False))
         self.assertTrue(report['valid'])
         self.assertEqual('补全台词。', fixed[0]['scene'][0]['content'])
+
+    def test_contract_rebuilds_partial_position_collisions_without_model_repair(self):
+        from src.autogen_pipeline import _enforce_contract
+        class Bridge:
+            def put_event(self, event):
+                pass
+        data = sample()
+        data[0]['scene information']['who'] = ['A', 'B']
+        data[0]['initial position'].append({'character': 'B', 'position': 'Position 1', 'state': 'standing'})
+        data[0]['scene'][0]['current position'].append({'character': 'B', 'position': 'Position 1'})
+        fixed, report = asyncio.run(_enforce_contract(
+            data, self.loader, Bridge(), {0: self.loader.get_scene_by_id('Auditorium')},
+            1, ['A', 'B'], 2,
+        ))
+        self.assertTrue(report['valid'])
+        self.assertEqual(['Position 1', 'Position 2'], [
+            item['position'] for item in fixed[0]['initial position']
+        ])
+        self.assertEqual(['Position 1', 'Position 2'], [
+            item['position'] for item in fixed[0]['scene'][0]['current position']
+        ])
+
+    def test_contract_inserts_stand_up_before_move_without_reordering(self):
+        from src.autogen_pipeline import _apply_contract_repairs, _enforce_contract
+        class Bridge:
+            def put_event(self, event):
+                pass
+
+        data = sample()
+        data[0]['initial position'][0]['state'] = 'squatting'
+        move = copy.deepcopy(data[0]['scene'][0])
+        move.pop('speaker')
+        move.pop('content')
+        move.pop('actions')
+        move['move'] = [{'character': 'A', 'destination': 'Position 2'}]
+        before = copy.deepcopy(data[0]['scene'][0])
+        data[0]['scene'] = [before, move]
+
+        fixed, report = asyncio.run(_enforce_contract(
+            data, self.loader, Bridge(), {0: self.loader.get_scene_by_id('Auditorium')},
+            1, ['A'], 1, preserve_story=False,
+        ))
+
+        self.assertTrue(report['valid'])
+        self.assertEqual('Stand Up', fixed[0]['scene'][0]['actions'][0]['action'])
+        self.assertEqual('squatting', fixed[0]['scene'][0]['actions'][0]['state'])
+        self.assertEqual('Position 2', fixed[0]['scene'][1]['move'][0]['destination'])
+
+        repaired = _apply_contract_repairs(data, {'event_repairs': [{
+            'act_index': 0, 'event_index': 0,
+            'event': {**move, 'move': [{
+                'character': 'A', 'destination': 'Position 2', 'state': 'standing',
+            }]},
+        }]})
+        self.assertNotIn('state', repaired[0]['scene'][0]['move'][0])
+
+    def test_walk_and_talk_stands_mover_even_when_someone_else_speaks(self):
+        from src.autogen_pipeline import _stabilize_generated_posture_timeline
+
+        scene = {
+            'initial position': [
+                {'character': 'A', 'state': 'sitting'},
+                {'character': 'B', 'state': 'standing'},
+            ],
+            'scene': [
+                {'speaker': 'B', 'content': '先听我说。', 'actions': []},
+                {'speaker': 'B', 'content': '边走边说。', 'move': [
+                    {'character': 'A', 'destination': 'Position 2'},
+                ]},
+            ],
+        }
+
+        _stabilize_generated_posture_timeline(scene)
+
+        self.assertEqual('Stand Up', scene['scene'][0]['actions'][0]['action'])
+        self.assertEqual('A', scene['scene'][0]['actions'][0]['character'])
+        self.assertEqual('边走边说。', scene['scene'][1]['content'])
 
     def test_bundle_camera_references_and_editor_gate(self):
         from src.cinematography import _build_camera_script
@@ -204,12 +281,101 @@ class ScriptContractTests(unittest.TestCase):
         self.assertTrue(validate_bundle(data, camera, [actor], self.loader, details=detail)['valid'])
         detail['singles'][0]['lookat'] = '不存在的锚点'
         self.assertFalse(validate_bundle(data, camera, [actor], self.loader, details=detail)['valid'])
+        plan = {'where': 'Auditorium', 'groups': [{
+            'group_id': 'G1', 'layout': 'two_person', 'region': own['name'],
+            'positions': [
+                {'position_id': 'Position 1', 'character': 'A'},
+                {'position_id': 'Position 2', 'character': 'B'},
+            ],
+            'lookat': {'mode': 'target', 'target_object': target},
+        }], 'singles': []}
+        self.assertTrue(validate_bundle(data, camera, [actor], self.loader, plans=plan)['valid'])
         camera['scenes'][0]['events'][0]['target_position'] = 'Position 99'
         self.assertFalse(validate_bundle(data, camera, [actor], self.loader)['valid'])
         with app.test_client() as client:
             self.assertEqual(200, client.post('/api/validate_script', json={'script': data}).status_code)
             data[0]['scene'][0]['confidence'] = True
             self.assertEqual(422, client.post('/api/validate_script', json={'script': data}).status_code)
+
+    def test_bundle_uses_scene_markers_as_object_targets(self):
+        from src.cinematography import _build_camera_script
+
+        data = sample()
+        data[0]['scene information']['where'] = 'MinNan'
+        intermediate = copy.deepcopy(data)
+        intermediate[0]['scene'][0].update(
+            shot='object', target='香炉 (2)', target_anchor='center',
+            shot_type='物体特写', shot_blend='cut',
+        )
+        camera = _build_camera_script(intermediate, self.loader.camera_list)
+        actor = {
+            'name': 'A', 'age': None, 'gender': '未知',
+            'gameobject_name': self.loader.characters[0].gameobject_name,
+            'appearance': dict.fromkeys(('height', 'body_type', 'hair', 'face'), ''),
+            'acting_style': '', 'traits': [], 'background': '',
+        }
+
+        self.assertTrue(validate_bundle(data, camera, [actor], self.loader)['valid'])
+        self.assertNotIn('target_position', camera['scenes'][0]['events'][0])
+
+        camera['scenes'][0]['events'][0]['target'] = '红龟稞'
+        normalized = normalize_camera_resources(camera, data, self.loader)
+        self.assertEqual('红龟稞 (3)', normalized['scenes'][0]['events'][0]['target'])
+        self.assertTrue(validate_bundle(data, normalized, [actor], self.loader)['valid'])
+
+    def test_unknown_object_camera_downgrades_to_scene(self):
+        data = sample()
+        camera = {'scenes': [{'shot_index': 0, 'events': [{
+            'event_index': 0, 'shot': 'object', 'target': '', 'target_anchor': 'center',
+            'shot_type': '物体中景', 'shot_blend': 'cut', 'follow': 0,
+            'shot_description': data[0]['scene'][0]['shot_description'],
+            'motion_enabled': True, 'motion_preset': 'slow_push',
+            'play_motion_on_activate': True, 'motion_start_delay': 0.0,
+            'motion_reset_on_replay': True,
+        }]}]}
+
+        event = normalize_camera_resources(camera, data, self.loader)['scenes'][0]['events'][0]
+
+        self.assertEqual('scene', event['shot'])
+        self.assertEqual(1, event['camera'])
+        self.assertFalse(event['motion_enabled'])
+        self.assertNotIn('target_anchor', event)
+
+    def test_bundle_position_coverage_allows_later_character_to_reuse_slot(self):
+        from src.cinematography import _build_camera_script
+
+        data = sample()
+        data[0]['scene information']['who'] = ['A', 'B']
+        data[0]['initial position'].append({
+            'character': 'B', 'position': 'Position 2', 'state': 'standing',
+        })
+        event = data[0]['scene'][0]
+        event.pop('speaker')
+        event.pop('content')
+        event.pop('actions')
+        event['current position'].append({'character': 'B', 'position': 'Position 2'})
+        event['move'] = [
+            {'character': 'A', 'destination': 'Position 2'},
+            {'character': 'B', 'destination': 'Position 3'},
+        ]
+        intermediate = copy.deepcopy(data)
+        intermediate[0]['scene'][0].update(shot='scene', camera=1, shot_blend='cut')
+        camera = _build_camera_script(intermediate, self.loader.camera_list)
+        gameobject = self.loader.characters[0].gameobject_name
+        actors = [{
+            'name': name, 'age': None, 'gender': '未知', 'gameobject_name': gameobject,
+            'appearance': dict.fromkeys(('height', 'body_type', 'hair', 'face'), ''),
+            'acting_style': '', 'traits': [], 'background': '',
+        } for name in ('A', 'B')]
+        region = self.loader.load_scene_info('Auditorium')['regions'][0]['name']
+        plan = {'where': 'Auditorium', 'groups': [], 'singles': [
+            {'position_id': 'Position 1', 'character': 'A', 'region': region, 'lookat': 'center'},
+            {'position_id': 'Position 2', 'character': 'B', 'region': region, 'lookat': 'center'},
+            {'position_id': 'Position 3', 'character': 'B', 'region': region, 'lookat': 'center'},
+        ]}
+
+        self.assertTrue(validate_script(data, self.loader)['valid'])
+        self.assertTrue(validate_bundle(data, camera, actors, self.loader, plans=plan)['valid'])
 
     def test_null_nested_option_is_rejected(self):
         data = sample()

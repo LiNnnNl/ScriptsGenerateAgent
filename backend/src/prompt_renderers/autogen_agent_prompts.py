@@ -1,32 +1,31 @@
 """Render AutoGen agent prompts from pure prompt files."""
 
 from typing import Dict, List, Optional
-import json
-from ..script_contract import read_catalogs
-from ..prompt_files.script_contract_rules import script_contract_rules_prompt
 
-from ..prompt_files.stash.character_bios_agent_stash import character_bios_agent_prompt
-from ..prompt_files.character_voice_agent import character_voice_agent_prompt
-from ..prompt_files.stash.concept_agent_stash import concept_agent_prompt
-from ..prompt_files.concept_pitch_agent import concept_pitch_agent_prompt
-from ..prompt_files.critic_agent import critic_agent_prompt
-from ..prompt_files.dialogue_agent import dialogue_agent_prompt
-from ..prompt_files.director_agent import director_agent_prompt
-from ..prompt_files.director_agent_direct import director_agent_direct_prompt
-from ..prompt_files.director_agent_word import director_agent_word_prompt
 from ..prompt_files.fixed_dialogues import fixed_dialogues_prompt
-from ..prompt_files.meeting_summary_agent import meeting_summary_agent_prompt
-from ..prompt_files.shot_plan_agent import shot_plan_agent_prompt
-from ..prompt_files.narrative_arch_agent import narrative_arch_agent_prompt
-from ..prompt_files.stash.position_agent_autogen_stash import position_agent_autogen_prompt
-from ..prompt_files.stash.synopsis_agent_stash import synopsis_agent_prompt
-from ..prompt_files.title_agent import title_agent_prompt
-from ..prompt_files.treatment_agent import treatment_agent_prompt
 from ..prompt_files.user_constraints import user_constraints_prompt
-from ..prompt_files.validation_agent import validation_agent_prompt
 from ..prompt_utils import render_prompt
 from ..resource_loader import Character, ResourceLoader, Scene
 from ..script_style_skill import build_script_style_context
+from ..agents.character_voice import build_system_message as _build_character_voice_system_message
+from ..agents.character_bios import build_system_message as _build_character_bios_system_message
+from ..agents.concept import build_system_message as _build_concept_system_message
+from ..agents.concept_pitch import build_system_message as _build_concept_pitch_system_message
+from ..agents.contract_repair import build_system_message as _build_contract_repair_system_message
+from ..agents.critic import build_system_message as _build_critic_system_message
+from ..agents.dialogue import build_system_message as _build_dialogue_system_message
+from ..agents.director import build_system_message as _build_director_package_system_message
+from ..agents.director_word import build_system_message as _build_director_word_package_system_message
+from ..agents.meeting_summary import build_system_message as _build_meeting_summary_system_message
+from ..agents.narrative_arch import build_system_message as _build_narrative_arch_system_message
+from ..agents.position import build_system_message as _build_position_system_message
+from ..agents.revision import build_system_message as _build_revision_system_message
+from ..agents.story_ir import build_system_message as _build_story_ir_system_message
+from ..agents.shot_plan import build_system_message as _build_shot_plan_system_message
+from ..agents.synopsis import build_system_message as _build_synopsis_system_message
+from ..agents.title import build_system_message as build_title_system_message
+from ..agents.treatment import build_system_message as _build_treatment_system_message
+from ..agents.validation import build_system_message as _build_validation_system_message
 from .action_info import render_action_info as _render_action_info
 
 
@@ -177,10 +176,8 @@ def build_director_system_message(
             f"幕-场景对应：{act_scene_lines}。"
         )
 
-    template = director_agent_direct_prompt if direct_mode else director_agent_prompt
-    template += '\n' + script_contract_rules_prompt + '\n当前资源取值库：\n' + json.dumps(read_catalogs(resource_loader), ensure_ascii=False)
-    return render_prompt(
-        template,
+    return _build_director_package_system_message(
+        direct_mode=direct_mode,
         char_info=_render_character_info(characters, total_count, extra_count),
         scene_info=_render_scene_info(scene, resource_loader, act_count, act_scene_map),
         action_info=_render_action_info(resource_loader),
@@ -225,8 +222,7 @@ def build_director_word_system_message(
             f"幕-场景对应：{act_scene_lines}。"
         )
 
-    return render_prompt(
-        director_agent_word_prompt + '\n' + script_contract_rules_prompt + '\n当前资源取值库：\n' + json.dumps(read_catalogs(resource_loader), ensure_ascii=False),
+    return _build_director_word_package_system_message(
         char_info=_render_character_info(characters, total_count, extra_count),
         scene_info=_render_scene_info(scene, resource_loader, act_count, act_scene_map),
         action_info=_render_action_info(resource_loader),
@@ -239,38 +235,34 @@ def build_director_word_system_message(
 
 
 def build_concept_system_message(characters: List[Character], scene: Scene, required_character_count: int = 0) -> str:
-    return render_prompt(concept_agent_prompt, common_context=_build_stage_common_context(characters, scene, required_character_count))
+    return _build_concept_system_message(_build_stage_common_context(characters, scene, required_character_count))
 
 
 def build_synopsis_system_message() -> str:
-    return synopsis_agent_prompt
+    return _build_synopsis_system_message()
 
 
 def build_character_bios_system_message() -> str:
-    return character_bios_agent_prompt
+    return _build_character_bios_system_message()
 
 
 def build_treatment_system_message(act_count: int = 3, script_style_guide: Optional[str] = None) -> str:
-    return render_prompt(
-        treatment_agent_prompt,
-        act_count=act_count,
-        video_style_guide=script_style_guide or build_script_style_context(),
+    return _build_treatment_system_message(
+        act_count,
+        script_style_guide or build_script_style_context(),
     )
 
 
 def build_meeting_summary_system_message(script_style_guide: Optional[str] = None) -> str:
-    return render_prompt(
-        meeting_summary_agent_prompt,
-        video_style_guide=script_style_guide or build_script_style_context(),
-    )
+    return _build_meeting_summary_system_message(script_style_guide or build_script_style_context())
 
 
 def build_shot_plan_system_message() -> str:
-    return shot_plan_agent_prompt
+    return _build_shot_plan_system_message()
 
 
-def build_title_system_message() -> str:
-    return title_agent_prompt
+def build_story_ir_system_message() -> str:
+    return _build_story_ir_system_message()
 
 
 def build_critic_system_message(
@@ -278,10 +270,9 @@ def build_critic_system_message(
     fixed_dialogues: Optional[List[dict]] = None,
     script_style_guide: Optional[str] = None,
 ) -> str:
-    return render_prompt(
-        critic_agent_prompt + '\n' + script_contract_rules_prompt,
-        constraints=_append_user_constraints(user_constraints, fixed_dialogues),
-        video_style_guide=script_style_guide or build_script_style_context(),
+    return _build_critic_system_message(
+        _append_user_constraints(user_constraints, fixed_dialogues),
+        script_style_guide or build_script_style_context(),
     )
 
 
@@ -290,11 +281,18 @@ def build_dialogue_system_message(
     fixed_dialogues: Optional[List[dict]] = None,
     script_style_guide: Optional[str] = None,
 ) -> str:
-    return render_prompt(
-        dialogue_agent_prompt + '\n' + script_contract_rules_prompt,
-        constraints=_append_user_constraints(user_constraints, fixed_dialogues),
-        video_style_guide=script_style_guide or build_script_style_context(),
+    return _build_dialogue_system_message(
+        _append_user_constraints(user_constraints, fixed_dialogues),
+        script_style_guide or build_script_style_context(),
     )
+
+
+def build_revision_system_message() -> str:
+    return _build_revision_system_message()
+
+
+def build_contract_repair_system_message() -> str:
+    return _build_contract_repair_system_message()
 
 
 def build_concept_pitch_system_message(
@@ -303,23 +301,22 @@ def build_concept_pitch_system_message(
     required_character_count: int = 0,
     script_style_guide: Optional[str] = None,
 ) -> str:
-    return render_prompt(
-        concept_pitch_agent_prompt,
-        common_context=_build_stage_common_context(characters, scene, required_character_count),
-        video_style_guide=script_style_guide or build_script_style_context(),
+    return _build_concept_pitch_system_message(
+        _build_stage_common_context(characters, scene, required_character_count),
+        script_style_guide or build_script_style_context(),
     )
 
 
 def build_character_voice_system_message(script_style_guide: Optional[str] = None) -> str:
-    return render_prompt(character_voice_agent_prompt, video_style_guide=script_style_guide or build_script_style_context())
+    return _build_character_voice_system_message(script_style_guide or build_script_style_context())
 
 
 def build_narrative_arch_system_message(script_style_guide: Optional[str] = None) -> str:
-    return render_prompt(narrative_arch_agent_prompt, video_style_guide=script_style_guide or build_script_style_context())
+    return _build_narrative_arch_system_message(script_style_guide or build_script_style_context())
 
 
 def build_validation_system_message() -> str:
-    return validation_agent_prompt
+    return _build_validation_system_message()
 
 
 def build_position_agent_system_message(scene: Scene) -> str:
@@ -335,8 +332,7 @@ def build_position_agent_system_message(scene: Scene) -> str:
         for group in scene.camera_groups:
             camera_groups_info += f"- **{group['id']}组 - {group['name']}**: {', '.join(group['position_ids'])}\n"
 
-    return render_prompt(
-        position_agent_autogen_prompt,
+    return _build_position_system_message(
         scene_name=scene.name,
         scene_id=scene.id,
         positions_info=positions_info,

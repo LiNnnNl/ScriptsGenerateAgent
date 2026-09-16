@@ -417,20 +417,21 @@ def _build_camera_script(enriched_script, camera_lib):
             if not isinstance(beat, dict):
                 continue
 
-            shot_type = beat.get("shot_type") or ("全景" if beat.get('shot') == 'scene' else "中景")
-            cam_def = camera_lib.get(shot_type, {})
+            shot = beat.get("shot", "character")
+            shot_type = beat.get("shot_type") or ("物体中景" if shot == "object" else None if shot == "scene" else "中景")
+            cam_def = camera_lib.get(shot_type, {}) if shot_type else {}
             default_preset = cam_def.get("DefaultMotionPreset", "none")
-            motion_enabled = default_preset != "none" and beat.get('shot') != 'scene'
+            motion_enabled = default_preset != "none" and shot != 'scene'
             if not motion_enabled:
                 default_preset = 'none'
 
             # Camera subject: speaker for dialogue beats, first mover for move beats
-            target = beat.get('target', '') if beat.get('shot') == 'object' else beat.get("speaker") or ""
-            if not target:
+            target = beat.get('target', '') if shot == 'object' else beat.get("speaker") or "" if shot == "character" else ""
+            if shot == "character" and not target:
                 moves = beat.get("move") or []
                 if moves and isinstance(moves, list):
                     target = moves[0].get("character", "")
-            if not target:
+            if shot == "character" and not target:
                 for pos_entry in beat.get("current position", []):
                     if isinstance(pos_entry, dict) and pos_entry.get("character"):
                         target = pos_entry.get("character", "")
@@ -438,12 +439,12 @@ def _build_camera_script(enriched_script, camera_lib):
 
             # Find target's current position
             target_position = ""
-            if target:
+            if shot == "character" and target:
                 for pos_entry in beat.get("current position", []):
                     if isinstance(pos_entry, dict) and pos_entry.get("character") == target:
                         target_position = pos_entry.get("position", "")
                         break
-            if not target_position:
+            if shot == "character" and not target_position:
                 for pos_entry in beat.get("current position", []):
                     if isinstance(pos_entry, dict) and pos_entry.get("position"):
                         target_position = pos_entry.get("position", "")
@@ -453,21 +454,21 @@ def _build_camera_script(enriched_script, camera_lib):
 
             event = {
                 "event_index": event_index,
-                "shot": beat.get("shot", "character"),
-                "target": target,
-                "target_position": target_position,
-                "shot_type": shot_type,
+                "shot": shot,
                 "shot_blend": beat.get("shot_blend", "cut"),
                 "follow": beat.get("Follow", 0),
-                "camera": beat.get("camera", None),
                 "shot_description": beat.get("shot_description", ""),
                 "motion_enabled": motion_enabled,
                 "motion_preset": default_preset,
             }
-            if beat.get('shot') == 'object':
-                event['target'] = beat.get('target', '')
-                if 'target_anchor' in beat:
-                    event['target_anchor'] = beat['target_anchor']
+            if shot == "character":
+                event.update(target=target, target_position=target_position, shot_type=shot_type)
+            elif shot == "object":
+                event.update(target=target, target_anchor=beat.get("target_anchor") or "center", shot_type=shot_type)
+                if 'duration' in beat:
+                    event['duration'] = beat['duration']
+            else:
+                event["camera"] = beat.get("camera", 1)
                 if 'duration' in beat:
                     event['duration'] = beat['duration']
             if motion_enabled:

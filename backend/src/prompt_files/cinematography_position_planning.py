@@ -6,7 +6,7 @@ cinematography_position_planning_prompt = """你是摄影指导流程中的区�
 - 区域选择：必须来自 scene_info_json.regions[*].name
 - 空间关系合规：source-destination 若标注为 'far' 则该 move 非法
 - 锚点选择：neartarget 必须是所选区域内的 anchor 或 scene_marker
-- lookat 合规：group 用 center/target 模式；single 用 anchor/target 字符串
+- lookat 合规：group 使用 {"mode":"center"}，或使用 {"mode":"target","target_character":"角色名"} / {"mode":"target","target_object":"场景目标名"}；禁止使用字段名 target。single 用 anchor/target 字符串
 - 地理多样性：优先让不同编组分布在不同区域
 
 ## 禁止红线清单
@@ -19,6 +19,7 @@ cinematography_position_planning_prompt = """你是摄影指导流程中的区�
 | 4 | lookat.target_character 不在被引用 group 的 characters 中 |
 | 5 | 使用 scene_info_json 中不存在的 region 名称 |
 | 6 | 遗漏任一 Stage1 输出的 group_id 或 position_id |
+| 7 | target 模式未恰好提供 target_character 或 target_object 之一，或错误使用 target 字段 |
 
 
 ## 输出格式规范
@@ -38,7 +39,7 @@ cinematography_position_planning_prompt = """你是摄影指导流程中的区�
         {"position_id": "Position 1", "character": "CharA"},
         {"position_id": "Position 2", "character": "CharB"}
       ],
-      "lookat": {"mode": "center"}
+      "lookat": {"mode": "target", "target_object": "中央锚点"}
     }
   ],
   "singles": [

@@ -1587,6 +1587,11 @@ const UI = {
             const files = s.files || {};
             const scriptFile = files.script || '';
             const wordFile = s.word_export || '';
+            const status = ['running', 'failed'].includes(s.status) ? s.status : 'success';
+            const statusLabel = {success: '成功', running: '生成中', failed: '失败'}[status];
+            const errorText = status === 'failed' && s.error
+                ? `<div class="history-session-error" title="${this._attr(s.error)}">${this._esc(s.error)}</div>`
+                : '';
 
             const loadBtn = scriptFile
                 ? `<button class="history-action-btn" onclick="loadHistoryScript('${scriptFile}')">加载剧本</button>`
@@ -1594,17 +1599,20 @@ const UI = {
             const wordBtn = scriptFile
                 ? `<button class="history-action-btn" onclick="API.downloadWord('${scriptFile}')">下载 Word</button>`
                 : '';
+            const refillBtn = `<button class="history-action-btn" onclick="refillHistoryForm('${s.session_id}')">一键复填</button>`;
 
             return `
-<div class="history-session-item">
+<div class="history-session-item status-${status}">
   <div class="history-session-header">
     <span class="history-session-label" contenteditable="true"
           data-sid="${s.session_id}"
           onblur="saveHistoryLabel(this)">${this._esc(label)}</span>
     <span class="history-session-meta">${acts} 幕 · ${scene}</span>
+    <span class="history-status-badge">${statusLabel}</span>
   </div>
   <div class="history-session-time">${dt}</div>
-  <div class="history-session-actions">${loadBtn}${wordBtn}</div>
+  ${errorText}
+  <div class="history-session-actions">${refillBtn}${loadBtn}${wordBtn}</div>
 </div>`;
         }).join('');
     }

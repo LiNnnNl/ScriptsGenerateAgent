@@ -135,9 +135,15 @@ def read_catalogs(resource_loader):
         data = json.loads(path.read_text(encoding="utf-8-sig"))
         interactions[data["scene"]] = {obj["id"]: obj for obj in data["objects"]}
     camera_targets = {}
-    for path in sorted((root / 'camera_targets').glob('*.json')):
-        data = json.loads(path.read_text(encoding='utf-8-sig'))
-        camera_targets[data['scene']] = {obj['id']: obj for obj in data['objects']}
+    for path in sorted((root / "cinematography" / "scene_info").glob("*.json")):
+        data = json.loads(path.read_text(encoding="utf-8-sig"))
+        targets = {}
+        for region in data.get("regions", []):
+            for marker in region.get("scene_markers", []):
+                name = marker.get("name")
+                if name:
+                    targets.setdefault(name, {"id": name, "anchors": ["center", "bounds_center", "top", "bottom"]})
+        camera_targets[data["where"]] = targets
     return {"emotions": emotions.get("libraries", {}), "interactions": interactions, 'camera_targets': camera_targets}
 
 
@@ -260,14 +266,30 @@ def interaction_list(value):
 def normalize_camera_resources(camera, script, loader):
     result = copy.deepcopy(camera)
     catalogs = read_catalogs(loader)['camera_targets']
+
+    def downgrade_to_scene(event):
+        event.update(shot='scene', target='', camera=event.get('camera', 1), follow=0,
+                     motion_enabled=False, motion_preset='none')
+        for field in ('target_position', 'target_anchor', 'shot_type', 'play_motion_on_activate',
+                      'motion_start_delay', 'motion_reset_on_replay'):
+            event.pop(field, None)
+
     for act, cs in zip(script, result.get('scenes', [])):
         targets = catalogs.get(act['scene information']['where'], {})
         if not targets:
             for event in cs['events']:
                 if event['shot'] == 'object':
-                    event['target'] = ''
-                    if 'target_anchor' in event:
-                        event['target_anchor'] = ''
+                    downgrade_to_scene(event)
+            continue
+        for event in cs['events']:
+            if event.get('shot') != 'object' or event.get('target') in targets:
+                continue
+            base = re.sub(r'\s*[（(]\d+[)）]\s*$', '', str(event.get('target') or '')).strip()
+            match = next((name for name in targets if re.sub(r'\s*[（(]\d+[)）]\s*$', '', name).strip() == base), None)
+            if match:
+                event['target'] = match
+            else:
+                downgrade_to_scene(event)
     return result
 
 
@@ -488,9 +510,9 @@ def validate_bundle(script, camera, actors, loader, plans=None, details=None):
             path = f'camera_script.scenes[{si}].events[{ei}]'
             check(ce['event_index'] == ei, path, 'event_index 不匹配')
             pos = {p['character']: p['position'] for p in event['current position']}
-            if ce['shot'] != 'object':
+            if ce['shot'] == 'character':
                 check(ce['target'] in pos and pos.get(ce['target']) == ce['target_position'], path, '镜头目标与事件开始位置不匹配')
-            else:
+            elif ce['shot'] == 'object':
                 targets = read_catalogs(loader)['camera_targets'].get(act['scene information']['where'], {})
                 if targets:
                     check(ce['target'] in targets, path, '物体镜头目标必须来自当前场景目标库')
@@ -499,7 +521,8 @@ def validate_bundle(script, camera, actors, loader, plans=None, details=None):
                 else:
                     check(ce['target'] == '' and not ce.get('target_anchor'), path, '空库时物体目标与锚点必须清空')
                     warnings.append(issue(path + '.target', 'RESOURCE_LIBRARY_EMPTY', '物体镜头目标库为空'))
-            check(ce['shot_type'] in loader.camera_list, path, '景别不在 CameraLib 中')
+            if ce['shot'] != 'scene':
+                check(ce['shot_type'] in loader.camera_list, path, '景别不在 CameraLib 中')
             if ce['motion_enabled']:
                 cam_def = loader.camera_list.get(ce['shot_type'], {})
                 check(ce['motion_preset'] == cam_def.get('DefaultMotionPreset'), path, '运镜预设必须为当前景别已注册的默认预设')
@@ -529,15 +552,15 @@ def validate_bundle(script, camera, actors, loader, plans=None, details=None):
         for si, (act, data) in enumerate(zip(script, scenes)):
             path = f'{label}[{si}]'
             check(data.get('where') == act['scene information']['where'], path, '位置文件场景不匹配')
-            required_positions = {(p['character'], p['position']) for p in act['initial position']}
-            required_positions.update((m['character'], m['destination']) for e in act['scene'] for m in e.get('move', []))
+            required_positions = {p['position'] for p in act['initial position']}
+            required_positions.update(m['destination'] for e in act['scene'] for m in e.get('move', []))
             actual = []
             for group in data.get('groups', []):
                 if label == 'position_plan':
-                    actual.extend((p.get('character'), p.get('position_id')) for p in group.get('positions', []))
+                    actual.extend(p.get('position_id') for p in group.get('positions', []))
                 else:
-                    actual.append((group.get('character'), group.get('position_id')))
-            actual.extend((p.get('character'), p.get('position_id')) for p in data.get('singles', []))
+                    actual.append(group.get('position_id'))
+            actual.extend(p.get('position_id') for p in data.get('singles', []))
             check(required_positions <= set(actual), path, '位置文件遗漏初始位置或移动目的地')
             check(len(actual) == len(set(actual)), path, '位置规划条目重复')
             scene_info = loader.load_scene_info(act['scene information']['where']) or {}
@@ -559,8 +582,13 @@ def validate_bundle(script, camera, actors, loader, plans=None, details=None):
                 if label == 'position_plan' and 'positions' in item:
                     check(isinstance(lookat, dict) and lookat.get('mode') in ('center', 'target'), path, '分组 lookat.mode 必须为 center/target')
                     if isinstance(lookat, dict) and lookat.get('mode') == 'target':
-                        check(lookat.get('target_character') in {p.get('character') for p in item['positions']}, path, 'lookat.target_character 必须属于该组')
+                        target_character = lookat.get('target_character')
+                        if target_character:
+                            check(target_character in {p.get('character') for p in item['positions']}, path, 'lookat.target_character 必须属于该组')
+                        else:
+                            allowed_objects = {a['name'] for region in regions.values() for a in region.get('anchors', []) + region.get('scene_markers', [])}
+                            check(lookat.get('target_object') in allowed_objects, path, 'lookat.target_object 必须来自本场景锚点库')
                 else:
-                    allowed = {'center'} | {p[1] for p in actual} | {a['name'] for region in regions.values() for a in region.get('anchors', []) + region.get('scene_markers', [])}
+                    allowed = {'center'} | set(actual) | {a['name'] for region in regions.values() for a in region.get('anchors', []) + region.get('scene_markers', [])}
                     check(isinstance(lookat, str) and lookat in allowed, path, 'lookat 必须为 center、Position 或本场景锚点')
     return {'valid': not errors, 'errors': errors, 'warnings': warnings}

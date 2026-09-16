@@ -46,10 +46,10 @@
 | actors_profile.gameobject_name | characters_resource.json | 已具备真实模型名称 |
 | emotionLibrary / emotion / emotionStyle | emotion_libraries.json | 已登记 `pixar_cartoon`：78 个模板、8 个切换样式；当前仅声明适用于阿福、陈阿嫲、林阿公 |
 | then-interact.target/action/参数枚举 | interactions/<scene>.json | 目录已有，仅 .gitkeep；规划格式见下节 |
-| camera_script.shot | character / scene / object | 已具备结构支持；object 需目标库 |
+| camera_script.shot | character / scene / object | 已具备；三类字段按 Unity 合同分别校验 |
 | shot_type / motion_preset | CameraLib.json 的景别及其 DefaultMotionPreset | 已有；关闭运镜固定 none，不输出 motion_sequence |
 | camera_script.shot_blend / follow | cut / blend / easein；0 / 1 | 已有；摄影中间八种 blend 名称由程序归一化 |
-| object 的 target/target_anchor | camera_targets/<scene>.json 的 objects/id/anchors | 尚未具备；不等同于坐标锚点或交互库 |
+| object 的 target/target_anchor | scene_info/<scene>.json 的 scene_markers.name；center/bounds_center/top/bottom | 已具备；object 不输出 target_position |
 | region / neartarget | cinematography/scene_info/<where>.json | 已有场景的真实锚点；缺失场景问题按用户决定暂缓 |
 | layout / lookat | LayoutLib.json；center/target 模式或目标引用 | 已有，检查人数范围、所属组/区域引用 |
 | language_config.version | 1 | 已具备；轨道 ID 是自定义引用，不是全球固定库 |
@@ -74,7 +74,7 @@
 {"scene":"Auditorium","objects":[{"id":"EXAMPLE_DOOR","actions":[{"name":"open","parameters":{"speed":{"type":"number","required":false,"min":0.1,"max":2}}}]}]}
 ```
 
-表情生成端索引已由用户提供的 Pixar 曲线清单整理到 `backend/resources/emotion_libraries.json`；曲线参数和 CSV 仍以 Unity 资产为权威，不复制到提示词。物体镜头目录结构：`{"scene":"Auditorium","objects":[{"id":"EXAMPLE_DOOR","anchors":["center"]}]}`。
+表情生成端索引已由用户提供的 Pixar 曲线清单整理到 `backend/resources/emotion_libraries.json`；曲线参数和 CSV 仍以 Unity 资产为权威，不复制到提示词。物体镜头直接复用各场景 `scene_info` 的 `scene_markers`，不维护第二份道具列表。
 
 没有需求就不生成交互、多语言、物体镜头。启用多语言后，每句必须一次性具备全部已发布轨道；生成失败不能发布半条轨道。空库时直接输入已有交互会保留结构，但 target/action 清空并警告；其他交互参数只能在真实库就绪后验证能力，不应执行占位交互。
 

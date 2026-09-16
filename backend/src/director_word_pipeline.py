@@ -22,7 +22,7 @@ from .autogen_pipeline import (
 from .autogen_tools import auto_fix_script, validate_script_constraints
 from .json_generator import ScriptJSONGenerator
 from .script_contract import normalize_script
-from .prompt_files.director_word_user import director_word_user_prompt
+from .agents.director_word import build_user_prompt
 from .prompt_utils import render_prompt
 from .resource_loader import ResourceLoader, Scene
 from .script_style_skill import ScriptStyleSkill
@@ -424,7 +424,7 @@ async def run_director_word_pipeline(
 
     _emit_stage_log(bridge, "info", "director_word", "start", "🎬 [导演 Word 模式] 只调用 DirectorAgent 生成可读分镜剧本...")
 
-    prompt = render_prompt(director_word_user_prompt, creative_idea=creative_idea)
+    prompt = build_user_prompt(creative_idea)
     source_context, shot_rows = _parse_shot_rows(creative_idea)
     if len(shot_rows) > _SINGLE_REQUEST_SHOT_LIMIT:
         batch_size = 8 if len(shot_rows) > 30 else 6
@@ -479,13 +479,8 @@ async def run_director_word_pipeline(
         if not draft_script:
             return
 
-    director = create_director_word_agent(
-        characters, scene, resource_loader, required_character_count=required_character_count,
-        act_count=act_count, user_constraints=user_constraints,
-        act_scene_map=act_scene_map if multi_scene else None, script_style_guide=script_style_guide,
-    )
     draft_script, contract_report = await _enforce_contract(
-        draft_script, resource_loader, director, bridge, act_scene_map, act_count,
+        draft_script, resource_loader, bridge, act_scene_map, act_count,
         [c.name for c in characters], required_character_count or len(characters) or 2, final=True,
     )
 
@@ -514,13 +509,14 @@ async def run_director_word_pipeline(
     export_script_to_word(final_json, docx_path)
 
     script_title = await _generate_script_title(final_json, bridge)
-    session_id = str(timestamp)
+    session_id = str(request_params.get('_history_session_id') or timestamp)
     _registry.register_session(
         ts=session_id,
         files={"script": filename},
         scene_id=",".join(scene.id for scene in scene_pool_objs),
         act_count=act_count,
         label=script_title or "导演 Word 分镜",
+        form_data=_registry.snapshot_form_data(request_params),
     )
     _registry.update_word_export(session_id, docx_filename)
 

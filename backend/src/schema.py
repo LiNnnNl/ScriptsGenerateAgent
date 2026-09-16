@@ -42,8 +42,9 @@ VALID_LAYOUTS = Literal[
 VALID_SHOT_TYPE = {
     "全景", "中景", "中近景", "近景", "特写",
     "第一人称镜头", "肩后镜头", "侧跟镜头", "环绕镜头",
-    "仰拍镜头", "俯拍镜头",
+    "仰拍镜头", "俯拍镜头", "物体中景", "物体特写", "插入镜头",
 }
+OBJECT_SHOT_TYPES = {"物体中景", "物体特写", "插入镜头"}
 
 # character beat 必须存在的字段
 _CHARACTER_REQUIRED = {"shot", "shot_blend", "shot_type", "Follow"}
@@ -73,7 +74,7 @@ class CharacterBeat(BaseModel):
     @field_validator("shot_type")
     @classmethod
     def check_shot_type(cls, v: str) -> str:
-        if v not in VALID_SHOT_TYPE:
+        if v not in VALID_SHOT_TYPE or v in OBJECT_SHOT_TYPES:
             raise ValueError(f"shot_type 非法值 {v!r}，可选: {sorted(VALID_SHOT_TYPE)}")
         return v
 
@@ -103,6 +104,24 @@ class SceneBeat(BaseModel):
         if v not in VALID_SHOT_BLEND:
             raise ValueError(f"shot_blend 非法值 {v!r}，可选: {sorted(VALID_SHOT_BLEND)}")
         return v
+
+
+class ObjectBeat(BaseModel):
+    shot: Literal["object"]
+    target: str
+    target_anchor: str = "center"
+    shot_blend: str
+    shot_type: str
+
+    @model_validator(mode="after")
+    def check_object_fields(self):
+        if not self.target.strip():
+            raise ValueError("物体镜头 target 不得为空")
+        if self.shot_type not in OBJECT_SHOT_TYPES:
+            raise ValueError(f"物体镜头 shot_type 非法值 {self.shot_type!r}")
+        if self.shot_blend not in VALID_SHOT_BLEND:
+            raise ValueError(f"shot_blend 非法值 {self.shot_blend!r}")
+        return self
 
 
 class InitialPositionEntry(BaseModel):
@@ -259,7 +278,7 @@ def validate_script_position_structure(script: list[dict]) -> dict:
 
 def _check_beat_structure(beat: dict) -> list[str]:
     shot = beat.get("shot", "")
-    if is_empty_shot(beat):
+    if is_empty_shot(beat) and shot != "object":
         errors = []
         if shot != "scene":
             errors.append("空镜的 shot 必须为 'scene'")
@@ -269,10 +288,10 @@ def _check_beat_structure(beat: dict) -> list[str]:
         return errors
     if not shot:
         return ["shot 字段缺失或为空"]
-    if shot not in ("character", "scene"):
-        return [f"shot 非法值 {shot!r}，必须是 'character' 或 'scene'"]
+    if shot not in ("character", "scene", "object"):
+        return [f"shot 非法值 {shot!r}，必须是 'character'、'object' 或 'scene'"]
 
-    required = _CHARACTER_REQUIRED if shot == "character" else _SCENE_REQUIRED
+    required = _CHARACTER_REQUIRED if shot == "character" else ({"shot", "target", "target_anchor", "shot_blend", "shot_type"} if shot == "object" else _SCENE_REQUIRED)
     missing = required - beat.keys()
     return [f"缺少字段: {', '.join(sorted(missing))}"] if missing else []
 
@@ -301,7 +320,7 @@ def validate_script_shot_structure(script: list[dict]) -> dict:
 def _check_beat_content(beat: dict) -> list[str]:
     shot = beat.get("shot", "")
     errors: list[str] = []
-    if is_empty_shot(beat):
+    if is_empty_shot(beat) and shot != "object":
         if shot != "scene":
             errors.append("空镜的 shot 必须为 'scene'")
         if not beat.get("duration"):
@@ -318,6 +337,8 @@ def _check_beat_content(beat: dict) -> list[str]:
     try:
         if shot == "character":
             CharacterBeat(**beat)
+        elif shot == "object":
+            ObjectBeat(**beat)
         elif shot == "scene":
             SceneBeat(**beat)
         else:
@@ -366,11 +387,32 @@ class _PositionEntry(BaseModel):
         return v
 
 
+class _GroupLookAt(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    mode: Literal["center", "target"]
+    target_character: Optional[str] = None
+    target_object: Optional[str] = None
+
+    @model_validator(mode="after")
+    def check_target(self):
+        targets = [
+            value for value in (self.target_character, self.target_object)
+            if isinstance(value, str) and value.strip()
+        ]
+        if self.mode == "center" and targets:
+            raise ValueError("center 模式不得设置 target_character 或 target_object")
+        if self.mode == "target" and len(targets) != 1:
+            raise ValueError("target 模式必须且只能设置 target_character 或 target_object 之一")
+        return self
+
+
 class _PositionGroup(BaseModel):
     group_id: str
     layout: VALID_LAYOUTS
     region: str
     positions: List[_PositionEntry]
+    lookat: _GroupLookAt
     # neartarget 只存在于 single，group 用锚点采样点位，不需要此字段
 
     @field_validator("group_id", "region")
@@ -480,12 +522,12 @@ class CameraScriptEvent(BaseModel):
     model_config = ConfigDict(extra='forbid', strict=True, allow_inf_nan=False)
     event_index: int
     shot: Literal['character', 'scene', 'object']
-    target: str
-    target_position: str
-    shot_type: str
+    target: str = ""
+    target_position: Optional[str] = None
+    shot_type: Optional[str] = None
     shot_blend: str
     follow: int
-    camera: Optional[int]
+    camera: Optional[int] = None
     duration: Optional[float] = Field(default=None, gt=0)
     target_anchor: Optional[str] = None
     shot_description: str
@@ -503,6 +545,19 @@ class CameraScriptEvent(BaseModel):
             raise ValueError('scene 镜头必须指定非负整数 camera')
         if self.shot == 'character' and not self.target.strip():
             raise ValueError('character 镜头必须有 target')
+        if self.shot == 'character' and not self.shot_type:
+            raise ValueError('character 镜头必须有 shot_type')
+        if self.shot == 'character' and not self.target_position:
+            raise ValueError('character 镜头必须有 target_position')
+        if self.shot == 'character' and self.shot_type in OBJECT_SHOT_TYPES:
+            raise ValueError('character 镜头不能使用物体 shot_type')
+        if self.shot == 'object':
+            if not self.target.strip():
+                raise ValueError('object 镜头必须有 target')
+            if self.target_position is not None:
+                raise ValueError('object 镜头不得包含 target_position')
+            if self.shot_type not in OBJECT_SHOT_TYPES:
+                raise ValueError('object 镜头必须使用物体 shot_type')
         if self.motion_enabled:
             if not self.motion_preset or self.motion_preset == 'none':
                 raise ValueError('启用运镜必须选择预设')
@@ -516,7 +571,9 @@ class CameraScriptEvent(BaseModel):
 
     @field_validator("shot_type")
     @classmethod
-    def check_shot_type(cls, v: str) -> str:
+    def check_shot_type(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
         if v not in VALID_SHOT_TYPE:
             raise ValueError(f"shot_type 非法值 {v!r}，可选: {sorted(VALID_SHOT_TYPE)}")
         return v
@@ -544,8 +601,8 @@ class CameraScriptEvent(BaseModel):
 
     @field_validator("target_position")
     @classmethod
-    def check_target_position(cls, v: str) -> str:
-        if not v or not v.strip():
+    def check_target_position(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and not v.strip():
             raise ValueError("target_position 不得为空，必须对应角色的当前锚点位置")
         return v
 

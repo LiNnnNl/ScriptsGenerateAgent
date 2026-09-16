@@ -15,6 +15,14 @@ from typing import Generator
 logger = logging.getLogger(__name__)
 
 
+def _user_facing_pipeline_error(exc: BaseException) -> str:
+    message = str(exc)
+    lowered = message.lower()
+    if "accountoverdueerror" in lowered or "overdue balance" in lowered:
+        return "模型服务账户欠费，请充值后重试。"
+    return f"Pipeline 内部错误: {message}"
+
+
 class AutoGenStreamBridge:
     """
     将 AutoGen asyncio pipeline 的事件桥接为 Flask stream_with_context 可消费的同步生成器。
@@ -25,10 +33,12 @@ class AutoGenStreamBridge:
         yield from bridge.flask_generator()
     """
 
-    def __init__(self):
+    def __init__(self, on_error=None):
         self._queue: queue.Queue = queue.Queue()
         self._SENTINEL = object()  # 用于标记流结束
         self.last_error_details: dict | None = None
+        self._on_error = on_error
+        self._error_reported = False
 
     def run_in_thread(self, coroutine) -> threading.Thread:
         """
@@ -44,7 +54,7 @@ class AutoGenStreamBridge:
                 logger.exception("Pipeline 内部错误（完整堆栈）")
                 self.put_event({
                     'type': 'error',
-                    'message': f'Pipeline 内部错误: {str(e)}'
+                    'message': _user_facing_pipeline_error(e)
                 })
             finally:
                 # Async OpenAI clients may schedule close callbacks when a
@@ -67,6 +77,12 @@ class AutoGenStreamBridge:
         从异步上下文（AutoGen pipeline）中发送一个 NDJSON 事件到 Flask 生成器。
         线程安全，可在任意线程调用。
         """
+        if event_dict.get('type') == 'error' and self._on_error and not self._error_reported:
+            self._error_reported = True
+            try:
+                self._on_error(event_dict.get('message') or 'Pipeline 生成失败')
+            except Exception:
+                logger.exception("记录失败会话状态时出错")
         self._queue.put(json.dumps(event_dict, ensure_ascii=False) + '\n')
 
     def flask_generator(self) -> Generator[str, None, None]:

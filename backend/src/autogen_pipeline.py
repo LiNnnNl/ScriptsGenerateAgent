@@ -13,6 +13,7 @@ import logging
 import os
 import re
 import time
+from copy import deepcopy
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -26,6 +27,15 @@ _NETWORK_ERR_KEYWORDS = (
 )
 _STAGE_MAX_RETRIES = 3       # 前置阶段 Agent 最大重试次数
 _STAGE_RETRY_BASE_DELAY = 3  # 秒，每次翻倍
+_DIRECTOR_MAX_CONTINUATIONS = 3  # 每次续写独立享有网络重试预算
+_DIRECTOR_EVENT_BATCH_SIZE = 8
+_DIRECTOR_BATCH_RETRIES = 2
+_DIRECTOR_DIRECT_BATCH_SIZE = _DIRECTOR_EVENT_BATCH_SIZE
+_DIRECTOR_DEFAULT_EVENTS_PER_ACT = 8
+_DIRECTOR_MAX_EVENTS_TOTAL = 300
+_DIRECTOR_MAX_SOURCE_EVENT_CHARS = 1200
+_DIRECTOR_BATCH_SOURCE_CHAR_BUDGET = 3600
+_CONTRACT_REPAIR_EVENT_BATCH_SIZE = 6
 
 from autogen_agentchat.messages import TextMessage, ToolCallExecutionEvent, ModelClientStreamingChunkEvent
 from autogen_agentchat.teams import RoundRobinGroupChat
@@ -41,37 +51,135 @@ from .autogen_agents import (
     create_meeting_summary_agent,
     create_treatment_agent,
     create_title_agent,
+    create_story_ir_agent,
     create_director_agent,
     create_critic_agent,
     create_dialogue_agent,
-    create_validation_agent,
+    create_revision_agent,
     create_concept_pitch_agent,
     create_character_voice_agent,
+    create_contract_repair_agent,
     create_narrative_arch_agent,
     is_quota_error,
     make_model_client,
     make_fallback_model_client,
 )
-from .prompt_renderers.title_generation import build_title_generation_user_prompt
+from .agents.title import build_user_prompt as build_title_generation_user_prompt
 from .autogen_tools import validate_script_constraints, validate_json_spec, auto_fix_script
-from .resource_loader import ResourceLoader, Character, Scene
+from .resource_loader import POSTURE_TRANSITION_TARGETS, ResourceLoader, Character, Scene
 from .script_style_skill import ScriptStyleSkill
 from .script_tone_skill import ScriptToneSkill
 from .json_generator import ScriptJSONGenerator, normalize_initial_position_states
 from .script_contract import normalize_script, validate_script, validate_bundle, normalize_camera_resources
 from .scene_segments import is_empty_shot, protect_empty_shot, protect_empty_shots
 from .cinematography import run_cinematography_pipeline
-from .schema import (
-    validate_script_shot_structure,
-    format_shot_structure_errors,
-)
-
-
 # 最大审查轮次（超限后强制进入验证阶段）
 MAX_REVIEW_ROUNDS = 3
 
 
-async def _enforce_contract(script, loader, director, bridge, scene_map, act_count,
+_CONTRACT_EVENT_PATH_RE = re.compile(r"^\$\[(\d+)]\.scene\[(\d+)]")
+_CONTRACT_ACT_PATH_RE = re.compile(r"^\$\[(\d+)]\.(scene information|initial position)")
+
+
+def _contract_repair_payload(script: list, errors: List[dict]) -> Optional[dict]:
+    event_keys, act_keys = set(), set()
+    for error in errors:
+        path = str(error.get("path") or "")
+        event_match = _CONTRACT_EVENT_PATH_RE.match(path)
+        if event_match:
+            event_keys.add(tuple(map(int, event_match.groups())))
+            continue
+        act_match = _CONTRACT_ACT_PATH_RE.match(path)
+        if act_match:
+            act_keys.add(int(act_match.group(1)))
+            continue
+        return None
+
+    event_targets = []
+    for act_index, event_index in sorted(event_keys):
+        if act_index >= len(script) or event_index >= len(script[act_index].get("scene", [])):
+            return None
+        act = script[act_index]
+        event_targets.append({
+            "act_index": act_index,
+            "event_index": event_index,
+            "scene information": act.get("scene information"),
+            "initial position": act.get("initial position"),
+            "previous_event": act.get("scene", [])[event_index - 1] if event_index else None,
+            "event": act["scene"][event_index],
+        })
+    act_targets = [
+        {
+            "act_index": act_index,
+            "scene information": script[act_index].get("scene information"),
+            "initial position": script[act_index].get("initial position"),
+        }
+        for act_index in sorted(act_keys) if act_index < len(script)
+    ]
+    return {"errors": errors, "event_targets": event_targets, "act_targets": act_targets}
+
+
+def _apply_contract_repairs(script: list, repair: Any, payload: Optional[dict] = None) -> list:
+    result = deepcopy(script)
+    if not isinstance(repair, dict):
+        return result
+    allowed_events = {
+        (item["act_index"], item["event_index"])
+        for item in (payload or {}).get("event_targets", [])
+    }
+    allowed_acts = {item["act_index"] for item in (payload or {}).get("act_targets", [])}
+    for item in repair.get("event_repairs", []) if isinstance(repair.get("event_repairs"), list) else []:
+        if not isinstance(item, dict) or type(item.get("act_index")) is not int or type(item.get("event_index")) is not int:
+            continue
+        act_index, event_index = item["act_index"], item["event_index"]
+        event = item.get("event")
+        if ((not payload or (act_index, event_index) in allowed_events)
+                and isinstance(event, dict) and 0 <= act_index < len(result)
+                and 0 <= event_index < len(result[act_index].get("scene", []))):
+            event = deepcopy(event)
+            for move in event.get("move", []) if isinstance(event.get("move"), list) else []:
+                if isinstance(move, dict):
+                    move.pop("state", None)
+            result[act_index]["scene"][event_index] = event
+    for item in repair.get("act_repairs", []) if isinstance(repair.get("act_repairs"), list) else []:
+        if not isinstance(item, dict) or type(item.get("act_index")) is not int:
+            continue
+        act_index, fields = item["act_index"], item.get("fields")
+        if not ((not payload or act_index in allowed_acts) and 0 <= act_index < len(result) and isinstance(fields, dict)):
+            continue
+        for key in ("scene information", "initial position"):
+            if key in fields:
+                result[act_index][key] = fields[key]
+    return result
+
+
+def _contract_repair_batches(payload: dict) -> List[dict]:
+    """Bound semantic contract repair output even when many events are invalid."""
+    batches = []
+    events = payload.get("event_targets", [])
+    for start in range(0, len(events), _CONTRACT_REPAIR_EVENT_BATCH_SIZE):
+        targets = events[start:start + _CONTRACT_REPAIR_EVENT_BATCH_SIZE]
+        keys = {(item["act_index"], item["event_index"]) for item in targets}
+        errors = []
+        for error in payload["errors"]:
+            match = _CONTRACT_EVENT_PATH_RE.match(str(error.get("path") or ""))
+            if match and tuple(map(int, match.groups())) in keys:
+                errors.append(error)
+        batches.append({"errors": errors, "event_targets": targets, "act_targets": []})
+    acts = payload.get("act_targets", [])
+    for start in range(0, len(acts), _CONTRACT_REPAIR_EVENT_BATCH_SIZE):
+        targets = acts[start:start + _CONTRACT_REPAIR_EVENT_BATCH_SIZE]
+        keys = {item["act_index"] for item in targets}
+        errors = []
+        for error in payload["errors"]:
+            match = _CONTRACT_ACT_PATH_RE.match(str(error.get("path") or ""))
+            if match and int(match.group(1)) in keys:
+                errors.append(error)
+        batches.append({"errors": errors, "event_targets": [], "act_targets": targets})
+    return batches
+
+
+async def _enforce_contract(script, loader, bridge, scene_map, act_count,
                             required_names, character_count, *, final=False, preserve_story=True):
     """At most three model repairs; no invalid script can pass this gate."""
     import copy
@@ -84,6 +192,11 @@ async def _enforce_contract(script, loader, director, bridge, scene_map, act_cou
             for i, act in enumerate(candidate):
                 if isinstance(act, dict) and isinstance(act.get('scene information'), dict) and i in scene_map:
                     act['scene information']['where'] = scene_map[i].id
+                if isinstance(act, dict):
+                    info = act.get('scene information') or {}
+                    if not preserve_story:
+                        _stabilize_generated_posture_timeline(act)
+                    _stabilize_position_timeline(act, str(info.get('where') or '场景'))
         normalized, empty_warnings = normalize_script(candidate, loader)
         report = validate_script(normalized, loader, final=final, act_count=act_count,
                                  required_names=required_names, character_count=character_count)
@@ -104,17 +217,42 @@ async def _enforce_contract(script, loader, director, bridge, scene_map, act_cou
             raise ValueError('剧本格式校验失败，未发布最终文件：' + fingerprint)
         seen_errors.add(fingerprint)
         _emit_stage_log(bridge, 'warning', 'validation', 'repair', f'格式修复 {attempt + 1}/3：{len(report["errors"])} 个错误')
+        logger.warning(
+            '[ContractRepair] attempt=%s errors=%s',
+            attempt + 1,
+            json.dumps(report['errors'], ensure_ascii=False),
+        )
         story_rule = ('保留幕数、事件数、顺序及每个事件的 speaker/content 原文。' if preserve_story else
                       '保留幕数和各幕事件数、已有非空对白及其说话人、动作和移动数量。'
-                      '这是 AI 创作草稿：允许在同一幕调整事件顺序来修复姿态连续性，'
-                      '允许为错误的空台词补写短句；重新编号 event_index 并更新位置快照。')
-        prompt = ('仅修复下列 JSON 路径的格式、资源选择和连续性错误。' + story_rule +
-                  '不得删除事件或合法可选字段；不得用空动作绕过非法动作。'
-                  'candidates 是真实合法候选；空资源库名称留空。输出完整 JSON 数组。\n'
-                  + json.dumps({'errors': report['errors'], 'script': candidate}, ensure_ascii=False))
-        repaired = await _run_director_agent(director, prompt, bridge, 'DirectorAgent（格式修复）')
-        if not isinstance(repaired, list):
-            raise ValueError('格式修复未返回剧本数组')
+                      '只有当 errors 明确指出姿态连续性时，才可在同一幕调整事件顺序；只有当 errors 明确指出空台词时，才可补写短句；必要时同步更新 event_index 和位置快照。')
+        repair_payload = _contract_repair_payload(candidate, report['errors'])
+        if repair_payload is None:
+            raise ValueError('剧本格式校验包含无法安全局部返修的全局错误：' + fingerprint)
+        repaired = deepcopy(candidate)
+        for repair_batch in _contract_repair_batches(repair_payload):
+            repair_batch["rules"] = story_rule
+            repair_result = await _run_stage_agent_json_object(
+                create_contract_repair_agent(),
+                json.dumps(repair_batch, ensure_ascii=False, separators=(',', ':')),
+            )
+            repaired = _apply_contract_repairs(repaired, repair_result, repair_batch)
+        repair_diffs = []
+        for act_index, (old_act, new_act) in enumerate(zip(candidate, repaired)):
+            old_beats, new_beats = old_act.get('scene', []), new_act.get('scene', [])
+            if len(old_beats) != len(new_beats):
+                repair_diffs.append({'act': act_index, 'scene_count': [len(old_beats), len(new_beats)]})
+            for event_index, (old, new) in enumerate(zip(old_beats, new_beats)):
+                changed = [key for key in set(old) | set(new) if old.get(key) != new.get(key)]
+                counts = {
+                    key: [len(old.get(key, [])), len(new.get(key, []))]
+                    for key in ('actions', 'move')
+                    if isinstance(old.get(key), list) or isinstance(new.get(key), list)
+                }
+                if changed or any(pair[0] != pair[1] for pair in counts.values()):
+                    repair_diffs.append({'act': act_index, 'event': event_index, 'changed_fields': changed, 'counts': counts})
+        if len(candidate) != len(repaired):
+            repair_diffs.append({'act_count': [len(candidate), len(repaired)]})
+        logger.info('[ContractRepair] attempt=%s diff=%s', attempt + 1, json.dumps(repair_diffs, ensure_ascii=False))
         repaired_text = [[(e.get('speaker'), e.get('content')) for e in a.get('scene', [])] for a in repaired]
         if preserve_story and repaired_text != locked_text:
             raise ValueError('格式修复改变了事件数量、顺序或对白，已拒绝发布')
@@ -129,14 +267,14 @@ async def _enforce_contract(script, loader, director, bridge, scene_map, act_cou
                     raise ValueError('格式修复删除了事件或改写了已有对白，已拒绝发布')
                 for key in ('actions', 'move'):
                     if sum(len(e.get(key, [])) for e in old_beats) != sum(len(e.get(key, [])) for e in new_beats):
-                        raise ValueError('格式修复增删了动作或移动，已拒绝发布')
+                        raise ValueError('格式修复增删了动作或移动，已拒绝发布；详情见 ContractRepair diff 日志')
             candidate = repaired
             continue
         for old_act, new_act in zip(candidate, repaired):
             for old, new in zip(old_act['scene'], new_act['scene']):
                 for key in ('actions', 'move'):
                     if isinstance(old.get(key), list) and len(new.get(key, [])) != len(old[key]):
-                        raise ValueError('格式修复增删了动作或移动，已拒绝发布')
+                        raise ValueError('格式修复增删了动作或移动，已拒绝发布；详情见 ContractRepair diff 日志')
                 for key in ('content_variants', 'language_track', 'then-interact'):
                     if key in old and key not in new:
                         raise ValueError('格式修复删除了可选字段，已拒绝发布')
@@ -303,23 +441,90 @@ def _filter_script_for_review(script: list) -> str:
     避免将完整 JSON（含所有技术字段）传入审查 Agent 导致 token 浪费。
     """
     filtered = []
-    for scene_obj in script:
+    for act_index, scene_obj in enumerate(script):
         filtered_scene = {
+            "act_index": act_index,
             "scene information": scene_obj.get("scene information", {}),
             "scene": []
         }
-        for seg in scene_obj.get("scene", []):
+        for event_index, seg in enumerate(scene_obj.get("scene", [])):
             if "move" in seg:
                 continue  # 移动片段不需要审查
             if is_empty_shot(seg):
                 continue  # 空镜不是对白，文学/对白 Agent 不得改写
             filtered_scene["scene"].append({
+                "event_index": event_index,
                 "speaker": seg.get("speaker", ""),
                 "content": seg.get("content", ""),
                 "actions": [{"character": a.get("character", ""), "motion_detail": a.get("motion_detail", "")} for a in seg.get("actions", [])],
             })
         filtered.append(filtered_scene)
     return json.dumps(filtered, ensure_ascii=False, indent=2)
+
+
+_REVIEW_LOCATION_RE = re.compile(r"act\[(\d+)]\.scene\[(\d+)]", re.IGNORECASE)
+
+
+def _review_target_events(script: list, feedbacks: List[Optional[dict]]) -> List[dict]:
+    """Resolve reviewer locations to small, immutable event references."""
+    targets = []
+    seen = set()
+    for feedback in feedbacks:
+        for issue in (feedback or {}).get("issues", []):
+            match = _REVIEW_LOCATION_RE.search(str(issue.get("location") or ""))
+            if not match:
+                continue
+            act_index, event_index = map(int, match.groups())
+            key = (act_index, event_index)
+            if key in seen or act_index >= len(script):
+                continue
+            beats = script[act_index].get("scene", [])
+            if event_index >= len(beats) or not beats[event_index].get("speaker"):
+                continue
+            seen.add(key)
+            targets.append({
+                "act_index": act_index,
+                "event_index": event_index,
+                "speaker": beats[event_index].get("speaker"),
+                "content": beats[event_index].get("content"),
+            })
+    return targets[:6]
+
+
+def _apply_review_changes(
+    script: list,
+    changes: Any,
+    fixed_dialogues: List[dict],
+    allowed_targets: Optional[List[dict]] = None,
+) -> tuple[list, int]:
+    """Apply content-only review patches without changing event identity or shape."""
+    result = deepcopy(script)
+    fixed = {(item.get("speaker"), item.get("content")) for item in fixed_dialogues}
+    allowed = {
+        (item["act_index"], item["event_index"])
+        for item in (allowed_targets or [])
+    }
+    applied = 0
+    for change in changes if isinstance(changes, list) else []:
+        if not isinstance(change, dict) or type(change.get("act_index")) is not int or type(change.get("event_index")) is not int:
+            continue
+        act_index, event_index = change["act_index"], change["event_index"]
+        if allowed_targets is not None and (act_index, event_index) not in allowed:
+            continue
+        if not (0 <= act_index < len(result)):
+            continue
+        beats = result[act_index].get("scene", [])
+        if not (0 <= event_index < len(beats)):
+            continue
+        beat = beats[event_index]
+        content = change.get("content")
+        if not beat.get("speaker") or (beat.get("speaker"), beat.get("content")) in fixed:
+            continue
+        if not isinstance(content, str) or not content.strip() or content == beat.get("content"):
+            continue
+        beat["content"] = content
+        applied += 1
+    return result, applied
 
 
 def _render_plaintext_screenplay(script: list) -> str:
@@ -424,20 +629,46 @@ async def _generate_script_title(script: list, bridge: "AutoGenStreamBridge") ->
         return fallback
 
 
+def _standalone_json(value: Any, expected_type: type) -> Optional[tuple[Any, str]]:
+    """Accept a reasoning-channel fallback only when the whole value is JSON."""
+    if not isinstance(value, str) or not value.strip():
+        return None
+    text = value.strip()
+    fenced = re.fullmatch(r"```(?:json)?\s*([\s\S]*?)\s*```", text, re.IGNORECASE)
+    if fenced:
+        text = fenced.group(1).strip()
+    try:
+        parsed = json.loads(text)
+    except (TypeError, json.JSONDecodeError):
+        return None
+    return (parsed, text) if isinstance(parsed, expected_type) else None
+
+
 async def _run_stage_agent_json_object(agent, prompt: str) -> Optional[dict]:
     """执行阶段 Agent 并提取 JSON 对象结果。连接错误时指数退避重试；额度耗尽时换用备用模型。"""
+    await _clear_agent_context(agent)
     delay = _STAGE_RETRY_BASE_DELAY
     _quota_switched = False
     for attempt in range(_STAGE_MAX_RETRIES + 1):
         try:
             raw_content = None
+            thought_candidates: List[str] = []
             async for event in agent.on_messages_stream(
                 [TextMessage(content=prompt, source="user")],
                 cancellation_token=CancellationToken()
             ):
+                if type(event).__name__ == "ThoughtEvent":
+                    thought_candidates.append(str(getattr(event, "content", "") or ""))
                 if hasattr(event, 'chat_message') and event.chat_message:
                     raw_content = event.chat_message.content
             if not raw_content:
+                result = getattr(getattr(agent, "_model_client", None), "last_create_result", None)
+                thought_candidates.append(str(getattr(result, "thought", "") or ""))
+                for candidate in reversed(thought_candidates):
+                    recovered = _standalone_json(candidate, dict)
+                    if recovered:
+                        logger.warning("[StageAgent] 最终 JSON 位于 reasoning channel，已按完整对象恢复")
+                        return recovered[0]
                 if attempt < _STAGE_MAX_RETRIES:
                     logger.warning("[StageAgent] 收到空响应，%.0fs后重试（%d/%d）",
                                    delay, attempt + 1, _STAGE_MAX_RETRIES)
@@ -477,23 +708,39 @@ def _agent_model_name(agent) -> Optional[str]:
     return create_args.get("model") if isinstance(create_args, dict) else None
 
 
+async def _clear_agent_context(agent) -> None:
+    """Clear AutoGen history across supported agent API versions."""
+    on_reset = getattr(agent, "on_reset", None)
+    if callable(on_reset):
+        await on_reset(CancellationToken())
+        return
+    reset = getattr(agent, "reset", None)
+    if callable(reset):
+        await reset()
+
+
 async def _reset_agent_after_failed_request(agent, *, use_fallback: bool = False) -> None:
     """Clear failed request context and replace a possibly broken HTTP client."""
     current_model = _agent_model_name(agent)
     old_client = getattr(agent, "_model_client", None)
+    create_args = getattr(old_client, "_create_args", {})
+    structured_json = bool(
+        isinstance(create_args, dict)
+        and (create_args.get("extra_body") or {}).get("thinking", {}).get("type") in {"enabled", "disabled", "auto"}
+    )
     try:
         if old_client is not None:
             await old_client.close()
     except Exception as close_error:
         logger.debug("关闭失败的模型客户端时出现异常: %s", close_error)
     try:
-        await agent.reset()
+        await _clear_agent_context(agent)
     except Exception as reset_error:
         logger.debug("清理 Agent 失败请求上下文时出现异常: %s", reset_error)
     agent._model_client = (
-        make_fallback_model_client()
+        make_fallback_model_client(structured_json=structured_json)
         if use_fallback
-        else make_model_client(current_model)
+        else make_model_client(current_model, structured_json=structured_json)
     )
 
 
@@ -544,7 +791,7 @@ def _explain_empty_director_response(diagnostics: dict, max_output_tokens: int) 
     if finish_reason == "content_filter":
         return "模型响应被内容安全过滤器终止，因此没有可用正文。"
     if thought_chars > 0:
-        return f"模型产生了 {thought_chars} 字符的思考内容，但没有生成最终正文，可能是思考阶段消耗了输出预算。"
+        return f"模型产生了 {thought_chars} 字符的 reasoning 内容但正文为空；若 reasoning 不是独立合法 JSON，则视为上游响应通道异常。"
     if finish_reason == "stop" and completion_tokens == 0:
         return "模型正常停止但 completion_tokens 为 0，倾向于模型或上游接口返回了空响应。"
     if (
@@ -575,8 +822,21 @@ async def _run_director_agent(
     prompt: str,
     bridge: "AutoGenStreamBridge",
     label: str = "DirectorAgent",
+    *,
+    _json_prefix: str = "",
+    _continuations: int = 0,
+    _source_prompt: Optional[str] = None,
 ) -> Optional[list]:
-    """运行 DirectorAgent，处理 streaming 事件，返回解析后的 JSON 列表。连接错误时指数退避重试；额度耗尽时换用备用模型。"""
+    """运行导演请求；连接失败重试，长度截断保留前缀续写，最终只返回完整 JSON。"""
+    # Every request owns its complete input. Never let previous drafts or
+    # retries accumulate in the AssistantAgent conversation history.
+    await _clear_agent_context(director)
+    source_prompt = prompt if _source_prompt is None else _source_prompt
+    if not _json_prefix:
+        prompt += (
+            "\n\n输出排版要求：使用紧凑 JSON，不要缩进、空行、Markdown 或说明文字。"
+            "仅减少排版空白，不得删减镜头、对白、动作、move 或必需字段。"
+        )
     system_chars = sum(
         len(str(getattr(message, "content", "")))
         for message in getattr(director, "_system_messages", [])
@@ -598,6 +858,7 @@ async def _run_director_agent(
         last_event_type = ""
         streamed_chars = 0
         thought_chars = 0
+        thought_candidates: List[str] = []
         final_usage = None
         try:
             _emit_stage_log(
@@ -615,7 +876,9 @@ async def _run_director_agent(
                 if isinstance(event, ModelClientStreamingChunkEvent):
                     streamed_chars += len(event.content or "")
                 elif event_type == "ThoughtEvent":
-                    thought_chars += len(str(getattr(event, "content", "") or ""))
+                    thought_text = str(getattr(event, "content", "") or "")
+                    thought_chars += len(thought_text)
+                    thought_candidates.append(thought_text)
                 if hasattr(event, 'inner_messages'):
                     for msg in (event.inner_messages or []):
                         if isinstance(msg, ModelClientStreamingChunkEvent):
@@ -623,8 +886,10 @@ async def _run_director_agent(
                             if not thinking_started:
                                 thinking_started = True
                             bridge.put_event({'type': 'thinking_chunk', 'agent': label, 'text': msg.content})
+                        elif type(msg).__name__ == "ThoughtEvent":
+                            thought_candidates.append(str(getattr(msg, "content", "") or ""))
                 if hasattr(event, 'chat_message') and event.chat_message:
-                    raw_content = event.chat_message.content
+                    raw_content = event.chat_message.content or ""
                     final_usage = getattr(event.chat_message, "models_usage", None)
                     diagnostics = _director_response_diagnostics(
                         director,
@@ -645,6 +910,19 @@ async def _run_director_agent(
                         thinking_started = False
             if thinking_started:
                 bridge.put_event({'type': 'thinking_done'})
+            if not raw_content:
+                result = getattr(getattr(director, "_model_client", None), "last_create_result", None)
+                thought_candidates.append(str(getattr(result, "thought", "") or ""))
+                for candidate in reversed(thought_candidates):
+                    recovered = _standalone_json(candidate, list)
+                    if recovered:
+                        raw_content = recovered[1]
+                        _emit_stage_log(
+                            bridge, 'warning', 'direct' if '直接' in label else 'draft',
+                            'director_reasoning_json',
+                            f'⚠️ [{label}] 正文为空，但 reasoning channel 是完整 JSON；已恢复并继续严格校验。'
+                        )
+                        break
             if not raw_content:
                 diagnostics = _director_response_diagnostics(
                     director,
@@ -680,14 +958,64 @@ async def _run_director_agent(
                     delay *= 2
                     continue
                 return None
-            parsed = _extract_json_from_text(raw_content)
+            finish_reason = diagnostics.get("finish_reason")
+            if _json_prefix or finish_reason == "length":
+                # Preserve every byte at the join, including spaces inside a
+                # truncated string. Never close brackets or salvage partial acts.
+                if _json_prefix:
+                    json_candidate = _json_prefix + raw_content
+                else:
+                    json_candidate = re.sub(r'^\s*```(?:json)?\s*', '', raw_content, count=1, flags=re.IGNORECASE).lstrip()
+                if finish_reason != "length":
+                    json_candidate = re.sub(r'\s*```\s*$', '', json_candidate)
+                try:
+                    parsed = json.loads(json_candidate)
+                    if not isinstance(parsed, list):
+                        parsed = None
+                except json.JSONDecodeError:
+                    parsed = None
+                if parsed is None and finish_reason == "length" and json_candidate.startswith("["):
+                    if _continuations < _DIRECTOR_MAX_CONTINUATIONS:
+                        logger.warning("[%s] length 截断，续写 %d/%d，保留前缀 %d 字符",
+                                       label, _continuations + 1, _DIRECTOR_MAX_CONTINUATIONS, len(json_candidate))
+                        _emit_stage_log(
+                            bridge, 'warning', 'direct' if '直接' in label else 'draft', 'director_continue',
+                            f'✍️ [{label}] 输出达到长度上限，保留已有 {len(json_candidate)} 字符，'
+                            f'从截断处继续生成（第 {_continuations + 1}/{_DIRECTOR_MAX_CONTINUATIONS} 次续写）。'
+                        )
+                        continuation_prompt = (
+                            source_prompt
+                            + "\n\n## 截断恢复（本次仅输出剩余后缀）\n"
+                            "下面 JSON 字符串的解码值是已经保存的输出前缀，必须逐字保留。"
+                            "从它的最后一个字符之后继续，只输出可直接拼接的后缀。"
+                            "可能截在字符串、转义或数字中间，请接完该值；不得重写开头或重复末尾。"
+                            "完成原请求中全部剩余镜头/幕/对白/动作/move和字段，不得缩减、改写、重排或提前结束。"
+                            "只输出原始后缀，不要把后缀包成字符串，不要 Markdown 或说明。"
+                            "使用紧凑 JSON 排版，最后正常闭合整个数组。\n已保存前缀（JSON 字符串）：\n"
+                            + json.dumps(json_candidate, ensure_ascii=False)
+                        )
+                        return await _run_director_agent(
+                            director, continuation_prompt, bridge, label,
+                            _json_prefix=json_candidate,
+                            _continuations=_continuations + 1,
+                            _source_prompt=source_prompt,
+                        )
+                    _emit_stage_log(
+                        bridge, 'warning', 'direct' if '直接' in label else 'draft', 'director_continue_exhausted',
+                        f'⚠️ [{label}] {_DIRECTOR_MAX_CONTINUATIONS} 次续写后 JSON 仍不完整，未将残缺内容作为成功结果。'
+                    )
+            else:
+                parsed = _extract_json_from_text(raw_content)
             if parsed is None:
                 code_block = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', raw_content, re.DOTALL | re.IGNORECASE)
-                json_candidate = code_block.group(1) if code_block else raw_content
+                if not (_json_prefix or finish_reason == "length"):
+                    json_candidate = code_block.group(1) if code_block else raw_content
                 bridge.last_error_details = {
                     "agent": label,
                     "error_type": "InvalidOrTruncatedJson",
                     "response_chars": len(raw_content),
+                    "assembled_chars": len(json_candidate),
+                    "continuations": _continuations,
                     "response_ends_with_array": json_candidate.rstrip().endswith("]"),
                     "response_is_markdown_code_block": bool(code_block),
                     "max_output_tokens": max_output_tokens,
@@ -706,6 +1034,10 @@ async def _run_director_agent(
                     f'输出是否以数组结束：{raw_content.rstrip().endswith("]")}；可能是 JSON 被截断或夹带非 JSON 内容。'
                 )
             else:
+                bridge.last_error_details = None
+                if _continuations:
+                    logger.info("[%s] 续写完成，%d 次续写，完整 JSON %d 字符",
+                                label, _continuations, len(json_candidate))
                 _emit_stage_log(
                     bridge, 'success', 'direct' if '直接' in label else 'draft', 'director_parse_ok',
                     f'✅ [{label}] JSON 提取成功'
@@ -752,6 +1084,616 @@ async def _run_director_agent(
     return None
 
 
+_EVENT_COUNT_PATTERNS = (
+    re.compile(r"(?:总共|共|一共)\s*(\d+)\s*(?:个|条)?\s*(?:镜头|分镜|事件)"),
+    re.compile(r"(?:镜头|分镜|事件)(?:数量|数)?\s*[:：为]?\s*(\d+)"),
+)
+_QUOTED_TEXT_RE = re.compile(r"“([^”\n]+)”|\"([^\"\n]+)\"")
+_INLINE_DIALOGUE_END_RE = re.compile(r"\s*(?:【|景别\s*[:：])")
+_SHOT_METADATA_RE = re.compile(r"\s*景别\s*[:：].*$", re.DOTALL)
+_NO_DIALOGUE_MARKER_RE = re.compile(r"\s*台词\s*[:：]\s*(?:—+|-+|无台词|无)\s*[。.]?")
+
+
+def _requested_event_count(text: str) -> Optional[int]:
+    for pattern in _EVENT_COUNT_PATTERNS:
+        match = pattern.search(text or "")
+        if match:
+            return int(match.group(1))
+    return None
+
+
+def _distribute_event_count(total: int, act_count: int) -> List[int]:
+    total = max(total, act_count)
+    base, remainder = divmod(total, act_count)
+    return [base + (1 if index < remainder else 0) for index in range(act_count)]
+
+
+def _source_dialogue(source: str, character_names: List[str]) -> dict:
+    quotes = list(_QUOTED_TEXT_RE.finditer(source))
+    names = sorted({name for name in character_names if name}, key=len, reverse=True)
+    if len(quotes) == 1:
+        match = quotes[0]
+        content = next(group for group in match.groups() if group is not None)
+        prefix = source[:match.start()]
+        # In prose such as "A looks at B and says", the first named character in
+        # the current sentence is the grammatical subject, not the nearest name.
+        clause = re.split(r"[\n。！？!?]", prefix)[-1]
+        present = [(clause.find(name), name) for name in names if name in clause]
+        speaker = min(present)[1] if present else ""
+        return {"speaker": speaker, "content": content} if speaker else {"content": content}
+
+    if quotes or not names:
+        return {}
+    name_pattern = "|".join(re.escape(name) for name in names)
+    labels = list(re.finditer(
+        rf"(?P<speaker>{name_pattern})(?:[（(][^）)\n]{{0,20}}[）)])?\s*[:：]\s*(?P<content>.+)",
+        source,
+    ))
+    if len(labels) != 1:
+        return {}
+    label = labels[0]
+    content = _INLINE_DIALOGUE_END_RE.split(label.group("content"), maxsplit=1)[0].strip()
+    if not content or content in {"—", "-", "无", "无台词"}:
+        return {}
+    return {"speaker": label.group("speaker"), "content": content}
+
+
+def _source_visual_content(source: str) -> str:
+    """Separate visual prose from source-only shot and no-dialogue annotations."""
+    content = _SHOT_METADATA_RE.sub("", source).strip()
+    content = _NO_DIALOGUE_MARKER_RE.sub("", content).strip()
+    return content or source.strip()
+
+
+def _storyboard_event_rows(text: str, act_count: int) -> Optional[List[List[str]]]:
+    """Read explicit numbered shots without asking a model to rediscover boundaries."""
+    groups: List[List[str]] = []
+    current_group: List[str] = []
+    current_row = ""
+    saw_marker = False
+    for raw in (text or "").splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+        if _ACT_MARKER_RE.match(line):
+            saw_marker = True
+            if current_row:
+                current_group.append(current_row)
+                current_row = ""
+            if current_group:
+                groups.append(current_group)
+                current_group = []
+            continue
+        if _NUMBERED_SHOT_RE.match(line):
+            if current_row:
+                current_group.append(current_row)
+            current_row = line
+            continue
+        if current_row and not re.search(r"(?:总共|共|一共)\s*\d+\s*(?:个|条)?\s*(?:镜头|分镜)", line):
+            current_row += "\n" + line
+    if current_row:
+        current_group.append(current_row)
+    if current_group:
+        groups.append(current_group)
+    rows = [row for group in groups for row in group]
+    if not rows:
+        return None
+    if saw_marker and len(groups) == act_count:
+        return groups
+    counts = _distribute_event_count(len(rows), act_count)
+    balanced, start = [], 0
+    for count in counts:
+        balanced.append(rows[start:start + count])
+        start += count
+    return balanced
+
+
+def _event_manifest(
+    creative_brief: str,
+    act_count: int,
+    target_dialogue_lines: Optional[int],
+    fixed_dialogues: List[dict],
+    character_names: List[str],
+) -> tuple[Optional[List[List[dict]]], bool, Optional[str]]:
+    explicit_rows = _storyboard_event_rows(creative_brief, act_count)
+    if explicit_rows:
+        total = sum(len(rows) for rows in explicit_rows)
+        if any(not rows for rows in explicit_rows):
+            return None, True, f"显式镜头数 {total} 少于幕数 {act_count}，无法保证每幕至少一个事件。"
+        if total > _DIRECTOR_MAX_EVENTS_TOTAL:
+            return None, True, f"显式镜头共 {total} 个，超过系统上限 {_DIRECTOR_MAX_EVENTS_TOTAL}；请拆成多个剧本。"
+        acts: List[List[dict]] = []
+        for act_index, rows in enumerate(explicit_rows):
+            events = []
+            for event_index, raw in enumerate(rows):
+                source = _NUMBERED_SHOT_RE.sub("", raw, count=1).lstrip("：: \t")
+                if len(source) > _DIRECTOR_MAX_SOURCE_EVENT_CHARS:
+                    return None, True, (
+                        f"第 {act_index + 1} 幕第 {event_index + 1} 个镜头有 {len(source)} 字符，"
+                        f"超过单镜头上限 {_DIRECTOR_MAX_SOURCE_EVENT_CHARS}；请拆分该镜头。"
+                    )
+                event = {
+                    "event_id": f"A{act_index + 1:02d}E{event_index + 1:04d}",
+                    "source_text": source,
+                }
+                event.update(_source_dialogue(source, character_names))
+                events.append(event)
+            acts.append(events)
+        return acts, True, None
+
+    requested = _requested_event_count(creative_brief)
+    if requested:
+        total = requested
+    elif target_dialogue_lines:
+        total = target_dialogue_lines + max(act_count, (target_dialogue_lines + 2) // 3)
+    else:
+        total = act_count * _DIRECTOR_DEFAULT_EVENTS_PER_ACT
+    total = max(total, len(fixed_dialogues), act_count)
+    if total > _DIRECTOR_MAX_EVENTS_TOTAL:
+        return None, False, f"计划生成 {total} 个事件，超过系统上限 {_DIRECTOR_MAX_EVENTS_TOTAL}；请降低时长或拆分剧本。"
+    counts = _distribute_event_count(total, act_count)
+    dialogue_counts = (
+        _distribute_event_count(target_dialogue_lines, act_count)
+        if target_dialogue_lines else [0] * act_count
+    )
+    fixed_queue = list(fixed_dialogues)
+    acts = []
+    for act_index, count in enumerate(counts):
+        events = []
+        for event_index in range(count):
+            event = {"event_id": f"A{act_index + 1:02d}E{event_index + 1:04d}"}
+            if event_index < dialogue_counts[act_index]:
+                event["required_kind"] = "dialogue"
+            if fixed_queue:
+                event.update(fixed_queue.pop(0))
+                event["required_kind"] = "dialogue"
+            events.append(event)
+        acts.append(events)
+    return acts, False, None
+
+
+def _event_batches(events: List[dict]) -> List[List[dict]]:
+    batches, current, current_chars = [], [], 0
+    for event in events:
+        source_chars = len(str(event.get("source_text") or event.get("intent") or ""))
+        if current and (
+            len(current) >= _DIRECTOR_EVENT_BATCH_SIZE
+            or current_chars + source_chars > _DIRECTOR_BATCH_SOURCE_CHAR_BUDGET
+        ):
+            batches.append(current)
+            current, current_chars = [], 0
+        current.append(event)
+        current_chars += source_chars
+    if current:
+        batches.append(current)
+    return batches
+
+
+def _freeze_explicit_story_ir(manifest: List[List[dict]]) -> List[List[dict]]:
+    result = []
+    for events in manifest:
+        frozen = []
+        for event in events:
+            dialogue = bool(event.get("content"))
+            speaker = event.get("speaker", "")
+            frozen.append({
+                "event_id": event["event_id"],
+                "kind": "dialogue" if dialogue else "action",
+                "speaker": speaker,
+                "speaker_locked": not dialogue or bool(speaker),
+                "content": event.get("content") if dialogue else _source_visual_content(event.get("source_text", "")),
+                "intent": event.get("source_text", ""),
+                "shot_intent": event.get("source_text", "")[:80],
+            })
+        result.append(frozen)
+    return result
+
+
+def _story_ir_errors(payload: Any, slots: List[dict]) -> List[str]:
+    events = payload.get("events") if isinstance(payload, dict) else None
+    expected_ids = [slot["event_id"] for slot in slots]
+    if not isinstance(events, list):
+        return ["events 必须是数组"]
+    received_ids = [event.get("event_id") if isinstance(event, dict) else None for event in events]
+    errors = []
+    if received_ids != expected_ids:
+        errors.append(f"event_id 必须严格等于 {expected_ids}")
+    for slot, event in zip(slots, events):
+        if not isinstance(event, dict):
+            errors.append(f"{slot['event_id']} 不是对象")
+            continue
+        required_fields = {"event_id", "kind", "speaker", "content", "intent", "shot_intent"}
+        missing = required_fields - event.keys()
+        if missing:
+            errors.append(f"{slot['event_id']} 缺少字段 {sorted(missing)}")
+        if event.get("kind") not in {"dialogue", "action", "move", "empty_shot"}:
+            errors.append(f"{slot['event_id']} kind 非法")
+        if slot.get("required_kind") and event.get("kind") != slot["required_kind"]:
+            errors.append(f"{slot['event_id']} 必须是 {slot['required_kind']}")
+        if event.get("kind") == "dialogue" and (not event.get("speaker") or not event.get("content")):
+            errors.append(f"{slot['event_id']} 对白缺少 speaker/content")
+        if event.get("kind") == "move" and not (
+            isinstance(event.get("move_characters"), list)
+            and event["move_characters"]
+            and all(isinstance(name, str) and name.strip() for name in event["move_characters"])
+        ):
+            errors.append(f"{slot['event_id']} 移动事件缺少 move_characters")
+        if slot.get("speaker") and event.get("speaker") != slot["speaker"]:
+            errors.append(f"{slot['event_id']} speaker 未逐字保留")
+        if slot.get("content") and event.get("content") != slot["content"]:
+            errors.append(f"{slot['event_id']} content 未逐字保留")
+        if (
+            len(str(event.get("content") or "")) > 500
+            or len(str(event.get("intent") or "")) > 240
+            or len(str(event.get("shot_intent") or "")) > 160
+        ):
+            errors.append(f"{slot['event_id']} IR 字段过长")
+    return errors
+
+
+async def _build_story_ir(
+    bridge: "AutoGenStreamBridge",
+    manifest: List[List[dict]],
+    explicit: bool,
+    creative_brief: str,
+    meeting_summary: Dict,
+    treatment: Dict,
+    character_names: List[str] = None,
+) -> Optional[List[List[dict]]]:
+    if explicit:
+        _emit_stage_log(
+            bridge, 'info', 'draft', 'story_ir_classifying',
+            f'🔒 已从用户分镜冻结 {sum(map(len, manifest))} 个事件及稳定 event_id，'
+            '正在识别每个镜头内的对白、动作与移动组合。'
+        )
+
+    treatment_beats = treatment.get("treatment") if isinstance(treatment, dict) else []
+    treatment_beats = treatment_beats if isinstance(treatment_beats, list) else []
+    result: List[List[dict]] = []
+    for act_index, slots in enumerate(manifest):
+        frozen: List[dict] = []
+        batches = _event_batches(slots)
+        for batch_index, batch_slots in enumerate(batches):
+            act_treatment = treatment_beats[act_index] if act_index < len(treatment_beats) else treatment
+            prompt_payload = {
+                "act": act_index + 1,
+                "batch": batch_index + 1,
+                "batch_count": len(batches),
+                "input_mode": "explicit_storyboard" if explicit else "free_creation",
+                "slots": batch_slots,
+                "creative_brief": creative_brief[:1200],
+                "meeting_summary": meeting_summary,
+                "act_treatment": act_treatment,
+                "previous_events": frozen[-2:],
+            }
+            base_prompt = json.dumps(prompt_payload, ensure_ascii=False, separators=(",", ":"))
+            accepted = None
+            errors: List[str] = []
+            for attempt in range(_DIRECTOR_BATCH_RETRIES + 1):
+                prompt = base_prompt
+                if errors:
+                    prompt += "\n上次错误：" + "；".join(errors) + "。只重做当前批。"
+                candidate = await _run_stage_agent_json_object(create_story_ir_agent(), prompt)
+                for event in candidate.get("events", []) if isinstance(candidate, dict) else []:
+                    if not isinstance(event, dict) or event.get("kind") != "move" or event.get("move_characters"):
+                        continue
+                    clauses = re.split(r"[，,。；;]", str(event.get("intent") or ""))
+                    inferred = [
+                        name for name in character_names or []
+                        if any(name in clause and re.search(r"走|跑|冲|移动|靠近|离开|进入|来到|上前|退后", clause) for clause in clauses)
+                    ]
+                    if inferred:
+                        event["move_characters"] = inferred
+                errors = _story_ir_errors(candidate, batch_slots)
+                if not errors:
+                    accepted = candidate["events"]
+                    break
+            if accepted is None:
+                bridge.put_event({
+                    'type': 'error',
+                    'message': f'StoryIRAgent 第 {act_index + 1} 幕第 {batch_index + 1} 批未通过事件 ID 或冻结对白校验。',
+                    'details': errors,
+                })
+                return None
+            for slot, event in zip(batch_slots, accepted):
+                event["speaker_locked"] = bool(slot.get("speaker")) if explicit else True
+            frozen.extend(accepted)
+        result.append(frozen)
+    _emit_stage_log(
+        bridge, 'success', 'draft', 'story_ir_complete',
+        f'🔒 Story IR 已冻结，共 {sum(map(len, result))} 个事件；后续只做逐批语义映射。'
+    )
+    return result
+
+
+def _director_batch_errors(
+    scene_obj: Any,
+    story_ir: List[dict],
+    required_names: set[str],
+    required_character_count: int,
+) -> List[str]:
+    if not isinstance(scene_obj, dict):
+        return ["scene_obj 必须是对象"]
+    beats = scene_obj.get("scene")
+    expected_ids = [event["event_id"] for event in story_ir]
+    if not isinstance(beats, list):
+        return ["scene 必须是数组"]
+    received_ids = [beat.get("event_id") if isinstance(beat, dict) else None for beat in beats]
+    errors = []
+    if len(beats) > _DIRECTOR_EVENT_BATCH_SIZE:
+        errors.append(f"单批事件数不得超过 {_DIRECTOR_EVENT_BATCH_SIZE}")
+    if received_ids != expected_ids:
+        errors.append(f"event_id 必须严格等于 {expected_ids}")
+    for frozen, beat in zip(story_ir, beats):
+        if not isinstance(beat, dict):
+            continue
+        if frozen.get("speaker_locked", True) and beat.get("speaker", "") != frozen.get("speaker", ""):
+            errors.append(f"{frozen['event_id']} speaker 被修改")
+        if beat.get("content", "") != frozen.get("content", ""):
+            errors.append(f"{frozen['event_id']} content 被修改")
+        if frozen.get("kind") == "move" and not beat.get("move"):
+            errors.append(f"{frozen['event_id']} 已识别为移动事件，必须输出非空 move")
+        if frozen.get("kind") == "move" and beat.get("move"):
+            mover_names = [
+                move.get("character") for move in beat["move"] if isinstance(move, dict)
+            ]
+            actual_movers = set(mover_names)
+            missing_movers = set(frozen.get("move_characters") or []) - actual_movers
+            if missing_movers:
+                errors.append(f"{frozen['event_id']} move 遗漏角色 {sorted(missing_movers)}")
+            if len(mover_names) != len(actual_movers):
+                errors.append(f"{frozen['event_id']} move 中同一角色只能出现一次")
+            unknown_movers = actual_movers - set((scene_obj.get("scene information") or {}).get("who") or [])
+            if unknown_movers:
+                errors.append(f"{frozen['event_id']} move 包含未登场角色 {sorted(unknown_movers)}")
+    who = set((scene_obj.get("scene information") or {}).get("who") or [])
+    if required_names and not required_names <= who:
+        errors.append("scene information.who 遗漏锁定角色")
+    if required_character_count and len(who) != required_character_count:
+        errors.append(f"scene information.who 必须恰好 {required_character_count} 人")
+    # Missing runtime shot fields and position defaults are deterministic compiler
+    # work handled by _normalize_direct_scene after all batches are merged.
+    for frozen, beat in zip(story_ir, beats):
+        if isinstance(beat, dict) and beat.get("shot") not in {None, "", "character", "scene", "object"}:
+            errors.append(f"{frozen['event_id']} shot 值非法")
+    return errors
+
+
+def _restore_frozen_event_fields(scene_obj: Any, story_ir: List[dict]) -> Any:
+    """Make frozen story fields code-owned instead of trusting model echoing."""
+    if not isinstance(scene_obj, dict) or not isinstance(scene_obj.get("scene"), list):
+        return scene_obj
+    beats = scene_obj["scene"]
+    expected_ids = [event["event_id"] for event in story_ir]
+    received_ids = [beat.get("event_id") if isinstance(beat, dict) else None for beat in beats]
+    if received_ids != expected_ids:
+        return scene_obj
+    for index, (frozen, beat) in enumerate(zip(story_ir, beats)):
+        speaker = frozen.get("speaker", "")
+        content = frozen.get("content", "")
+        if frozen.get("kind") == "move":
+            moves = beat.get("move") if isinstance(beat.get("move"), list) else []
+            actual_movers = {move.get("character") for move in moves if isinstance(move, dict)}
+            for character in frozen.get("move_characters") or []:
+                if character not in actual_movers:
+                    moves.append({"character": character, "destination": ""})
+            beat["move"] = moves
+            stand_actions = [
+                action for action in beat.get("actions", []) if isinstance(action, dict)
+                and action.get("character") in set(frozen.get("move_characters") or [])
+                and action.get("action") == "Stand Up"
+            ]
+            if stand_actions and index and "move" not in beats[index - 1]:
+                beats[index - 1].setdefault("actions", []).extend(deepcopy(stand_actions))
+                beat["actions"] = [action for action in beat.get("actions", []) if action not in stand_actions]
+        if frozen.get("kind") == "move" and not speaker and not content:
+            beat.pop("speaker", None)
+            beat.pop("content", None)
+        else:
+            beat["content"] = content
+            if frozen.get("speaker_locked", True):
+                beat["speaker"] = speaker
+    return scene_obj
+
+
+def _merge_director_batch(target: Optional[Dict], batch_scene: Dict) -> Dict:
+    if target is None:
+        return deepcopy(batch_scene)
+    descriptions = target.setdefault("position_descriptions", {})
+    for key, value in (batch_scene.get("position_descriptions") or {}).items():
+        descriptions.setdefault(key, value)
+    target.setdefault("scene", []).extend(deepcopy(batch_scene.get("scene") or []))
+    return target
+
+
+def _director_error_window(story_ir: List[dict], errors: List[str]) -> List[dict]:
+    for index, event in enumerate(story_ir):
+        if any(error.startswith(f"{event['event_id']} ") for error in errors):
+            return story_ir[max(0, index - 2):index + 3]
+    return []
+
+
+def _replace_director_window(scene_obj: Dict, replacement: Dict) -> None:
+    replacements = {event["event_id"]: event for event in replacement.get("scene", [])}
+    scene_obj["scene"] = [
+        deepcopy(replacements.get(event.get("event_id"), event))
+        for event in scene_obj.get("scene", [])
+    ]
+    for key, value in (replacement.get("position_descriptions") or {}).items():
+        scene_obj.setdefault("position_descriptions", {}).setdefault(key, value)
+
+
+async def _run_director_batched_draft(
+    bridge: "AutoGenStreamBridge",
+    characters: List[Character],
+    scene: Scene,
+    resource_loader: ResourceLoader,
+    required_character_count: int,
+    act_count: int,
+    user_constraints: List[str],
+    act_scene_map: Optional[Dict[int, Scene]],
+    script_style_guide: Optional[str],
+    creative_brief: str,
+    meeting_summary: Dict,
+    treatment: Dict,
+    target_dialogue_lines: Optional[int],
+    fixed_dialogues: List[dict],
+) -> Optional[list]:
+    """Freeze Story IR, then map at most eight exact event IDs per request."""
+    specified_names = {character.name for character in characters}
+    expected_character_count = required_character_count or len(characters) or 2
+    locked_names: set[str] = set(specified_names)
+    cast_established = len(locked_names) == expected_character_count
+    manifest, explicit, manifest_error = _event_manifest(
+        creative_brief,
+        act_count,
+        target_dialogue_lines,
+        fixed_dialogues,
+        [character.name for character in characters],
+    )
+    if manifest_error or manifest is None:
+        bridge.put_event({'type': 'error', 'message': manifest_error or '无法建立事件清单。'})
+        return None
+    story_ir = await _build_story_ir(
+        bridge, manifest, explicit, creative_brief, meeting_summary, treatment,
+        [character.name for character in characters],
+    )
+    if story_ir is None:
+        return None
+    _canonicalize_character_references(story_ir, [character.name for character in characters])
+    result: List[Dict] = []
+
+    batch_constraints = [
+        constraint for constraint in user_constraints
+        if not re.search(r"\d+\s*(?:个|条)?\s*(?:镜头|分镜|事件|对白)", constraint)
+    ]
+    for act_index, act_ir in enumerate(story_ir):
+        act_scene = (act_scene_map or {}).get(act_index, scene)
+        merged: Optional[Dict] = None
+        batches = _event_batches(act_ir)
+        for batch_index, frozen_batch in enumerate(batches):
+            continuity = {}
+            if merged:
+                continuity = {
+                    "locked_characters": sorted(locked_names),
+                    "initial_position": merged.get("initial position", []),
+                    "position_descriptions": merged.get("position_descriptions", {}),
+                    "previous_events": merged.get("scene", [])[-2:],
+                }
+            prompt = (
+                f"当前是第 {act_index + 1}/{act_count} 幕、第 {batch_index + 1}/{len(batches)} 批。"
+                f"代码已把整幕冻结为 {len(act_ir)} 个事件；本次只映射下面 {len(frozen_batch)} 个 story_ir 事件。"
+                "输出 scene 必须与清单 ID 一一对应，不得添加移动过场、空镜或其他事件；"
+                "必要的移动、动作与镜头意图必须写进对应事件；同一事件内每个角色最多一条 move。"
+                "输出数组只能包含一个 scene_obj。\n"
+                "story_ir=" + json.dumps(frozen_batch, ensure_ascii=False, separators=(",", ":"))
+            )
+            if not cast_established:
+                prompt += f"\n首批须在 scene information.who 一次列出全剧全部 {expected_character_count} 位角色，后续锁定这些姓名。"
+            else:
+                prompt += f"\n全剧角色已锁定为：{', '.join(sorted(locked_names))}；不得新增、改名或遗漏。"
+            if continuity:
+                prompt += "\n承接状态：" + json.dumps(continuity, ensure_ascii=False, separators=(',', ':'))
+
+            _emit_stage_log(
+                bridge, 'info', 'draft', 'batch_start',
+                f'📦 [剧本起草期] 第 {act_index + 1}/{act_count} 幕，第 {batch_index + 1}/{len(batches)} 批'
+                f'（冻结事件 {len(frozen_batch)} 个）'
+            )
+            accepted = None
+            candidate = None
+            repair_window: List[dict] = []
+            errors: List[str] = []
+            for attempt in range(_DIRECTOR_BATCH_RETRIES + 1):
+                def director_factory():
+                    return create_director_agent(
+                        characters, act_scene, resource_loader, required_character_count,
+                        act_count=1, user_constraints=batch_constraints,
+                        act_scene_map={0: act_scene} if act_scene_map else None,
+                        script_style_guide=script_style_guide,
+                    )
+
+                director = director_factory()
+                if attempt and not repair_window:
+                    repair_window = _director_error_window(frozen_batch, errors)
+                if repair_window and isinstance(candidate, dict):
+                    repair_ids = {event["event_id"] for event in repair_window}
+                    current_events = [
+                        event for event in candidate.get("scene", [])
+                        if event.get("event_id") in repair_ids
+                    ]
+                    attempt_prompt = (
+                        "局部返修：只修改错误镜头及其前后各两个镜头。"
+                        "输出数组只能包含一个 scene_obj，scene 必须严格返回下面这些 event_id；"
+                        "不得返回本批其他镜头。未报错镜头保持原意，只作保证衔接所需的最小调整。\n"
+                        "repair_story_ir=" + json.dumps(repair_window, ensure_ascii=False, separators=(",", ":"))
+                        + "\ncurrent_events=" + json.dumps(current_events, ensure_ascii=False, separators=(",", ":"))
+                        + "\nscene_context=" + json.dumps({
+                            "scene information": candidate.get("scene information", {}),
+                            "initial position": candidate.get("initial position", []),
+                            "position_descriptions": candidate.get("position_descriptions", {}),
+                        }, ensure_ascii=False, separators=(",", ":"))
+                        + "\n需要修复：" + "；".join(errors)
+                    )
+                else:
+                    attempt_prompt = prompt
+                if errors and not repair_window:
+                    attempt_prompt += "\n上次错误：" + "；".join(errors) + "。请从头返回本批，不能返回整幕。"
+                batch_script = await _run_director_agent(
+                    director, attempt_prompt, bridge,
+                    f'DirectorAgent（第{act_index + 1}幕第{batch_index + 1}批）',
+                )
+                response = batch_script[0] if isinstance(batch_script, list) and len(batch_script) == 1 else None
+                if (
+                    repair_window
+                    and isinstance(batch_script, list)
+                    and not (len(batch_script) == 1 and isinstance(batch_script[0], dict) and "scene" in batch_script[0])
+                    and all(isinstance(event, dict) for event in batch_script)
+                ):
+                    response = {"scene": batch_script}
+                if repair_window:
+                    response = _restore_frozen_event_fields(response, repair_window)
+                    _canonicalize_character_references(response, list(locked_names))
+                    repair_errors = _director_batch_errors(response, repair_window, set(), 0)
+                    if repair_errors:
+                        errors = repair_errors
+                        continue
+                    _replace_director_window(candidate, response)
+                    repair_window = []
+                else:
+                    candidate = _restore_frozen_event_fields(response, frozen_batch)
+                    _canonicalize_character_references(candidate, list(locked_names))
+                errors = _director_batch_errors(
+                    candidate, frozen_batch, locked_names, expected_character_count,
+                )
+                if not errors:
+                    accepted = candidate
+                    break
+            if accepted is None:
+                bridge.put_event({
+                    'type': 'error',
+                    'message': f'DirectorAgent 第 {act_index + 1} 幕第 {batch_index + 1} 批未通过冻结事件校验。',
+                    'details': errors,
+                })
+                return None
+            if not cast_established:
+                locked_names = set((accepted.get("scene information") or {}).get("who") or [])
+                cast_established = True
+            merged = _merge_director_batch(merged, accepted)
+            _emit_stage_log(
+                bridge, 'success', 'draft', 'batch_complete',
+                f'✅ 第 {act_index + 1} 幕第 {batch_index + 1}/{len(batches)} 批完成'
+            )
+        if merged is not None:
+            merged_ids = [event.get("event_id") for event in merged.get("scene", [])]
+            expected_ids = [event["event_id"] for event in act_ir]
+            if merged_ids != expected_ids:
+                bridge.put_event({'type': 'error', 'message': f'第 {act_index + 1} 幕合并后 event_id 不连续。'})
+                return None
+            result.append(merged)
+    return result
+
+
 async def _run_director_per_act_fallback(
     base_prompt: str,
     bridge: "AutoGenStreamBridge",
@@ -765,6 +1707,15 @@ async def _run_director_per_act_fallback(
     script_style_guide: Optional[str],
 ) -> Optional[list]:
     """Generate one act per request when the full-script request cannot stay connected."""
+    details = dict(getattr(bridge, "last_error_details", None) or {})
+    finish_reason = (details.get("model_response") or {}).get("finish_reason") or details.get("finish_reason")
+    if act_count == 1 and (finish_reason == "length" or details.get("continuations", 0)):
+        bridge.put_event({
+            'type': 'error',
+            'message': '[DirectorAgent] 长度截断恢复未成功，未获得完整 JSON；当前仅一幕，无法通过按幕拆分缩小请求。',
+            'details': details,
+        })
+        return None
     scenes: list = []
     for act_index in range(act_count):
         act_scene = (act_scene_map or {}).get(act_index, scene)
@@ -810,6 +1761,43 @@ async def _run_director_per_act_fallback(
             f'✅ [剧本起草期] 第 {act_index + 1}/{act_count} 幕单独生成完成。'
         )
     return scenes
+
+
+_CHARACTER_SUFFIX_RE = re.compile(r"\s*[（(][^（）()]+[）)]\s*$")
+
+
+def _canonicalize_character_references(scene_obj: Dict, known_names: List[str]) -> None:
+    """Expand an unambiguous short name such as ``艾莉`` to ``艾莉 (F-01)``."""
+    exact = {name.casefold(): name for name in known_names if name}
+    short_names: Dict[str, List[str]] = {}
+    for name in exact.values():
+        short = _CHARACTER_SUFFIX_RE.sub("", name).strip().casefold()
+        if short:
+            short_names.setdefault(short, []).append(name)
+
+    def canonical(value: Any) -> Any:
+        if not isinstance(value, str) or not value.strip():
+            return value
+        key = value.strip().casefold()
+        if key in exact:
+            return exact[key]
+        matches = short_names.get(key, [])
+        return matches[0] if len(matches) == 1 else value
+
+    def visit(value: Any) -> None:
+        if isinstance(value, dict):
+            for key, item in value.items():
+                if key in {"speaker", "character"}:
+                    value[key] = canonical(item)
+                elif key in {"who", "move_characters"} and isinstance(item, list):
+                    value[key] = list(dict.fromkeys(canonical(name) for name in item))
+                else:
+                    visit(item)
+        elif isinstance(value, list):
+            for item in value:
+                visit(item)
+
+    visit(scene_obj)
 
 
 def _direct_collect_scene_characters(scene_obj: Dict, beats: List[Dict], fallback_names: List[str]) -> List[str]:
@@ -865,7 +1853,7 @@ def _direct_current_position_map(entries: Any) -> Dict[str, str]:
 
 
 def _direct_positions_are_collapsed(scene_obj: Dict, who: List[str]) -> bool:
-    """Detect the common direct-mode failure where every character is assigned one Position."""
+    """Detect duplicate character positions in initial or event snapshots."""
     if len(who) < 2:
         return False
     who_set = set(who)
@@ -877,7 +1865,7 @@ def _direct_positions_are_collapsed(scene_obj: Dict, who: List[str]) -> bool:
         and str(entry.get("character") or "").strip() in who_set
         and str(entry.get("position") or "").strip()
     ]
-    if len(initial_positions) >= 2 and len(set(initial_positions)) == 1:
+    if len(initial_positions) >= 2 and len(set(initial_positions)) < len(initial_positions):
         return True
 
     total_current_beats = 0
@@ -889,10 +1877,10 @@ def _direct_positions_are_collapsed(scene_obj: Dict, who: List[str]) -> bool:
         positions = [current_map[name] for name in who if current_map.get(name)]
         if len(positions) >= 2:
             total_current_beats += 1
-            if len(set(positions)) == 1:
+            if len(set(positions)) < len(positions):
                 collapsed_current_beats += 1
 
-    return total_current_beats > 0 and collapsed_current_beats == total_current_beats
+    return collapsed_current_beats > 0
 
 
 def _spread_direct_collapsed_positions(scene_obj: Dict, who: List[str], scene_name: str) -> None:
@@ -926,7 +1914,7 @@ def _spread_direct_collapsed_positions(scene_obj: Dict, who: List[str], scene_na
             continue
         raw_map = _direct_current_position_map(beat.get("current position"))
         raw_positions = [raw_map[name] for name in who if raw_map.get(name)]
-        should_replace = not raw_map or (len(raw_positions) >= 2 and len(set(raw_positions)) == 1)
+        should_replace = not raw_map or (len(raw_positions) >= 2 and len(set(raw_positions)) < len(raw_positions))
         if should_replace:
             beat["current position"] = [
                 {"character": name, "position": current_positions[name]}
@@ -950,9 +1938,169 @@ def _spread_direct_collapsed_positions(scene_obj: Dict, who: List[str], scene_na
                 current_positions[str(move["character"]).strip()] = str(move["destination"]).strip()
 
 
+def _rebuild_move_timeline(scene_obj: Dict, scene_name: str) -> None:
+    """用初始站位重建事件快照，并消除无效移动目的地。"""
+    beats = scene_obj.get("scene", []) or []
+    current = {
+        str(item["character"]).strip(): str(item["position"]).strip()
+        for item in (scene_obj.get("initial position") or [])
+        if isinstance(item, dict) and item.get("character") and item.get("position")
+    }
+    descriptions = scene_obj.setdefault("position_descriptions", {})
+    used_numbers = []
+    for value in [*current.values(), *descriptions.keys()]:
+        match = re.fullmatch(r"Position ([1-9]\d*)", str(value).strip())
+        if match:
+            used_numbers.append(int(match.group(1)))
+    next_position = max(used_numbers, default=0) + 1
+
+    for beat in beats:
+        if not isinstance(beat, dict):
+            continue
+        beat["current position"] = [
+            {"character": character, "position": position}
+            for character, position in current.items()
+        ]
+        if "move" not in beat:
+            continue
+
+        moves = beat.get("move") or []
+        if isinstance(moves, dict):
+            moves = [moves]
+        moves = [move for move in moves if isinstance(move, dict)]
+        beat["move"] = moves
+        beat.pop("actions", None)
+        beat["shot"] = "scene"
+        beat["camera"] = beat.get("camera") or 1
+        beat.pop("shot_type", None)
+        beat.pop("Follow", None)
+
+        movers = {
+            str(move.get("character", "")).strip()
+            for move in moves
+            if str(move.get("character", "")).strip() in current
+        }
+        blocked = {position for character, position in current.items() if character not in movers}
+        claimed = set()
+        for move in moves:
+            character = str(move.get("character", "")).strip()
+            if character not in current:
+                continue
+            destination = str(move.get("destination", "")).strip()
+            invalid = (
+                not re.fullmatch(r"Position [1-9]\d*", destination)
+                or destination == current[character]
+                or destination in blocked
+                or destination in claimed
+            )
+            if invalid:
+                destination = f"Position {next_position}"
+                next_position += 1
+                move["destination"] = destination
+            descriptions.setdefault(destination, f"{scene_name} - {character} 的移动目标站位")
+            claimed.add(destination)
+
+        for move in moves:
+            character = str(move.get("character", "")).strip()
+            destination = str(move.get("destination", "")).strip()
+            if character in current and destination:
+                current[character] = destination
+
+
+def _stabilize_position_timeline(scene_obj: Dict, scene_name: str) -> None:
+    who = list((scene_obj.get("scene information") or {}).get("who") or [])
+    if _direct_positions_are_collapsed(scene_obj, who):
+        _spread_direct_collapsed_positions(scene_obj, who, scene_name)
+        scene_obj["_direct_position_repair_applied"] = True
+    _rebuild_move_timeline(scene_obj, scene_name)
+
+
+def _stabilize_generated_posture_timeline(scene_obj: Dict) -> None:
+    """Ensure movers stand first without changing the frozen event order."""
+    beats = scene_obj.get("scene") or []
+    initial_positions = scene_obj.get("initial position", []) or []
+    initial_states = {
+        item.get("character"): item.get("state", "standing")
+        for item in initial_positions
+        if isinstance(item, dict) and item.get("character")
+    }
+
+    while True:
+        states = dict(initial_states)
+        changed = False
+        for index, beat in enumerate(beats):
+            if not isinstance(beat, dict):
+                continue
+            movers = {
+                move.get("character")
+                for move in beat.get("move", []) if isinstance(move, dict)
+            } if isinstance(beat.get("move"), list) else set()
+            blocked = {character for character in movers if states.get(character) != "standing"}
+            for character in blocked:
+                target = next((
+                    prior for prior in reversed(beats[:index])
+                    if isinstance(prior, dict) and prior.get("speaker") and "move" not in prior
+                ), None)
+                future_stand = None
+                for later in beats[index + 1:]:
+                    if not isinstance(later, dict):
+                        continue
+                    if any(
+                        isinstance(move, dict) and move.get("character") == character
+                        for move in later.get("move", []) if isinstance(later.get("move"), list)
+                    ):
+                        break
+                    for action in later.get("actions", []) if isinstance(later.get("actions"), list) else []:
+                        if isinstance(action, dict) and action.get("character") == character and action.get("action") == "Stand Up":
+                            later["actions"].remove(action)
+                            future_stand = action
+                            break
+                    if future_stand:
+                        break
+                if target is not None:
+                    target.setdefault("actions", []).append(future_stand or {
+                        "character": character,
+                        "state": states.get(character, "sitting"),
+                        "action": "Stand Up",
+                        "motion_detail": "Stand up before moving",
+                    })
+                else:
+                    for item in initial_positions:
+                        if isinstance(item, dict) and item.get("character") == character:
+                            item["state"] = "standing"
+                    initial_states[character] = "standing"
+                changed = True
+            if changed:
+                break
+            for action in beat.get("actions", []) if isinstance(beat.get("actions"), list) else []:
+                if isinstance(action, dict):
+                    character = action.get("character")
+                    target_state = POSTURE_TRANSITION_TARGETS.get(action.get("action"))
+                    if character and target_state:
+                        states[character] = target_state
+        if not changed:
+            break
+
+    states = dict(initial_states)
+    for event_index, beat in enumerate(beats):
+        if not isinstance(beat, dict):
+            continue
+        beat["event_index"] = event_index
+        for action in beat.get("actions", []) if isinstance(beat.get("actions"), list) else []:
+            if not isinstance(action, dict):
+                continue
+            character = action.get("character")
+            if character in states:
+                action["state"] = states[character]
+            target_state = POSTURE_TRANSITION_TARGETS.get(action.get("action"))
+            if character and target_state:
+                states[character] = target_state
+
+
 def _normalize_direct_scene(scene_obj: Dict, fallback_names: List[str], scene_name: str, what_snippet: str) -> Dict:
     """直接模式本地兜底规范化：只补技术字段，不改写用户对白。"""
     scene_obj = dict(scene_obj) if isinstance(scene_obj, dict) else {"scene": []}
+    _canonicalize_character_references(scene_obj, fallback_names)
     raw_beats = scene_obj.get("scene") or []
     beats = [dict(item) for item in raw_beats if isinstance(item, dict)]
     who = _direct_collect_scene_characters(scene_obj, beats, fallback_names)
@@ -988,6 +2136,12 @@ def _normalize_direct_scene(scene_obj: Dict, fallback_names: List[str], scene_na
     current_positions = dict(existing_pos)
     normalized_beats: List[Dict] = []
     for beat in beats:
+        # Stable IDs belong to the compact IR; the final strict contract uses event_index.
+        for ir_field in (
+            "event_id", "source_event_id", "kind", "intent", "shot_intent",
+            "speaker_locked", "required_kind", "source_text",
+        ):
+            beat.pop(ir_field, None)
         has_move = "move" in beat
         empty_shot = is_empty_shot(beat)
         if has_move and isinstance(beat.get("move"), dict):
@@ -1002,6 +2156,12 @@ def _normalize_direct_scene(scene_obj: Dict, fallback_names: List[str], scene_na
         if beat["shot"] == "scene":
             if "camera" not in beat or beat.get("camera") is None:
                 beat["camera"] = 1
+        elif beat["shot"] == "object":
+            beat["shot_type"] = beat.get("shot_type") or "物体中景"
+            beat["target_anchor"] = beat.get("target_anchor") or "center"
+            beat.pop("camera", None)
+            beat.pop("Follow", None)
+            beat.setdefault("actions", [])
         else:
             if not beat.get("shot_type"):
                 beat["shot_type"] = "中景"
@@ -1031,9 +2191,7 @@ def _normalize_direct_scene(scene_obj: Dict, fallback_names: List[str], scene_na
 
     scene_obj["scene"] = normalized_beats
     scene_obj["initial position"] = normalize_initial_position_states(scene_obj)
-    if _direct_positions_are_collapsed(scene_obj, who):
-        _spread_direct_collapsed_positions(scene_obj, who, scene_name)
-        scene_obj["_direct_position_repair_applied"] = True
+    _stabilize_position_timeline(scene_obj, scene_name)
     return scene_obj
 
 
@@ -1078,6 +2236,7 @@ _ACT_MARKER_RE = re.compile(
 )
 # 对白行：角色名: 内容（中英文冒号，角色名可被括号包裹）
 _DLG_LINE_RE = re.compile(r'^\s*[（(]?([A-Za-z一-鿿·]{1,12})[)）]?\s*[:：]\s*(.+)$')
+_NUMBERED_SHOT_RE = re.compile(r'^\s*(?:S\d{1,4}|SHOT\s*\d+|镜头\s*\d+|\d+[.)、])\s*', re.IGNORECASE)
 # 旁白/画外音类标签：识别为旁白（不计入角色），避免生成幽灵演员
 _NARRATION_LABELS = {'旁白', '独白', '画外音', '画外', '内心', '内心独白', '字幕', 'os', 'v.o.', 'vo', 'narration', 'narrator'}
 
@@ -1116,6 +2275,21 @@ def _parse_plaintext_script(text: str) -> List[Dict]:
     return [{"scene": beats} for beats in acts]
 
 
+def _fit_direct_act_count(scenes: List[Dict], act_count: int) -> List[Dict]:
+    if len(scenes) == act_count:
+        return scenes
+    beats = [beat for scene_obj in scenes for beat in scene_obj.get("scene", [])]
+    if len(beats) < act_count:
+        return scenes
+    base, remainder = divmod(len(beats), act_count)
+    result, start = [], 0
+    for act_index in range(act_count):
+        size = base + (1 if act_index < remainder else 0)
+        result.append({"scene": beats[start:start + size]})
+        start += size
+    return result
+
+
 def _try_parse_json_scenes(text: str) -> Optional[List[Dict]]:
     """若用户输入本身就是规范 JSON（场景数组 / 单场景 / beats 数组），直接返回场景数组；否则 None。"""
     text = (text or "").strip()
@@ -1138,7 +2312,114 @@ def _try_parse_json_scenes(text: str) -> Optional[List[Dict]]:
     return None
 
 
-async def _build_direct_draft(creative_idea: str, characters, scene, bridge, director_agent) -> List[Dict]:
+def _direct_batch_rows(text: str, act_count: int) -> Optional[List[List[str]]]:
+    """Split only formats whose event boundaries are explicit and lossless."""
+    groups: List[List[str]] = []
+    current: List[str] = []
+    saw_act_marker = False
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+        if _ACT_MARKER_RE.match(line):
+            saw_act_marker = True
+            if current:
+                groups.append(current)
+                current = []
+            continue
+        current.append(line)
+    if current:
+        groups.append(current)
+    rows = [line for group in groups for line in group]
+    if len(rows) <= _DIRECTOR_DIRECT_BATCH_SIZE or len(rows) < act_count:
+        return None
+    boundaries_are_explicit = all(_NUMBERED_SHOT_RE.match(line) or _DLG_LINE_RE.match(line) for line in rows)
+    if not boundaries_are_explicit:
+        return None
+    if saw_act_marker and len(groups) == act_count:
+        return groups
+    base, remainder = divmod(len(rows), act_count)
+    balanced, start = [], 0
+    for act_index in range(act_count):
+        size = base + (1 if act_index < remainder else 0)
+        balanced.append(rows[start:start + size])
+        start += size
+    return balanced
+
+
+def _direct_batch_matches_source(events: Any, records: List[dict]) -> bool:
+    if not isinstance(events, list) or len(events) != len(records):
+        return False
+    for event, record in zip(events, records):
+        if not isinstance(event, dict) or event.get("source_event_id") != record["source_event_id"]:
+            return False
+        source = _NUMBERED_SHOT_RE.sub("", record["raw"], count=1).strip()
+        match = _DLG_LINE_RE.match(source)
+        if match and match.group(1).strip().lower() not in _NARRATION_LABELS:
+            if event.get("speaker") != match.group(1).strip() or event.get("content") != match.group(2).strip():
+                return False
+        elif event.get("content") != source and event.get("shot_description") != source:
+            return False
+    return True
+
+
+async def _run_direct_text_batches(act_rows: List[List[str]], bridge, director_factory) -> Optional[List[Dict]]:
+    scenes: List[Dict] = []
+    for act_index, rows in enumerate(act_rows):
+        merged = None
+        all_records = [
+            {
+                "source_event_id": f"A{act_index + 1:02d}E{offset + 1:04d}",
+                "raw": raw,
+                "source_text": raw,
+            }
+            for offset, raw in enumerate(rows)
+        ]
+        if any(len(record["source_text"]) > _DIRECTOR_MAX_SOURCE_EVENT_CHARS for record in all_records):
+            return None
+        batches = _event_batches(all_records)
+        for batch_index, records in enumerate(batches):
+            prompt = (
+                "只结构化下面这一批原始事件。每条输入恰好对应一个输出事件，逐字保留对白和顺序；"
+                "每个事件额外返回 source_event_id。输出数组只能包含一个 scene_obj。\n"
+                + json.dumps(
+                    [{"source_event_id": item["source_event_id"], "raw": item["raw"]} for item in records],
+                    ensure_ascii=False,
+                    separators=(',', ':'),
+                )
+            )
+            accepted = None
+            for attempt in range(_DIRECTOR_BATCH_RETRIES + 1):
+                candidate_script = await _run_director_agent(
+                    director_factory(),
+                    prompt + ("\n上次未通过 ID、数量或原文校验，请从头返回本批。" if attempt else ""),
+                    bridge,
+                    f'DirectorAgent（直接结构化，第{act_index + 1}幕第{batch_index + 1}批）',
+                )
+                candidate = candidate_script[0] if isinstance(candidate_script, list) and len(candidate_script) == 1 else None
+                if candidate and _direct_batch_matches_source(candidate.get("scene"), records):
+                    accepted = candidate
+                    break
+            if accepted is None:
+                return None
+            for event in accepted.get("scene", []):
+                event.pop("source_event_id", None)
+            merged = _merge_director_batch(merged, accepted)
+        if merged is not None:
+            scenes.append(merged)
+    return scenes
+
+
+async def _build_direct_draft(
+    creative_idea: str,
+    characters,
+    scene,
+    bridge,
+    director_agent,
+    *,
+    act_count: int = 1,
+    director_factory=None,
+) -> List[Dict]:
     """直接模式：把用户剧本转成 draft_script（场景数组），并补齐 scene information / initial position。
 
     解析优先级：规范 JSON（不调 LLM）→ DirectorAgent 结构化（含站位/Position N）→ 本地规则解析（兜底）。
@@ -1154,6 +2435,22 @@ async def _build_direct_draft(creative_idea: str, characters, scene, bridge, dir
     if scenes is not None:
         _emit_stage_log(bridge, 'info', 'direct', 'json',
                         f'🧩 [直接模式] 检测到 JSON 输入，解析到 {len(scenes)} 个场景，跳过导演结构化')
+    elif text and director_factory and (act_rows := _direct_batch_rows(text, act_count)):
+        _emit_stage_log(
+            bridge, 'info', 'direct', 'batching',
+            f'📦 [直接模式] 检测到明确事件边界，按每批最多 {_DIRECTOR_DIRECT_BATCH_SIZE} 个事件结构化'
+        )
+        scenes = await _run_direct_text_batches(act_rows, bridge, director_factory)
+        if not scenes:
+            scenes = _fit_direct_act_count(_parse_plaintext_script(text), act_count)
+            _emit_stage_log(bridge, 'warning', 'direct', 'batch_fallback',
+                            '⚠️ [直接模式] 分批结构化校验失败，改用本地规则解析以保留原文')
+    elif text and len([line for line in text.splitlines() if line.strip() and not _ACT_MARKER_RE.match(line)]) > _DIRECTOR_DIRECT_BATCH_SIZE:
+        scenes = _fit_direct_act_count(_parse_plaintext_script(text), act_count)
+        _emit_stage_log(
+            bridge, 'warning', 'direct', 'local_long_input',
+            '⚠️ [直接模式] 长文本缺少可靠逐行镜头边界，改用本地规则解析；未向模型请求无界完整 JSON。'
+        )
     elif text:
         _emit_stage_log(bridge, 'info', 'direct', 'parsing',
                         '🎬 [直接模式] DirectorAgent 将用户剧本结构化（保留对白与镜头、分配站位，不创作）...')
@@ -1168,7 +2465,7 @@ async def _build_direct_draft(creative_idea: str, characters, scene, bridge, dir
                             f'✅ [直接模式] 导演结构化完成，共 {len(scenes)} 个场景')
         else:
             # LLM 失败 → 本地规则解析兜底
-            scenes = _parse_plaintext_script(text)
+            scenes = _fit_direct_act_count(_parse_plaintext_script(text), act_count)
             _emit_stage_log(bridge, 'warning', 'direct', 'fallback',
                             '⚠️ [直接模式] 导演结构化失败，改用本地规则解析（对白可能不如 LLM 准确）')
 
@@ -1343,12 +2640,6 @@ async def run_autogen_pipeline(
         target_dialogue_lines = max(6, min(300, round(target_duration_secs / 60 * 10)))
         logger.info("目标对白行数: %d行（%.1f分钟）", target_dialogue_lines, target_duration_secs / 60)
 
-    dialogue_target_hint = (
-        f'目标对白行数：至少 {target_dialogue_lines} 行台词。'
-        f'确保每个角色有足够的说话机会，不要让对话戛然而止。'
-        if target_dialogue_lines else ''
-    )
-
     logger.info("Pipeline 启动 | scene_id=%s characters=%d 约束数=%d 固定对白=%d 时长=%.0f秒 act_count=%d 目标行数=%s",
                 scene_id, len(custom_characters_input), len(user_constraints),
                 len(fixed_dialogues), target_duration_secs or 0, act_count,
@@ -1414,17 +2705,10 @@ async def run_autogen_pipeline(
         _emit_stage_log(bridge, 'info', 'setup', 'characters', '💭 未指定角色，AI 将自由创作')
 
     # ── 初始化 Agents ──
-    model_supports_tools = os.getenv("MODEL_FUNCTION_CALLING", "false").lower() == "true"
     _emit_stage_log(bridge, 'info', 'setup', 'init', '🤖 初始化多 Agent 系统...')
 
     treatment = create_treatment_agent(act_count=act_count, script_style_guide=script_style_guide)
     meeting_summary_agent = create_meeting_summary_agent(script_style_guide=script_style_guide)
-    director = create_director_agent(
-        characters, scene, resource_loader, required_character_count, act_count,
-        user_constraints=user_constraints,
-        act_scene_map=act_scene_map if multi_scene else None,
-        script_style_guide=script_style_guide,
-    )
     critic = create_critic_agent(
         user_constraints=user_constraints,
         fixed_dialogues=fixed_dialogues,
@@ -1435,8 +2719,6 @@ async def run_autogen_pipeline(
         fixed_dialogues=fixed_dialogues,
         script_style_guide=script_style_guide,
     )
-    validator = create_validation_agent(resource_loader, scene) if model_supports_tools else None
-
     _emit_stage_log(bridge, 'success', 'setup', 'ready', '✅ Agents 初始化完成（创意会议、大纲、导演、审查、验证）')
 
     # 阶段化上下文（内存态，不落盘）
@@ -1453,12 +2735,25 @@ async def run_autogen_pipeline(
     if direct_mode:
         _emit_stage_log(bridge, 'info', 'direct', 'start',
                         '⚡ [直接模式] 已开启：跳过头脑风暴/分场规划，由导演把你的剧本结构化（保留剧情台词）')
+        direct_director_factory = lambda: create_director_agent(
+            characters, scene, resource_loader, required_character_count, 1,
+            user_constraints=user_constraints, direct_mode=True,
+            script_style_guide=script_style_guide,
+        )
         direct_director = create_director_agent(
             characters, scene, resource_loader, required_character_count, act_count,
             user_constraints=user_constraints, direct_mode=True,
             script_style_guide=script_style_guide,
         )
-        draft_script = await _build_direct_draft(creative_idea, characters, scene, bridge, direct_director)
+        draft_script = await _build_direct_draft(
+            creative_idea,
+            characters,
+            scene,
+            bridge,
+            direct_director,
+            act_count=act_count,
+            director_factory=direct_director_factory,
+        )
         protect_empty_shots(draft_script, ensure_camera=True)
     else:
         # ════════════════════════════════════════════════
@@ -1572,75 +2867,39 @@ async def run_autogen_pipeline(
         # ════════════════════════════════════════════════
         _emit_stage_log(bridge, 'info', 'draft', 'start', '🎬 [剧本起草期] DirectorAgent 开始生成剧本初稿...')
 
-        treatment_summary = json.dumps(stage_context.get("treatment", {}), ensure_ascii=False, indent=2)
-        fixed_dlg_section = ""
-        if fixed_dialogues:
-            lines = "\n".join(f"- **{d['speaker']}**：{d['content']}" for d in fixed_dialogues)
-            fixed_dlg_section = (
-                f"\n## 📌 用户提供的固定对白（必须原样保留，不得修改）\n{lines}\n\n"
-                "以上对白必须出现在剧本中，内容一字不改。\n\n"
-            )
-        base_user_prompt = (
-            f"创作想法：{plot_outline or '（AI 自由创作）'}{fixed_dlg_section}\n\n"
-            f"## 创意会议执行摘要\n{meeting_summary_text}\n\n"
-            f"## 分场大纲\n{treatment_summary}\n\n" \
-            + (f"{duration_hint}\n" if duration_hint else "")
-            + (f"{dialogue_target_hint}\n" if dialogue_target_hint else "")
-            + "请根据以上创意会议执行摘要和分场大纲生成剧本，直接输出 JSON 格式，不要有其他说明文字。"
+        draft_script = await _run_director_batched_draft(
+            bridge,
+            characters,
+            scene,
+            resource_loader,
+            required_character_count,
+            act_count,
+            user_constraints,
+            act_scene_map if multi_scene else None,
+            script_style_guide,
+            plot_outline,
+            stage_context["meeting_summary"],
+            stage_context["treatment"],
+            target_dialogue_lines,
+            fixed_dialogues,
         )
+        if draft_script is None:
+            return
 
-        draft_script = None
-        MAX_SHOT_STRUCT_RETRIES = 2
-        current_prompt = base_user_prompt
-
-        for shot_attempt in range(MAX_SHOT_STRUCT_RETRIES + 1):
-            label = 'DirectorAgent' if shot_attempt == 0 else f'DirectorAgent（shot修正第{shot_attempt}次）'
-            draft_script = await _run_director_agent(director, current_prompt, bridge, label)
-
-            if draft_script is None:
-                _emit_stage_log(
-                    bridge, 'warning', 'draft', 'per_act_fallback_start',
-                    '⚠️ [剧本起草期] 完整剧本请求未成功，开始按幕生成 JSON 并合并。'
-                )
-                draft_script = await _run_director_per_act_fallback(
-                    current_prompt,
-                    bridge,
-                    characters,
-                    scene,
-                    resource_loader,
-                    required_character_count,
-                    act_count,
-                    user_constraints,
-                    act_scene_map if multi_scene else None,
-                    script_style_guide,
-                )
-                if draft_script is None:
-                    return
-
-            protect_empty_shots(draft_script, ensure_camera=True)
-
-            logger.info("[DirectorAgent] 生成完成，场景数=%d（尝试%d）", len(draft_script), shot_attempt + 1)
-            _emit_output(bridge, label, draft_script)
-            _emit_output(bridge, 'DirectorAgent（自然语言中间稿）', _render_plaintext_screenplay(draft_script), fmt='screenplay')
-
-            shot_struct = validate_script_shot_structure(draft_script)
-            if shot_struct["valid"]:
-                _emit_stage_log(bridge, 'success', 'draft', 'shot_check', '✅ [shot结构] 所有片段 shot 字段结构正确')
-                break
-
-            error_desc = format_shot_structure_errors(shot_struct["errors"])
-            _emit_stage_log(bridge, 'warning', 'draft', 'shot_check',
-                            f'⚠️ [shot结构] 字段有问题，正在修正...\n{error_desc}')
-
-            if shot_attempt >= MAX_SHOT_STRUCT_RETRIES:
-                _emit_stage_log(bridge, 'warning', 'draft', 'shot_check', '⚠️ 已达最大重试次数，继续使用当前版本')
-                break
-
-            current_prompt = (
-                f"上一版本剧本 shot 字段有以下问题，请修正后重新输出完整剧本 JSON：\n\n"
-                f"{error_desc}\n\n"
-                f"原剧本：\n```json\n{json.dumps(draft_script, ensure_ascii=False, indent=2)}\n```"
+        draft_script = [
+            _normalize_direct_scene(
+                act,
+                [character.name for character in characters],
+                (act_scene_map.get(index, scene) if multi_scene else scene).name,
+                plot_outline[:60] or "剧本生成",
             )
+            for index, act in enumerate(draft_script)
+        ]
+        protect_empty_shots(draft_script, ensure_camera=True)
+        logger.info("[DirectorAgent] 分批生成完成，场景数=%d", len(draft_script))
+        _emit_output(bridge, 'DirectorAgent', draft_script)
+        _emit_output(bridge, 'DirectorAgent（自然语言中间稿）', _render_plaintext_screenplay(draft_script), fmt='screenplay')
+        _emit_stage_log(bridge, 'success', 'draft', 'shot_check', '✅ [shot结构] 所有分批结果已逐批校验')
 
         _emit_stage_log(bridge, 'success', 'draft', 'summary', '✅ [剧本起草期] 剧本初稿生成完成')
 
@@ -1656,6 +2915,7 @@ async def run_autogen_pipeline(
             # CriticAgent 审查
             critic_feedback = None
             try:
+                await _clear_agent_context(critic)
                 async for event in critic.on_messages_stream(
                     [TextMessage(content=f"以下是需要审查的剧本：\n\n{filtered_script_str}", source="user")],
                     cancellation_token=CancellationToken()
@@ -1673,6 +2933,7 @@ async def run_autogen_pipeline(
             # DialogueAgent 审查
             dialogue_feedback = None
             try:
+                await _clear_agent_context(dialogue)
                 async for event in dialogue.on_messages_stream(
                     [TextMessage(content=f"以下是需要审查对白的剧本：\n\n{filtered_script_str}", source="user")],
                     cancellation_token=CancellationToken()
@@ -1698,7 +2959,7 @@ async def run_autogen_pipeline(
                 )
                 break
 
-            # 汇总反馈，请 DirectorAgent 修改
+            # 汇总反馈，仅返修审查明确定位的对白。
             revision_parts = []
             if critic_has_issues:
                 issues_str = '; '.join(i.get('description', '') for i in critic_feedback.get('issues', []))
@@ -1707,62 +2968,54 @@ async def run_autogen_pipeline(
                 issues_str = '; '.join(i.get('description', '') for i in dialogue_feedback.get('issues', []))
                 revision_parts.append(f"【对白问题】{dialogue_feedback.get('revision_instruction', issues_str)}")
 
-            revision_prompt = (
-                f"请根据以下审查意见修改剧本，输出完整的修改后 JSON，不要有其他说明文字：\n\n"
-                + f"用户原始要求（不得被审查建议覆盖）：{creative_idea}\n\n"
-                + "\n".join(revision_parts)
-                + "\n\n重要：\n"
-                "- 每个角色动作的 `motion_detail` 字段必须保留原有内容，不得将其置为空字符串。\n"
-                "- 无说话人事件（无 move 且 speaker 为空）必须保留 content 原文、duration 和 actions=[]，不得补配音台词。\n"
-                + ("".join(f"- 用户约束：{c}（不得违背）\n" for c in user_constraints) if user_constraints else "")
-                + ("".join(f"- 固定对白（不得修改）：{d['speaker']}：{d['content']}\n" for d in fixed_dialogues) if fixed_dialogues else "")
-                + (f"- 目标对白行数：至少 {target_dialogue_lines} 行，当前不足请扩充。\n" if target_dialogue_lines else "")
-                + f"\n当前剧本：\n```json\n{json.dumps(draft_script, ensure_ascii=False, indent=2)}\n```"
-            )
+            target_events = _review_target_events(draft_script, [critic_feedback, dialogue_feedback])
+            if not target_events:
+                _emit_stage_log(
+                    bridge, 'warning', 'review', 'location_missing',
+                    '⚠️ 审查意见没有合法的 act/event 定位，为避免重写整剧本，本轮不执行返修。'
+                )
+                break
+            target_pairs = {(item["speaker"], item["content"]) for item in target_events}
+            revision_prompt = json.dumps({
+                "user_requirement": plot_outline[:2000],
+                "revision_instructions": revision_parts,
+                "target_events": target_events,
+                "fixed_dialogues": [
+                    item for item in fixed_dialogues
+                    if (item.get("speaker"), item.get("content")) in target_pairs
+                ],
+            }, ensure_ascii=False, separators=(',', ':'))
 
             _emit_stage_log(
                 bridge, 'info', 'review', 'revise',
                 f'✏️  [审核与迭代期] DirectorAgent 根据审查意见修改剧本（轮次{review_round + 1}）...'
             )
 
-            revised_script = None
-            thinking_started = False
+            revision_result = None
             try:
-                async for event in director.on_messages_stream(
-                    [TextMessage(content=revision_prompt, source="user")],
-                    cancellation_token=CancellationToken()
-                ):
-                    if hasattr(event, 'inner_messages'):
-                        for msg in (event.inner_messages or []):
-                            if isinstance(msg, ModelClientStreamingChunkEvent):
-                                if not thinking_started:
-                                    thinking_started = True
-                                bridge.put_event({'type': 'thinking_chunk', 'agent': 'DirectorAgent', 'text': msg.content})
-                    if hasattr(event, 'chat_message') and event.chat_message:
-                        if thinking_started:
-                            bridge.put_event({'type': 'thinking_done'})
-                            thinking_started = False
-                        revised_script = _extract_json_from_text(event.chat_message.content)
+                revision_result = await _run_stage_agent_json_object(create_revision_agent(), revision_prompt)
             except Exception as _e:
-                logger.warning("[DirectorAgent-revision] 请求失败，保留上一版本: %s", _e)
+                logger.warning("[RevisionAgent] 请求失败，保留上一版本: %s", _e)
                 _emit_stage_log(bridge, 'warning', 'review', 'revise_error',
                                 f'⚠️ [审核与迭代期] 修改请求失败，保留上一版本: {_e}')
 
-            if thinking_started:
-                bridge.put_event({'type': 'thinking_done'})
-
-            if revised_script:
-                protect_empty_shots(revised_script, ensure_camera=True)
+            revised_script, applied_changes = _apply_review_changes(
+                draft_script,
+                (revision_result or {}).get("changes"),
+                fixed_dialogues,
+                target_events,
+            )
+            if applied_changes:
                 draft_script = revised_script
                 _emit_stage_log(
                     bridge, 'success', 'review', 'revise_result',
-                    f'✅ [审核与迭代期] 修改完成（轮次{review_round + 1}）'
+                    f'✅ [审核与迭代期] 修改完成（轮次{review_round + 1}，{applied_changes} 处对白）'
                 )
-                _emit_output(bridge, 'DirectorAgent（修改稿）', revised_script)
+                _emit_output(bridge, 'RevisionAgent（对白补丁）', revision_result, fmt='feedback')
             else:
                 _emit_stage_log(
                     bridge, 'warning', 'review', 'revise_result',
-                    '⚠️ [审核与迭代期] 修改结果解析失败，保留上一版本'
+                    '⚠️ [审核与迭代期] 未收到可安全应用的对白补丁，保留上一版本'
                 )
                 break
 
@@ -1777,7 +3030,7 @@ async def run_autogen_pipeline(
 
     # ValidationAgent is advisory; Python is always the authoritative gate.
     draft_script, validation_result = await _enforce_contract(
-        draft_script, resource_loader, director, bridge, act_scene_map,
+        draft_script, resource_loader, bridge, act_scene_map,
         act_count, [c.name for c in characters],
         required_character_count or len(characters) or 2,
         preserve_story=direct_mode,
@@ -1802,60 +3055,6 @@ async def run_autogen_pipeline(
         plot_summary = f"AI自由创作：{scene.name}"
 
     final_json = generator.generate_final_json(draft_script, plot_summary, act_scene_ids=act_scene_ids)
-
-    # ── 阶段三后：对白行数校验 + 不足时触发补写 ──
-    if target_dialogue_lines and not direct_mode:
-        actual_lines = sum(
-            1 for act in final_json
-            for line in act.get('scene', [])
-            if line.get('speaker') and line.get('content')
-        )
-        deficit = target_dialogue_lines - actual_lines
-        if deficit > 0:
-            _emit_stage_log(bridge, 'info', 'dialogue_fill', 'start',
-                            f'📝 [对白补写] 当前 {actual_lines} 行，目标 {target_dialogue_lines} 行，'
-                            f'不足 {deficit} 行，正在触发补写...')
-            fill_prompt = (
-                f"当前剧本对白行数不足。当前共 {actual_lines} 行，目标至少 {target_dialogue_lines} 行。\n"
-                f"请在不修改已有对白的前提下，"
-                f"在每个幕中**增加自然的对白**，让对话更丰富、更符合现实主义风格。\n"
-                f"已有空镜必须原样保留，禁止为空镜补写 speaker/content 或改成人物镜头。\n"
-                f"新增的对白必须：\n"
-                f"1. 口语化、有停顿感、有角色个人特征\n"
-                f"2. 推动情节或揭示人物关系\n"
-                f"3. 不添加任何禁止AI腔红线中的词汇\n\n"
-                f"当前剧本：\n```json\n{json.dumps(final_json, ensure_ascii=False, indent=2)}\n```\n\n"
-                f"输出完整修改后的 JSON，不要有其他说明文字。"
-            )
-            filled_script = None
-            try:
-                async for event in director.on_messages_stream(
-                    [TextMessage(content=fill_prompt, source="user")],
-                    cancellation_token=CancellationToken()
-                ):
-                    if hasattr(event, 'chat_message') and event.chat_message:
-                        filled_script = _extract_json_from_text(event.chat_message.content)
-            except Exception as _e:
-                logger.warning("[对白补写] 请求失败: %s", _e)
-                _emit_stage_log(bridge, 'warning', 'dialogue_fill', 'error',
-                                f'⚠️ [对白补写] 补写请求失败，保留原始剧本: {_e}')
-            if filled_script:
-                protect_empty_shots(filled_script, ensure_camera=True)
-                draft_script, validation_result = await _enforce_contract(
-                    filled_script, resource_loader, director, bridge, act_scene_map,
-                    act_count, [c.name for c in characters], required_character_count or len(characters) or 2,
-                    preserve_story=direct_mode,
-                )
-                # 补写结果仍需经过 generator 规范化（补充 emotion 字段等）
-                final_json, _ = normalize_script(draft_script, resource_loader)
-                new_lines = sum(
-                    1 for act in final_json
-                    for line in act.get('scene', [])
-                    if line.get('speaker') and line.get('content')
-                )
-                _emit_stage_log(bridge, 'success', 'dialogue_fill', 'done',
-                                f'✅ [对白补写] 补写完成：{actual_lines} → {new_lines} 行')
-                _emit_output(bridge, 'DirectorAgent（对白补写）', final_json)
 
     filename = f"script_{timestamp}.json"
     filepath = output_dir / filename
@@ -1944,7 +3143,7 @@ async def run_autogen_pipeline(
                     if cine_attempt == 2:
                         raise ValueError(json.dumps(final_check['errors'], ensure_ascii=False))
                     draft_script, validation_result = await _enforce_contract(
-                        draft_script, resource_loader, director, bridge, act_scene_map,
+                        draft_script, resource_loader, bridge, act_scene_map,
                         act_count, [c.name for c in characters], required_character_count or len(characters) or 2,
                         final=True,
                         preserve_story=direct_mode,
@@ -2084,7 +3283,7 @@ async def run_autogen_pipeline(
 
     _emit_stage_log(bridge, 'success', 'output', 'actors_profile', f'✅ 已生成角色档案：{len(actors_profile)} 位演员')
 
-    session_id = str(timestamp)
+    session_id = str(request_params.get('_history_session_id') or timestamp)
     # 多场景：history 记录逗号拼接整池场景 id；单场景仍是单个 id
     session_scene_id = ",".join(sc.id for sc in scene_pool_objs)
     _registry.register_session(
@@ -2100,6 +3299,7 @@ async def run_autogen_pipeline(
         scene_id=session_scene_id,
         act_count=act_count,
         label=script_title,
+        form_data=_registry.snapshot_form_data(request_params),
     )
 
     logger.info("Pipeline 完成 | 剧本=%s 角色档案=%s 位置规划=%s 位置详情=%s",
