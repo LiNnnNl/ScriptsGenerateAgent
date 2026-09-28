@@ -8,8 +8,6 @@ from ..prompt_utils import render_prompt
 from ..resource_loader import Character, ResourceLoader, Scene
 from ..script_style_skill import build_script_style_context
 from ..agents.character_voice import build_system_message as _build_character_voice_system_message
-from ..agents.character_bios import build_system_message as _build_character_bios_system_message
-from ..agents.concept import build_system_message as _build_concept_system_message
 from ..agents.concept_pitch import build_system_message as _build_concept_pitch_system_message
 from ..agents.contract_repair import build_system_message as _build_contract_repair_system_message
 from ..agents.critic import build_system_message as _build_critic_system_message
@@ -22,10 +20,8 @@ from ..agents.position import build_system_message as _build_position_system_mes
 from ..agents.revision import build_system_message as _build_revision_system_message
 from ..agents.story_ir import build_system_message as _build_story_ir_system_message
 from ..agents.shot_plan import build_system_message as _build_shot_plan_system_message
-from ..agents.synopsis import build_system_message as _build_synopsis_system_message
 from ..agents.title import build_system_message as build_title_system_message
 from ..agents.treatment import build_system_message as _build_treatment_system_message
-from ..agents.validation import build_system_message as _build_validation_system_message
 from .action_info import render_action_info as _render_action_info
 
 
@@ -180,7 +176,7 @@ def build_director_system_message(
         direct_mode=direct_mode,
         char_info=_render_character_info(characters, total_count, extra_count),
         scene_info=_render_scene_info(scene, resource_loader, act_count, act_scene_map),
-        action_info=_render_action_info(resource_loader),
+        action_info="",
         act_count_rule=act_count_rule,
         char_count_rule=char_count_rule,
         shot_types_str=shot_types_str,
@@ -232,18 +228,6 @@ def build_director_word_system_message(
         user_constraints=(_append_user_constraints(user_constraints) + "\n") if user_constraints else "",
         video_style_guide=script_style_guide or build_script_style_context(),
     )
-
-
-def build_concept_system_message(characters: List[Character], scene: Scene, required_character_count: int = 0) -> str:
-    return _build_concept_system_message(_build_stage_common_context(characters, scene, required_character_count))
-
-
-def build_synopsis_system_message() -> str:
-    return _build_synopsis_system_message()
-
-
-def build_character_bios_system_message() -> str:
-    return _build_character_bios_system_message()
 
 
 def build_treatment_system_message(act_count: int = 3, script_style_guide: Optional[str] = None) -> str:
@@ -313,10 +297,6 @@ def build_character_voice_system_message(script_style_guide: Optional[str] = Non
 
 def build_narrative_arch_system_message(script_style_guide: Optional[str] = None) -> str:
     return _build_narrative_arch_system_message(script_style_guide or build_script_style_context())
-
-
-def build_validation_system_message() -> str:
-    return _build_validation_system_message()
 
 
 def build_position_agent_system_message(scene: Scene) -> str:

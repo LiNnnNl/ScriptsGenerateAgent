@@ -10,6 +10,7 @@ if str(BACKEND) not in sys.path:
 
 from src.autogen_pipeline import (
     _canonicalize_character_references,
+    _character_module_enabled,
     _direct_batch_matches_source,
     _direct_batch_rows,
     _fit_direct_act_count,
@@ -20,6 +21,12 @@ from src.autogen_pipeline import (
 
 
 class DirectModeTests(unittest.TestCase):
+    def test_character_module_requires_explicit_boolean_true(self):
+        self.assertFalse(_character_module_enabled({}))
+        self.assertFalse(_character_module_enabled({"enable_character_module": False}))
+        self.assertFalse(_character_module_enabled({"enable_character_module": "true"}))
+        self.assertTrue(_character_module_enabled({"enable_character_module": True}))
+
     def test_known_character_short_name_is_canonicalized(self):
         scene = {
             "scene information": {"who": ["艾莉 (F-01)"], "what": "测试"},

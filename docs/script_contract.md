@@ -14,7 +14,7 @@
 | └ who | 必需 / 字符串数组 | 本幕角色，不重复；跨幕汇总满足指定角色及总人数 |
 | └ where | 必需 / 字符串 | scenes_resource.json 中真实场景 ID，由按幕场景分配写入 |
 | └ what | 必需 / 非空字符串 | 本幕剧情概括 |
-| └ emotionLibrary | 必需 / 字符串 | 空字符串表示禁用；启用时为 emotion_libraries.json 的 libraries 键，并检查适用角色 |
+| └ emotionLibrary | 必需 / 字符串 | 空字符串表示禁用；启用时为 `pixar_cartoon`，名称/样式来自 `pixar_emotions_with_styles.json`，并检查适用角色 |
 | └ language_config | 可选 / 对象 | 缺失时按旧版 speaker+content；启用后所有幕必须完全一致 |
 | └ tracks[] | language_config 内必需 | 1~8 条；id 匹配 `^[a-z0-9][a-z0-9_-]{0,63}$` 且唯一；default_track 必须引用它 |
 | └ tracks[].tts_prompt_suffix | 必需 / 1~80字符 | 仅简短语言/发音要求；禁止换行、URL、密钥、JSON、角色或系统指令 |
@@ -44,7 +44,7 @@
 | position、destination | `^Position [1-9][0-9]*$` | 逻辑槽，不当作坐标；摄影输出须覆盖初始位置和移动目的地 |
 | who/character/speaker | 本次剧本角色引用 | 已具备，不能引入未声明角色 |
 | actors_profile.gameobject_name | characters_resource.json | 已具备真实模型名称 |
-| emotionLibrary / emotion / emotionStyle | emotion_libraries.json | 已登记 `pixar_cartoon`：78 个模板、8 个切换样式；当前仅声明适用于阿福、陈阿嫲、林阿公 |
+| emotionLibrary / emotion / emotionStyle | `pixar_emotions_with_styles.json` | `pixar_cartoon`：78 个模板、8 个切换样式；旧 `emotion_libraries.json` 仅保留兼容角色范围 |
 | then-interact.target/action/参数枚举 | interactions/<scene>.json | 目录已有，仅 .gitkeep；规划格式见下节 |
 | camera_script.shot | character / scene / object | 已具备；三类字段按 Unity 合同分别校验 |
 | shot_type / motion_preset | CameraLib.json 的景别及其 DefaultMotionPreset | 已有；关闭运镜固定 none，不输出 motion_sequence |
@@ -56,7 +56,7 @@
 
 动作按数组顺序推进姿态：Sit Down→sitting，Kneel Down→kneeling，Squat Down→squatting，Stand Up→standing；移动前必须 standing。移动结果写入下一事件快照，不覆盖本事件移动前快照。
 
-选择 `pixar_cartoon` 后，情绪名必须使用模板完整键，例如 `sad_soft:0.25, crying_strong:0.75`；`emotionStyle` 只能从 `default/steady/quick_reaction/snap_reaction/slow_morph/delayed_realize/reaction_then_control/conflict` 选择。权重在 [0,1] 且总和为 1。`pixar_emotion`、`sad`、`crying`、`build_to_second` 都不是该实际库的合法值。未启用表情库时 emotion 与 emotionStyle 使用空字符串。
+选择 `pixar_cartoon` 后，情绪名必须使用 JSON 中的完整键，例如 `sad_soft:0.25, crying_strong:0.75`；每个 `emotion` 值最多 3 个情绪，`emotionStyle` 只能从 JSON 中的 8 个样式选择。权重在 [0,1] 且总和为 1。`pixar_emotion`、`sad`、`crying`、`build_to_second` 都不是该实际库的合法值。未启用表情库时 emotion 与 emotionStyle 使用空字符串。
 
 新生成默认启用下列单轨普通话配置；旧剧本或直接输入可以完全省略多语言扩展：
 
@@ -74,7 +74,7 @@
 {"scene":"Auditorium","objects":[{"id":"EXAMPLE_DOOR","actions":[{"name":"open","parameters":{"speed":{"type":"number","required":false,"min":0.1,"max":2}}}]}]}
 ```
 
-表情生成端索引已由用户提供的 Pixar 曲线清单整理到 `backend/resources/emotion_libraries.json`；曲线参数和 CSV 仍以 Unity 资产为权威，不复制到提示词。物体镜头直接复用各场景 `scene_info` 的 `scene_markers`，不维护第二份道具列表。
+表情 Agent 使用 `backend/resources/pixar_emotions_context.md` 作为语义参考；代码使用 `backend/resources/pixar_emotions_with_styles.json` 审查名称、样式、权重和最多 3 个情绪。旧 `emotion_libraries.json` 仅作兼容回退。
 
 没有需求就不生成交互、多语言、物体镜头。启用多语言后，每句必须一次性具备全部已发布轨道；生成失败不能发布半条轨道。空库时直接输入已有交互会保留结构，但 target/action 清空并警告；其他交互参数只能在真实库就绪后验证能力，不应执行占位交互。
 

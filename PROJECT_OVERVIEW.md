@@ -12,7 +12,7 @@
 
 ## 1. 这是什么
 
-一个**多 Agent 驱动的剧本生成系统**：用户给定场景、角色、创作灵感和幕数，系统通过多个 LLM Agent 协作（创意会议 → 分场大纲 → 导演起草 → 文学审查 → 摄影指导），产出一套可供下游（Unity 引擎）使用的结构化剧本资产：剧本 JSON、镜头脚本、角色档案、角色站位与坐标。
+一个**多 Agent 驱动的剧本生成系统**：用户给定场景、角色、创作灵感和幕数，系统通过多个 LLM Agent 协作（创意会议 → 分场大纲 → 导演起草 → 可选人物/对白审查 → 摄影指导），产出一套可供下游（Unity 引擎）使用的结构化剧本资产：剧本 JSON、镜头脚本、角色档案、角色站位与坐标。
 
 两种生成模式：
 
@@ -25,7 +25,7 @@
 
 - **后端**：Python + Flask；多 Agent 基于 AutoGen（`RoundRobinGroupChat` / `AssistantAgent`）。入口 `backend/app.py`，跑 `uv run python backend/app.py`，服务在 `:5001`；本地开发时主要提供 `/api/*`，在反代 / Tunnel 的 `/script/*` 场景下也可直接托管前端静态文件，debug 热重载。
 - **前端**：原生 HTML/JS/CSS，**无框架、无构建步骤**。`frontend/index.html` + `frontend/js/{config,api,main,ui}.js` + `frontend/css/style.css`；本地推荐 `python3 -m http.server 8080` 独立开发，也可由 Flask 在 `/script/*` 下统一托管。
-- **LLM 调用**：通过 OpenAI 兼容接口（`backend/src/autogen_agents.py` 的 `make_model_client`）。Director、创意、文学与摄影等复杂任务使用 `MODEL`；TitleAgent、MeetingSummaryAgent、StoryIRAgent 和 ShotPlanAgent 使用 `SIMPLE_MODEL`；额度耗尽后使用 `FALLBACK_MODEL`。
+- **LLM 调用**：通过 OpenAI 兼容接口。Director、创意、文学与摄影等复杂任务使用 `MODEL`；动作/表情专项可用 `PERFORMANCE_MODEL` 覆盖；TitleAgent、MeetingSummaryAgent、StoryIRAgent 和 ShotPlanAgent 使用 `SIMPLE_MODEL`；额度耗尽后使用 `FALLBACK_MODEL`。
 - **Git**：远程 `LiNnnNl/ScriptsGenerateAgent`；功能分支按任务创建，实际分支与上游关系以 `git status -sb` / `git branch -vv` 为准。
 
 ### 验证命令（改完必跑）
@@ -56,7 +56,7 @@ ScriptsGenerateAgent/
 │   │   ├── Images/ , position_templates/ , scene_exports/
 │   ├── src/
 │   │   ├── autogen_pipeline.py     # ⭐ 主流程编排（一次生成的全过程）
-│   │   ├── autogen_agents.py       # 模型路由 + 未迁移 Agent 工厂 + 旧接口兼容层
+│   │   ├── autogen_agents.py       # 模型路由 + Agent 工厂 + PositionAgent 旧接口兼容
 │   │   ├── agents/                 # 可独立维护、后续可拆仓库的 Agent 包
 │   │   │   ├── title/                  # TitleAgent：工厂 + 系统/用户提示词
 │   │   │   ├── concept_pitch/          # 创意概念顾问
@@ -72,21 +72,21 @@ ScriptsGenerateAgent/
 │   │   │   ├── dialogue/               # 对白质量审查
 │   │   │   ├── revision/               # 文学审查后的对白局部返修
 │   │   │   ├── contract_repair/        # 最终合同局部修复
-│   │   │   ├── concept/ , synopsis/    # 旧创作链兼容 Agent
-│   │   │   ├── character_bios/         # 旧人物小传兼容 Agent
-│   │   │   └── validation/ , position/ # 技术校验/旧位置映射兼容 Agent
+│   │   │   └── position/                # 旧位置映射兼容 Agent（按要求保留）
 │   │   ├── resource_loader.py      # 加载资源、scene_info（含文件名模糊匹配）
 │   │   ├── json_generator.py       # 组装最终剧本 JSON
 │   │   ├── schema.py               # Pydantic 校验（shot/position/camera_script）
 │   │   ├── registry.py             # session 注册（产出文件索引）
 │   │   ├── word_exporter.py        # 剧本导出为 Word
+│   │   ├── performance/            # 动作/表情专项选择（独立负责人包）
+│   │   │   ├── action/                 # 动作输入裁剪、规则、校验与回填
+│   │   │   └── expression/             # 表情输入裁剪、规则、校验与回填
 │   │   └── cinematography/         # 摄影三阶段后处理
 │   │       ├── __init__.py             # run_cinematography_pipeline（入口，逐幕循环）
-│   │       ├── shot_planning_stage.py      # Stage1：镜头描述
-│   │       ├── cinematography_position_stage.py # Stage2：站位 + 坐标
-│   │       ├── camera_planning_stage.py    # Stage3：镜头参数 → camera_script
-│   │       ├── coordinate_skill.py         # 用锚点坐标 + LayoutLib 算 x/y/z
-│   │       └── position_*.py
+│   │       ├── camera/                 # 镜头负责人包：Stage1/3 实现 + rules/
+│   │       ├── positioning/            # 点位负责人包：Stage2 + 坐标实现 + rules/
+│   │       ├── *_planning_stage.py     # 旧导入路径兼容层
+│   │       └── position_*.py           # 旧版 PositionAgent 兼容实现
 │   └── outputs/                    # 每次生成的产物（按 timestamp 命名）
 ├── frontend/
 │   ├── index.html
@@ -123,21 +123,22 @@ Pipeline 持有阶段顺序、重试、模型路由、资源和最终合同；`b
 2. **加载场景**：优先解析 `scene_pool`，缺省时回退 `scene_id`；预加载池中场景并按 `act_scenes` 构建 `act_scene_map`，无效或缺失的逐幕分配回退到池中第一个场景。
 3. **构建角色**：有 `custom_characters` 则 `build_custom_characters`，否则交给 AI 自由创作。
 4. **创意阶段**（direct_mode 整体跳过）：
-   - **创意会议**：`RoundRobinGroupChat`（ConceptPitch / CharacterVoice / NarrativeArch 三顾问轮流发言，最多 6 条消息或出现 `[AGREE]` 提前终止）。
+   - **创意会议**：`RoundRobinGroupChat` 默认由 ConceptPitch / NarrativeArch 两位顾问轮流发言；`enable_character_module=true` 时加入 CharacterVoice。每位最多两轮，出现 `[AGREE]` 可提前终止。
    - **创意摘要**：`MeetingSummaryAgent` 将会议原文压缩为角色、冲突、幕目标、保留项和场景/风格约束；后续阶段不再接收会议全文。
    - **分场规划**：`TreatmentAgent` 把创意摘要转成分场大纲（数组长度恰好 = `act_count`）。
    - **Story IR 冻结**：代码先建立稳定 `event_id` 清单。用户输入编号分镜时，代码冻结镜头边界和对白原文，`StoryIRAgent` 只识别同镜头内的对白/动作/移动组合；自由创作时它只填充代码预分配的事件槽，每次最多 8 个事件。
    - **剧本起草**：`DirectorAgent` 每次只能看到并返回当前最多 8 个 Story IR 事件，ID、顺序、speaker/content 必须一一对应；代码合并后移除临时 ID，并确定性补 `event_index`、全员位置快照、默认情绪/理由、语言副本和空 `shot_description`。
    - **无状态与局部返修**：每次模型请求通过 AutoGen `on_reset` 清空历史；方舟上的 Story IR、Director 和局部修复 Agent 默认关闭深度思考；文学审查以 `act_index/event_index` 定位，返修最多返回 6 个对白补丁；合同修复只发送错误事件或幕元数据。正文为空但 reasoning channel 整体是合法 JSON 时可恢复为候选结果；`finish_reason=length` 前缀续写仅作异常恢复。
-   - 文学审查 / 对白补写（`CriticAgent` / `DialogueAgent`）。
+   - **可选人物模块**：前端默认关闭；开启后才运行 CharacterVoiceAgent、CriticAgent、DialogueAgent 和 RevisionAgent，并要求先生成或导入人物档案。关闭时走 8 Agent 核心流程。
    - direct_mode 分支：`DirectorAgent_Direct` 经 `_build_direct_draft` 把用户剧本结构化；JSON 输入仍直接解析，超过 8 条且具有明确逐行边界的对白/编号分镜按事件数和字符预算双重切批，以代码生成的 `source_event_id` 校验数量、顺序和原文后合并。自由格式文本不盲拆。
    - 导演 Word 模式：识别到超过 12 个 `S01` 式镜号时，`ShotPlanAgent` 先规划镜号到幕的连续归属，再按 6-8 镜头批量补全；每批经 NDJSON 回传预览，后端按镜号顺序合并。
 5. **时长估算**：按对白字数 + 行数估算影片秒数。
 6. **位置兜底**：`_extract_position_files` 从剧本直接抽 position_plan/detail（无 LLM，摄影未开启时的兜底；摄影默认开启故通常被覆盖）。
 7. **摄影指导**（默认启用，`run_cinematography_pipeline`，详见 §5）：逐幕跑三阶段，产出 camera_script 与含坐标的 position_plan/detail，并回填镜头字段重写剧本。
-8. **演员档案**：从最终剧本提取出现的角色，匹配 `characters_resource.json`（`gameobject_name` 必须来自资源库，缺失时 `_find_fallback_gameobject_name` 按名称/性别近似兜底）→ `actors_profile.json`。
-9. **最终发布**：产物先进入 `outputs/.pending/<run>/`；统一合同和跨文件引用校验通过后原子移动到 `outputs/`。
-10. **注册 session**：请求开始即登记 `running` 与输入快照；异常改为 `failed`，成功后写入标题、产物索引并发出 `success` 事件。
+8. **表演设计**（`run_performance_pipeline`）：ActionSelectionAgent 与 ExpressionSelectionAgent 分别按最多 8 镜头的窗口处理；代码只发送本专项字段、自然语言剧情描述、摄影生成的画面描述及合法资源候选，严格按 `act_index/event_index` 回填，不能改对白、镜头、站位或事件结构。不兼容现有角色的表情库不会调用模型，而是保持禁用。
+9. **演员档案**：从最终剧本提取出现的角色，匹配 `characters_resource.json`（`gameobject_name` 必须来自资源库，缺失时 `_find_fallback_gameobject_name` 按名称/性别近似兜底）→ `actors_profile.json`。
+10. **最终发布**：产物先进入 `outputs/.pending/<run>/`；统一合同和跨文件引用校验通过后原子移动到 `outputs/`。
+11. **注册 session**：请求开始即登记 `running` 与输入快照；异常改为 `failed`，成功后写入标题、产物索引并发出 `success` 事件。
 
 ### 4.3 产出文件（`backend/outputs/`，`{ts}` = 时间戳）
 
@@ -167,6 +168,10 @@ position_plan/detail 在单幕时直接输出对象；多幕时统一输出 `{"s
   - 冲突修复：备份/还原 move 节点的 `shot:"scene"`、归一化 `shot_blend` 为运行时的 `cut/blend/easein`、按脚本 `where` 覆盖 `scene_info.where`。
 - 循环后构建 `camera_script` 并用 schema 校验；失败则对失败的幕重试 Stage 3 一次。
 - 落盘 camera_script、position_plan、position_detail；多幕位置文件使用 `scenes` 数组完整保留每幕结果。
+
+职责边界：`cinematography/camera/` 独立拥有 Stage 1/3 代码与全部镜头生成规则；`cinematography/positioning/` 独立拥有 Stage 2、坐标计算与全部点位生成规则。上层包只编排阶段、执行最终校验和发布，旧模块路径仅转发导入。
+
+摄影完成后才运行 `performance/`，因此动作与表情 Agent 能使用最终 `shot_description`。`performance/action/` 与 `performance/expression/` 各自拥有规则和 Stage，可独立交给对应负责人；表情 Agent 额外接收 `resources/pixar_emotions_context.md`，代码按 `resources/pixar_emotions_with_styles.json` 严格校验情绪名、样式、权重和每个复合表情最多 3 项；共享层只提供逐镜头自然语言上下文和 JSON-only LLM 客户端。
 
 ---
 

@@ -7,6 +7,7 @@ SYSTEM_PROMPT = """你负责生成精简剧本中间格式（Story IR），不�
 - 输入槽若给出 required_kind，返回事件的 kind 必须与其一致。
 - kind 表示事件的主要执行形态，不表示字段互斥。镜头中只要有角色的实际空间位移（如走到、跑来、冲出、进入、离开、靠近），kind 必须是 move；即使同镜头还有对白也不得改成 dialogue。
 - move 事件可以同时有 speaker/content，表示边移动边说话。纯移动事件的 speaker/content 均为空字符串，移动画面保留在 intent。
+- action / empty_shot 事件的 content 必须写非空画面文字，确保后续动作与表情专项 Agent 能看到本镜头的剧情意图。
 - kind=move 时必须额外输出非空 move_characters，逐一列出实际发生空间位移的角色；说话人不一定是移动角色。
 - 不要把“跑题”“冲突”“走神”等没有空间位移的表达识别为 move。
 - 每个 intent 不超过 160 字，shot_intent 不超过 80 字，content 不超过 500 字。

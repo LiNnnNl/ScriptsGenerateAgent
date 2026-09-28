@@ -6,8 +6,9 @@
 
 - **是什么**：多 Agent 驱动的剧本生成系统。用户给定场景/角色/创作灵感/幕数，经多个 LLM Agent 协作（创意会议 → 分场大纲 → 导演起草 → 文学审查 → 摄影指导），产出供下游 Unity 使用的结构化资产：剧本 JSON、镜头脚本、角色档案、站位与坐标。
 - **两种模式**：正常生成（AI 从头脑风暴创作）/ 直接生成 `direct_mode`（用户粘剧本，只结构化不创作）。
-- **核心流程**：`backend/src/autogen_pipeline.py: run_autogen_pipeline` 编排全程，经 NDJSON 流回传；摄影后处理在 `backend/src/cinematography/`（逐幕三阶段，算出角色坐标）。
-- **Agent 模块边界**：每个 AutoGen Agent 均位于 `backend/src/agents/<agent_name>/`，包内拥有自身提示词和创建入口；`autogen_agents.py` 只保留模型路由、工具/资源注入与旧接口兼容，Pipeline 的阶段顺序、重试和最终合同仍归总体框架。
+- **核心流程**：`backend/src/autogen_pipeline.py: run_autogen_pipeline` 编排全程，经 NDJSON 流回传；摄影后处理在 `backend/src/cinematography/`（逐幕三阶段，算出角色坐标），摄影完成后由 `backend/src/performance/` 的动作/表情专项 Agent 按最终画面描述选择资源。
+- **Agent 模块边界**：每个 AutoGen Agent 均位于 `backend/src/agents/<agent_name>/`，包内拥有自身提示词和创建入口；`autogen_agents.py` 只保留模型路由、工具/资源注入与 PositionAgent 旧接口兼容，Pipeline 的阶段顺序、重试和最终合同仍归总体框架。
+- **可选人物模块**：请求字段 `enable_character_module` 只有显式 JSON `true` 才启用，前端默认关闭。关闭时跳过 CharacterVoiceAgent、CriticAgent、DialogueAgent、RevisionAgent，只运行 8 Agent 核心流程；开启时须先生成或导入人物档案。
 - 技术栈：Flask API 后端 + 原生 JS 静态前端（无框架）。
 - 后端入口：`backend/app.py`，跑 `uv run python backend/app.py`，服务在 `:5001`；提供 `/api/*`，也可在 `/script/*` 下托管前端静态文件，debug 热重载。
 - 前端：`frontend/`（`index.html` + `js/{api,config,main,ui}.js` + `css/style.css`），无构建步骤；本地用静态服务打开，例如在 `frontend/` 下跑 `python3 -m http.server 8080`。
@@ -25,6 +26,8 @@
 
 - **位置与物体镜头权威数据源**：`backend/resources/cinematography/scene_info/*.json` 的 anchors/scene_markers 是**带真实 x/y/z 坐标的物品锚点**，为唯一权威；其中 `scene_markers.name` 同时作为该场景合法的物体镜头 `target`。`scenes_resource.json` 的 `valid_positions`（Position 1~N）是**无坐标的逻辑槽**，旧版，仅作导演点位菜单 + 同框约束 + 校验。
 - **坐标全部由摄影算**：角色站位 x/y/z 由摄影 Stage2（`CinematographyPositionStage`，分组→规划 region+neartarget→`CoordinateSkill` 用锚点坐标 + `LayoutLib.json` 按人数选站位方式）计算得出。Position N 本身不带坐标。
+- **摄影包边界**：`backend/src/cinematography/positioning/` 独立拥有点位 Stage2、坐标逻辑及 `rules/`；`backend/src/cinematography/camera/` 独立拥有镜头 Stage1/3 及 `rules/`。`cinematography/__init__.py` 只保留阶段编排、最终校验和发布，旧模块路径只作兼容导入。
+- **表演包边界**：`backend/src/performance/action/` 与 `expression/` 分别拥有动作、表情的输入裁剪、提示词、资源校验和安全回填；上层 `performance/__init__.py` 只编排顺序。动作 Agent 只接收动作字段与自然语言剧情/画面描述，表情 Agent 只接收表情字段与相同依据；两者不得修改对白、镜头、站位或事件结构。
 - **direct_mode（直接生成）**：用户粘已写好的剧本时，跳过头脑风暴/对白补写，由 `DirectorAgent_Direct` 做"结构化不创作"——对白逐字保留、保留每个镜头、按用户「位置」分配 Position N。实现在 `autogen_pipeline.py` 的 `_build_direct_draft` 与 `autogen_agents.py` 的 `build_director_system_message(..., direct_mode=True)`。
 - **无说话人协议**：无 move 且 `speaker=""`；content 保留原文（允许“无台词”），`duration` 为正数秒默认 5，`actions=[]`。普通空镜的中间 shot=scene；摄影参数仅进入独立 camera_script。统一识别见 scene_segments.py，文学审查跳过、摄影不分配人物镜头。
 - **最终合同**：`backend/src/script_contract.py` 强制字段、动作前 state、资源候选及跨文件引用。规则见 `docs/script_contract.md`。先暂存于 outputs/.pending，通过后才发布；空库名称留空并报 RESOURCE_LIBRARY_EMPTY，禁止假造资源。camera_script 使用 shot_index，多幕位置文件使用 scenes 数组。

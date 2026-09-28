@@ -1,33 +1,23 @@
-"""Render shot planning prompts from pure prompt files."""
+"""Compatibility exports; live camera rules are package-owned."""
 
-from ..prompt_files.stash.shot_planning_analysis_system_stash import shot_planning_analysis_system_prompt
-from ..prompt_files.stash.shot_planning_analysis_user_instructions_stash import shot_planning_analysis_user_instructions_prompt
-from ..prompt_files.shot_planning_combined_batch_system import shot_planning_combined_batch_system_prompt
-from ..prompt_files.shot_planning_combined_batch_user_instructions import shot_planning_combined_batch_user_instructions_prompt
-from ..prompt_files.stash.shot_planning_combined_system_stash import shot_planning_combined_system_prompt
-from ..prompt_files.stash.shot_planning_combined_user_instructions_stash import shot_planning_combined_user_instructions_prompt
-from ..prompt_files.stash.shot_planning_description_system_stash import shot_planning_description_system_prompt
-from ..prompt_files.stash.shot_planning_description_user_instructions_stash import shot_planning_description_user_instructions_prompt
-from ..prompt_utils import prompt_lines
+from ..cinematography.camera.rules import (
+    build_combined_batch_system_prompt,
+    build_combined_system_prompt,
+    build_description_system_prompt,
+    build_shot_analysis_system_prompt as build_analysis_system_prompt,
+    shot_analysis_user_instructions,
+    shot_combined_batch_user_instructions,
+    shot_combined_user_instructions,
+    shot_description_user_instructions,
+)
 
-
-def build_analysis_system_prompt() -> str:
-    return shot_planning_analysis_system_prompt
-
-
-def build_description_system_prompt() -> str:
-    return shot_planning_description_system_prompt
-
-
-def build_combined_system_prompt() -> str:
-    return shot_planning_combined_system_prompt
-
-
-def build_combined_batch_system_prompt() -> str:
-    return shot_planning_combined_batch_system_prompt
-
-
-shot_combined_user_instructions = prompt_lines(shot_planning_combined_user_instructions_prompt)
-shot_combined_batch_user_instructions = prompt_lines(shot_planning_combined_batch_user_instructions_prompt)
-shot_analysis_user_instructions = prompt_lines(shot_planning_analysis_user_instructions_prompt)
-shot_description_user_instructions = prompt_lines(shot_planning_description_user_instructions_prompt)
+__all__ = [
+    "build_analysis_system_prompt",
+    "build_combined_batch_system_prompt",
+    "build_combined_system_prompt",
+    "build_description_system_prompt",
+    "shot_analysis_user_instructions",
+    "shot_combined_batch_user_instructions",
+    "shot_combined_user_instructions",
+    "shot_description_user_instructions",
+]

@@ -2,7 +2,7 @@
 AutoGen Pipeline 编排模块
 
 实现完整的多 Agent 剧本生成流程：
-DirectorAgent → 审查层（CriticAgent + DialogueAgent）→ ValidationAgent → OutputAgent
+DirectorAgent → 审查层（CriticAgent + DialogueAgent）→ Python 合同校验 → 输出
 
 通过 AutoGenStreamBridge 将 Agent 对话事件实时推送给 Flask NDJSON 流。
 """
@@ -45,9 +45,6 @@ from autogen_core import CancellationToken
 from .autogen_bridge import AutoGenStreamBridge
 from . import registry as _registry
 from .autogen_agents import (
-    create_concept_agent,
-    create_synopsis_agent,
-    create_character_bios_agent,
     create_meeting_summary_agent,
     create_treatment_agent,
     create_title_agent,
@@ -73,12 +70,18 @@ from .json_generator import ScriptJSONGenerator, normalize_initial_position_stat
 from .script_contract import normalize_script, validate_script, validate_bundle, normalize_camera_resources
 from .scene_segments import is_empty_shot, protect_empty_shot, protect_empty_shots
 from .cinematography import run_cinematography_pipeline
+from .performance import run_performance_pipeline
 # 最大审查轮次（超限后强制进入验证阶段）
 MAX_REVIEW_ROUNDS = 3
 
 
 _CONTRACT_EVENT_PATH_RE = re.compile(r"^\$\[(\d+)]\.scene\[(\d+)]")
 _CONTRACT_ACT_PATH_RE = re.compile(r"^\$\[(\d+)]\.(scene information|initial position)")
+
+
+def _character_module_enabled(request_params: dict) -> bool:
+    """Only an explicit JSON boolean enables the optional character module."""
+    return request_params.get("enable_character_module") is True
 
 
 def _contract_repair_payload(script: list, errors: List[dict]) -> Optional[dict]:
@@ -209,10 +212,10 @@ async def _enforce_contract(script, loader, bridge, scene_map, act_count,
                 act['initial position'] = clean['initial position']
                 for beat, clean_beat in zip(act['scene'], clean['scene']):
                     beat.update(clean_beat)
-            _emit_output(bridge, 'ValidationAgent', report, fmt='validation')
+            _emit_output(bridge, 'ContractValidator', report, fmt='validation')
             return candidate, report
         fingerprint = json.dumps(report['errors'], sort_keys=True, ensure_ascii=False)
-        _emit_output(bridge, 'ValidationAgent', report, fmt='validation')
+        _emit_output(bridge, 'ContractValidator', report, fmt='validation')
         if attempt == 3 or fingerprint in seen_errors:
             raise ValueError('剧本格式校验失败，未发布最终文件：' + fingerprint)
         seen_errors.add(fingerprint)
@@ -428,11 +431,6 @@ def _extract_feedback_json(text: str) -> Optional[dict]:
     except json.JSONDecodeError:
         pass
     return None
-
-
-def _extract_validation_json(text: str) -> Optional[dict]:
-    """从 ValidationAgent 输出中提取验证结果 JSON"""
-    return _extract_feedback_json(text)
 
 
 def _filter_script_for_review(script: list) -> str:
@@ -1312,6 +1310,8 @@ def _story_ir_errors(payload: Any, slots: List[dict]) -> List[str]:
             errors.append(f"{slot['event_id']} 必须是 {slot['required_kind']}")
         if event.get("kind") == "dialogue" and (not event.get("speaker") or not event.get("content")):
             errors.append(f"{slot['event_id']} 对白缺少 speaker/content")
+        if event.get("kind") in {"action", "empty_shot"} and not str(event.get("content") or "").strip():
+            errors.append(f"{slot['event_id']} 动作/空镜缺少画面文字 content")
         if event.get("kind") == "move" and not (
             isinstance(event.get("move_characters"), list)
             and event["move_characters"]
@@ -2524,6 +2524,7 @@ async def run_autogen_pipeline(
     act_count = max(1, min(10, int(request_params.get('act_count', 3) or 3)))
     # 直接模式：跳过创意会议/起草/审查，直接用用户提供的剧本（creative_idea），只补必要字段
     direct_mode = bool(request_params.get('direct_mode', False))
+    enable_character_module = _character_module_enabled(request_params) and not direct_mode
 
     plot_outline = creative_idea
 
@@ -2640,9 +2641,9 @@ async def run_autogen_pipeline(
         target_dialogue_lines = max(6, min(300, round(target_duration_secs / 60 * 10)))
         logger.info("目标对白行数: %d行（%.1f分钟）", target_dialogue_lines, target_duration_secs / 60)
 
-    logger.info("Pipeline 启动 | scene_id=%s characters=%d 约束数=%d 固定对白=%d 时长=%.0f秒 act_count=%d 目标行数=%s",
-                scene_id, len(custom_characters_input), len(user_constraints),
-                len(fixed_dialogues), target_duration_secs or 0, act_count,
+    logger.info("Pipeline 启动 | scene_id=%s characters=%d 人物模块=%s 约束数=%d 固定对白=%d 时长=%.0f秒 act_count=%d 目标行数=%s",
+                scene_id, len(custom_characters_input), enable_character_module,
+                len(user_constraints), len(fixed_dialogues), target_duration_secs or 0, act_count,
                 target_dialogue_lines)
 
     # ── 解析场景池（多场景一期；缺省回退单 scene_id 旧行为） ──
@@ -2709,17 +2710,20 @@ async def run_autogen_pipeline(
 
     treatment = create_treatment_agent(act_count=act_count, script_style_guide=script_style_guide)
     meeting_summary_agent = create_meeting_summary_agent(script_style_guide=script_style_guide)
-    critic = create_critic_agent(
-        user_constraints=user_constraints,
-        fixed_dialogues=fixed_dialogues,
-        script_style_guide=script_style_guide,
-    )
-    dialogue = create_dialogue_agent(
-        user_constraints=user_constraints,
-        fixed_dialogues=fixed_dialogues,
-        script_style_guide=script_style_guide,
-    )
-    _emit_stage_log(bridge, 'success', 'setup', 'ready', '✅ Agents 初始化完成（创意会议、大纲、导演、审查、验证）')
+    critic = dialogue = None
+    if enable_character_module:
+        critic = create_critic_agent(
+            user_constraints=user_constraints,
+            fixed_dialogues=fixed_dialogues,
+            script_style_guide=script_style_guide,
+        )
+        dialogue = create_dialogue_agent(
+            user_constraints=user_constraints,
+            fixed_dialogues=fixed_dialogues,
+            script_style_guide=script_style_guide,
+        )
+    module_status = '已启用人物与台词模块' if enable_character_module else '仅启用 8 Agent 核心流程'
+    _emit_stage_log(bridge, 'success', 'setup', 'ready', f'✅ Agents 初始化完成（{module_status}）')
 
     # 阶段化上下文（内存态，不落盘）
     stage_context: Dict[str, Any] = {
@@ -2757,22 +2761,26 @@ async def run_autogen_pipeline(
         protect_empty_shots(draft_script, ensure_camera=True)
     else:
         # ════════════════════════════════════════════════
-        # 阶段一：创意会议（ConceptPitch / CharacterVoice / NarrativeArch 轮流发言）
+        # 阶段一：创意会议（人物模块开启时加入 CharacterVoiceAgent）
         # ════════════════════════════════════════════════
+        adviser_count = 3 if enable_character_module else 2
         _emit_stage_log(bridge, 'info', 'meeting', 'start',
-                        '🎭 [创意会议] 三位创作顾问开始头脑风暴（每人最多发言 2 轮）...')
+                        f'🎭 [创意会议] {adviser_count} 位创作顾问开始头脑风暴（每人最多发言 2 轮）...')
 
         concept_pitch = create_concept_pitch_agent(
             characters, scene, required_character_count,
             script_style_guide=script_style_guide,
         )
-        character_voice = create_character_voice_agent(script_style_guide=script_style_guide)
         narrative_arch = create_narrative_arch_agent(script_style_guide=script_style_guide)
+        meeting_agents = [concept_pitch]
+        if enable_character_module:
+            meeting_agents.append(create_character_voice_agent(script_style_guide=script_style_guide))
+        meeting_agents.append(narrative_arch)
 
-        # 每位最多 2 轮 = 最多 6 条消息；任意一位写出 [AGREE] 则提前终止
-        _meeting_termination = MaxMessageTermination(6) | TextMentionTermination("[AGREE]")
+        # 每位最多 2 轮；任意一位写出 [AGREE] 则提前终止
+        _meeting_termination = MaxMessageTermination(len(meeting_agents) * 2) | TextMentionTermination("[AGREE]")
         meeting_room = RoundRobinGroupChat(
-            [concept_pitch, character_voice, narrative_arch],
+            meeting_agents,
             termination_condition=_meeting_termination,
         )
 
@@ -2903,8 +2911,14 @@ async def run_autogen_pipeline(
 
         _emit_stage_log(bridge, 'success', 'draft', 'summary', '✅ [剧本起草期] 剧本初稿生成完成')
 
-        # ── 阶段二 后半：文学审查（CriticAgent + DialogueAgent，循环修改）──
-        for review_round in range(MAX_REVIEW_ROUNDS):
+        # ── 阶段二 后半：可选人物与台词审查 ──
+        if not enable_character_module:
+            _emit_stage_log(
+                bridge, 'info', 'review', 'skipped',
+                '⏭️ [审核与迭代期] 人物与台词模块未启用，跳过人物行为、剧情逻辑和对白审查。'
+            )
+        review_rounds = range(MAX_REVIEW_ROUNDS) if enable_character_module else ()
+        for review_round in review_rounds:
             _emit_stage_log(
                 bridge, 'info', 'review', 'start',
                 f'🔍 [审核与迭代期] 审查轮次 {review_round + 1}/{MAX_REVIEW_ROUNDS}：启动批评家与对白专家...'
@@ -3028,7 +3042,7 @@ async def run_autogen_pipeline(
 
     validation_result = None
 
-    # ValidationAgent is advisory; Python is always the authoritative gate.
+    # Python contract validation is the authoritative gate.
     draft_script, validation_result = await _enforce_contract(
         draft_script, resource_loader, bridge, act_scene_map,
         act_count, [c.name for c in characters],
@@ -3158,12 +3172,32 @@ async def run_autogen_pipeline(
             logger.exception("[Cinematography] 阶段五异常")
             raise ValueError(f'摄影规划未通过，未发布最终文件：{_cine_exc}') from _cine_exc
 
+    # ── 阶段六：动作与表情专项选择 ──
+    _emit_stage_log(bridge, 'info', 'performance', 'start',
+                    '🎭 [表演设计期] 动作与表情智能体开始逐镜头选择资源...')
+
+    def _emit_performance_progress(level: str, phase: str, message: str) -> None:
+        _emit_stage_log(bridge, level, 'performance', phase, message)
+
+    performance_result = await _running_loop.run_in_executor(
+        None,
+        run_performance_pipeline,
+        draft_script,
+        resource_loader,
+        _emit_performance_progress,
+    )
+    if not performance_result.get("ok"):
+        raise ValueError(f'动作与表情选择失败，未发布最终文件：{performance_result.get("error")}')
+    draft_script = performance_result["enriched_script"]
+    _emit_stage_log(bridge, 'success', 'performance', 'result',
+                    '✅ [表演设计期] 动作与表情已按镜头完成选择')
+
     final_json, empty_warnings = normalize_script(draft_script, resource_loader)
     validation_result = validate_script(final_json, resource_loader, act_count=act_count,
         required_names=[c.name for c in characters], character_count=required_character_count or len(characters) or 2)
     validation_result['warnings'].extend(empty_warnings)
     if not validation_result['valid']:
-        raise ValueError('摄影后剧本校验失败：' + json.dumps(validation_result['errors'], ensure_ascii=False))
+        raise ValueError('表演设计后剧本校验失败：' + json.dumps(validation_result['errors'], ensure_ascii=False))
     duration_info = _calc_duration(final_json)
     generator.export_to_file(final_json, str(filepath), resource_loader)
 

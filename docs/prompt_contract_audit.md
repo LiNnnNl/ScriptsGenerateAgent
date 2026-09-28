@@ -1,6 +1,6 @@
 # Agent 提示词审计
 
-生成格式的权威来源见 script_contract.md。提示词文件位于 backend/src/prompt_files，渲染/资源注入位于 backend/src/prompt_renderers。提示词只约束各 Agent 自己负责的产物，不让创意或摄影 Agent 重写整份剧本。
+生成格式的权威来源见 script_contract.md。通用提示词位于 backend/src/prompt_files，摄影提示词分别由 backend/src/cinematography/camera/rules 与 positioning/rules 拥有；通用渲染/资源注入位于 backend/src/prompt_renderers。提示词只约束各 Agent 自己负责的产物，不让创意或摄影 Agent 重写整份剧本。
 
 | Agent / 提示词 | 输出责任 | 资源与可选字段规则 |
 |---|---|---|
@@ -18,7 +18,7 @@
 | Title | 片名对象 | 不接触剧本字段或取值资源，无须额外注入全合同 |
 | stash / position_agent 等兼容路径 | 保留旧入口专用中间协议 | 不是最终导出依据；最终导出统一由共享合同阻断不合规结果 |
 
-冲突处理：旧动作 state 禁止规则删除；旧 speaker/content 双空和 "5s" 协议改为用户确认版本；camera scene_index 最终改 shot_index；main script 摄影参数移至独立文件。新增专项文档明确 language_config 是整套可选扩展：缺失时兼容旧格式，存在时所有幕一致且每句译本完整。用户提供的 Pixar 文件已转为轻量枚举索引，旧示例 `pixar_emotion/build_to_second` 不再合法。语言标签校验是基本格式检查，不宣称已验证全球 BCP 47 注册表或 TTS 能力。
+冲突处理：旧动作 state 禁止规则删除；旧 speaker/content 双空和 "5s" 协议改为用户确认版本；camera scene_index 最终改 shot_index；main script 摄影参数移至独立文件。新增专项文档明确 language_config 是整套可选扩展：缺失时兼容旧格式，存在时所有幕一致且每句译本完整。表情 Agent 以 `pixar_emotions_context.md` 作上下文，以 `pixar_emotions_with_styles.json` 作代码审查清单；旧示例 `pixar_emotion/build_to_second` 不再合法，复合表情最多 3 项。语言标签校验是基本格式检查，不宣称已验证全球 BCP 47 注册表或 TTS 能力。
 
 核验入口：`tests/test_prompt_files.py` 检查渲染动态输入与纯文本文件形式；`tests/test_script_contract.py` 验证合同、候选反馈和直接台词保护；`scripts/verify_contract_runs.py` 使用真实模型验证普通/直接两种生成路径。
 

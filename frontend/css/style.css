@@ -438,6 +438,31 @@ body {
 .scene-pool-checkbox { accent-color: var(--gold); width: 16px; height: 16px; }
 .scene-pool-name { font-family: 'Cinzel', serif; color: var(--text-light); }
 .scene-pool-note { font-size: 0.8em; color: var(--accent); margin-left: auto; }
+
+.character-module-toggle {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    width: 280px;
+    min-height: 120px;
+    box-sizing: border-box;
+    padding: 18px;
+    border: 2px solid var(--gold);
+    background: linear-gradient(135deg, rgba(212, 175, 55, 0.16), rgba(31, 31, 31, 0.92));
+    box-shadow: 0 10px 30px rgba(212, 175, 55, 0.2);
+    cursor: pointer;
+    transition: all 0.25s;
+}
+.character-module-toggle:hover { transform: translateY(-3px); }
+.character-module-toggle:has(input:checked) {
+    background: linear-gradient(135deg, var(--gold-dark), var(--gold));
+    box-shadow: 0 12px 40px rgba(212, 175, 55, 0.48);
+}
+.character-module-toggle input { width: 22px; height: 22px; flex: 0 0 auto; accent-color: var(--gold); }
+.character-module-toggle strong { display: block; color: var(--gold-light); font-size: 1.05em; }
+.character-module-toggle small { display: block; margin-top: 6px; color: rgba(224, 224, 224, 0.72); line-height: 1.5; }
+.character-module-toggle:has(input:checked) strong,
+.character-module-toggle:has(input:checked) small { color: var(--black); }
 .scene-pool-empty {
     border: 1px dashed rgba(212, 175, 55, 0.28);
     color: rgba(224, 224, 224, 0.5);
@@ -1894,6 +1919,10 @@ body {
     }
     
     .generate-btn {
+        width: 100%;
+    }
+
+    .character-module-toggle {
         width: 100%;
     }
     
