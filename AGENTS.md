@@ -42,7 +42,7 @@
 
 - 🟢 **可放手改（前端展示层）**：`frontend/**` 的 js/css/html。可逆、影响面小。
 - 🟡 **改前先说清、git 写要确认（后端核心）**：`backend/**`（pipeline、cinematography 坐标逻辑、`backend/app.py`）；`git add/commit/push`、装依赖、`mv`/`rm` —— 一律先讲清改动再动手，提交/推送等用户确认。
-- 🔴 **绝不自动改（不可再生的权威资源）**：`backend/resources/cinematography/**` —— 尤其 `scene_info/*.json`（真实坐标锚点）、`LayoutLib.json`、`CameraLib.json`。这些是离线产出、位置系统的命根子，**任何修改必须显式获得用户同意**。破坏性 git（`push --force`、推 main、`reset --hard`、`git clean`）一律禁止。
+- 🔴 **绝不自动改（不可再生的权威资源）**：`backend/resources/cinematography/**` —— 尤其 `scene_info/*.json`（真实坐标锚点）、`LayoutLib.json`、`CameraLib.json`。这些是离线产出、位置系统的命根子，**任何修改必须显式获得用户同意**。破坏性 git（`push --force`、`reset --hard`、`git clean`）一律禁止；推送 main 须先说明并获得用户明确授权。
 
 ## 已知约束 / 陷阱
 
