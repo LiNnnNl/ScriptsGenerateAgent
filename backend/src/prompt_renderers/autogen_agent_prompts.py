@@ -29,6 +29,20 @@ from ..agents.validation import build_system_message as _build_validation_system
 from .action_info import render_action_info as _render_action_info
 
 
+_POSITION_METADATA_CONTRACT = """
+
+## 点位元数据格式
+
+最终 JSON 的每幕必须包含 position_metadata，以 Position N 为键，每项包含 number、name、description。
+number 与 Position N 的数字一致；name 简短概括点位用途；description 描述区域和演出意图。
+覆盖 initial position、current position 和 move.destination 引用的全部点位。
+"""
+
+
+def _with_position_metadata_contract(prompt: str) -> str:
+    return prompt.rstrip() + _POSITION_METADATA_CONTRACT
+
+
 def _build_stage_common_context(
     characters: List[Character],
     scene: Scene,
@@ -176,7 +190,7 @@ def build_director_system_message(
             f"幕-场景对应：{act_scene_lines}。"
         )
 
-    return _build_director_package_system_message(
+    return _with_position_metadata_contract(_build_director_package_system_message(
         direct_mode=direct_mode,
         char_info=_render_character_info(characters, total_count, extra_count),
         scene_info=_render_scene_info(scene, resource_loader, act_count, act_scene_map),
@@ -186,7 +200,7 @@ def build_director_system_message(
         shot_types_str=shot_types_str,
         user_constraints=(_append_user_constraints(user_constraints) + "\n") if user_constraints else "",
         video_style_guide=script_style_guide or build_script_style_context(),
-    )
+    ))
 
 
 def build_director_word_system_message(
@@ -222,7 +236,7 @@ def build_director_word_system_message(
             f"幕-场景对应：{act_scene_lines}。"
         )
 
-    return _build_director_word_package_system_message(
+    return _with_position_metadata_contract(_build_director_word_package_system_message(
         char_info=_render_character_info(characters, total_count, extra_count),
         scene_info=_render_scene_info(scene, resource_loader, act_count, act_scene_map),
         action_info=_render_action_info(resource_loader),
@@ -231,7 +245,7 @@ def build_director_word_system_message(
         shot_types_str=shot_types_str,
         user_constraints=(_append_user_constraints(user_constraints) + "\n") if user_constraints else "",
         video_style_guide=script_style_guide or build_script_style_context(),
-    )
+    ))
 
 
 def build_concept_system_message(characters: List[Character], scene: Scene, required_character_count: int = 0) -> str:

@@ -1,0 +1,32 @@
+[
+  {
+    "name": "林晓",
+    "age": null,
+    "gender": "未知",
+    "gameobject_name": "RobotRecon",
+    "appearance": {
+      "height": "",
+      "body_type": "",
+      "hair": "",
+      "face": ""
+    },
+    "acting_style": "",
+    "traits": [],
+    "background": "AI自由创作角色：林晓"
+  },
+  {
+    "name": "苏漾",
+    "age": null,
+    "gender": "未知",
+    "gameobject_name": "RobotRecon",
+    "appearance": {
+      "height": "",
+      "body_type": "",
+      "hair": "",
+      "face": ""
+    },
+    "acting_style": "",
+    "traits": [],
+    "background": "AI自由创作角色：苏漾"
+  }
+]

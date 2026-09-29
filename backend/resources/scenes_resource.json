@@ -8,37 +8,51 @@
       {
         "id": "Position 7",
         "description": "中央主控台前方，适合发号施令、宣布决策、对峙",
-        "is_sittable": false
+        "is_sittable": false,
+        "number": 7,
+        "name": "中央主控台前方"
       },
       {
         "id": "Position 8",
         "description": "主控台右侧，适合辅助位置、观察、汇报",
-        "is_sittable": false
+        "is_sittable": false,
+        "number": 8,
+        "name": "主控台右侧"
       },
       {
         "id": "Position 9",
         "description": "主控台左侧，与Position 8对称，适合团队站位",
-        "is_sittable": false
+        "is_sittable": false,
+        "number": 9,
+        "name": "主控台左侧"
       },
       {
         "id": "Position 10",
         "description": "入口自动门，适合登场、离场、守卫",
-        "is_sittable": false
+        "is_sittable": false,
+        "number": 10,
+        "name": "入口自动门"
       },
       {
         "id": "Position 17",
         "description": "走廊深处的巡检区，适合巡逻、观察、隔离",
-        "is_sittable": false
+        "is_sittable": false,
+        "number": 17,
+        "name": "走廊深处的巡检区"
       },
       {
         "id": "Position 18",
         "description": "角落的旧椅子，适合坐下、休息、思考、等待",
-        "is_sittable": true
+        "is_sittable": true,
+        "number": 18,
+        "name": "角落的旧椅子"
       },
       {
         "id": "Position 11",
         "description": "玻璃舱观察窗前，适合观察隔离人员、沉思",
-        "is_sittable": false
+        "is_sittable": false,
+        "number": 11,
+        "name": "玻璃舱观察窗前"
       }
     ]
   },
@@ -51,27 +65,37 @@
       {
         "id": "Position 1",
         "description": "天台中央，视野开阔，适合对峙、宣言",
-        "is_sittable": false
+        "is_sittable": false,
+        "number": 1,
+        "name": "天台中央"
       },
       {
         "id": "Position 2",
         "description": "栏杆边，适合眺望、思考、告白",
-        "is_sittable": false
+        "is_sittable": false,
+        "number": 2,
+        "name": "栏杆边"
       },
       {
         "id": "Position 3",
         "description": "天台入口，适合登场、离开",
-        "is_sittable": false
+        "is_sittable": false,
+        "number": 3,
+        "name": "天台入口"
       },
       {
         "id": "Position 4",
         "description": "长椅处，适合坐下聊天、休息",
-        "is_sittable": true
+        "is_sittable": true,
+        "number": 4,
+        "name": "长椅处"
       },
       {
         "id": "Position 5",
         "description": "储物箱旁，适合躲藏、等待",
-        "is_sittable": false
+        "is_sittable": false,
+        "number": 5,
+        "name": "储物箱旁"
       }
     ]
   },
@@ -84,32 +108,44 @@
       {
         "id": "Position 1",
         "description": "圆桌中心，适合召开会议、发布命令",
-        "is_sittable": false
+        "is_sittable": false,
+        "number": 1,
+        "name": "圆桌中心"
       },
       {
         "id": "Position 2",
         "description": "圆桌北侧座位，主席位置",
-        "is_sittable": true
+        "is_sittable": true,
+        "number": 2,
+        "name": "圆桌北侧座位"
       },
       {
         "id": "Position 3",
         "description": "圆桌东侧座位",
-        "is_sittable": true
+        "is_sittable": true,
+        "number": 3,
+        "name": "圆桌东侧座位"
       },
       {
         "id": "Position 4",
         "description": "圆桌西侧座位",
-        "is_sittable": true
+        "is_sittable": true,
+        "number": 4,
+        "name": "圆桌西侧座位"
       },
       {
         "id": "Position 6",
         "description": "大门入口，适合迎接、送别",
-        "is_sittable": false
+        "is_sittable": false,
+        "number": 6,
+        "name": "大门入口"
       },
       {
         "id": "Position 7",
         "description": "魔法阵中心，适合施法、仪式",
-        "is_sittable": false
+        "is_sittable": false,
+        "number": 7,
+        "name": "魔法阵中心"
       }
     ]
   },
@@ -122,22 +158,30 @@
       {
         "id": "Position 1",
         "description": "中央指挥台，最高权限位置",
-        "is_sittable": false
+        "is_sittable": false,
+        "number": 1,
+        "name": "中央指挥台"
       },
       {
         "id": "Position 2",
         "description": "战术分析台，适合数据展示",
-        "is_sittable": false
+        "is_sittable": false,
+        "number": 2,
+        "name": "战术分析台"
       },
       {
         "id": "Position 3",
         "description": "通讯控制台，适合联络、汇报",
-        "is_sittable": true
+        "is_sittable": true,
+        "number": 3,
+        "name": "通讯控制台"
       },
       {
         "id": "Position 5",
         "description": "入口处，适合进出",
-        "is_sittable": false
+        "is_sittable": false,
+        "number": 5,
+        "name": "入口处"
       }
     ]
   },
@@ -150,22 +194,30 @@
       {
         "id": "Position 1",
         "description": "靠近点餐区的中央方桌座左边的座位。",
-        "is_sittable": false
+        "is_sittable": false,
+        "number": 1,
+        "name": "靠近点餐区的中央方桌座左边的座位"
       },
       {
         "id": "Position 2",
         "description": "靠近点餐区的中央方桌座右边的座位。",
-        "is_sittable": false
+        "is_sittable": false,
+        "number": 2,
+        "name": "靠近点餐区的中央方桌座右边的座位"
       },
       {
         "id": "Position 3",
         "description": "靠近点餐区的中央方桌座前边的座位。",
-        "is_sittable": false
+        "is_sittable": false,
+        "number": 3,
+        "name": "靠近点餐区的中央方桌座前边的座位"
       },
       {
         "id": "Position 4",
         "description": "靠近点餐区的中央方桌座前边的座位。",
-        "is_sittable": true
+        "is_sittable": true,
+        "number": 4,
+        "name": "靠近点餐区的中央方桌座前边的座位"
       }
     ]
   },
@@ -220,86 +272,383 @@
       {
         "id": "A",
         "name": "主控室",
-        "position_ids": ["Position 1", "Position 2", "Position 3", "Position 4", "Position 5"]
+        "position_ids": [
+          "Position 1",
+          "Position 2",
+          "Position 3",
+          "Position 4",
+          "Position 5"
+        ]
       },
       {
         "id": "B",
         "name": "主控室外围",
-        "position_ids": ["Position 6", "Position 22", "Position 23"]
+        "position_ids": [
+          "Position 6",
+          "Position 22",
+          "Position 23"
+        ]
       },
       {
         "id": "C",
         "name": "下层实验室",
-        "position_ids": ["Position 7", "Position 8", "Position 9", "Position 10", "Position 21"]
+        "position_ids": [
+          "Position 7",
+          "Position 8",
+          "Position 9",
+          "Position 10",
+          "Position 21"
+        ]
       },
       {
         "id": "D",
         "name": "下层机房",
-        "position_ids": ["Position 11", "Position 12"]
+        "position_ids": [
+          "Position 11",
+          "Position 12"
+        ]
       },
       {
         "id": "E",
         "name": "下层会议区",
-        "position_ids": ["Position 13", "Position 18", "Position 19", "Position 20"]
+        "position_ids": [
+          "Position 13",
+          "Position 18",
+          "Position 19",
+          "Position 20"
+        ]
       },
       {
         "id": "F",
         "name": "远端观察室",
-        "position_ids": ["Position 14", "Position 15", "Position 16"]
+        "position_ids": [
+          "Position 14",
+          "Position 15",
+          "Position 16"
+        ]
       },
       {
         "id": "G",
         "name": "中层生活区",
-        "position_ids": ["Position 24", "Position 25", "Position 26", "Position 27", "Position 28", "Position 29"]
+        "position_ids": [
+          "Position 24",
+          "Position 25",
+          "Position 26",
+          "Position 27",
+          "Position 28",
+          "Position 29"
+        ]
       },
       {
         "id": "H",
         "name": "中层工作区",
-        "position_ids": ["Position 31", "Position 32", "Position 33", "Position 34", "Position 35"]
+        "position_ids": [
+          "Position 31",
+          "Position 32",
+          "Position 33",
+          "Position 34",
+          "Position 35"
+        ]
       },
       {
         "id": "X",
         "name": "独立点位",
-        "position_ids": ["Position 17", "Position 30", "Position 37"]
+        "position_ids": [
+          "Position 17",
+          "Position 30",
+          "Position 37"
+        ]
       }
     ],
     "valid_positions": [
-      { "id": "Position 1",  "camera_group": "A", "description": "中央指挥台，最高权限操作位，适合发号施令、战略决策", "is_sittable": false },
-      { "id": "Position 2",  "camera_group": "A", "description": "战术显示屏前，适合数据分析、战略制定、汇报", "is_sittable": false },
-      { "id": "Position 3",  "camera_group": "A", "description": "通讯控制台，负责对外联络、接收情报", "is_sittable": true },
-      { "id": "Position 4",  "camera_group": "A", "description": "武器系统控制台，战斗指挥核心，适合紧急操作", "is_sittable": false },
-      { "id": "Position 5",  "camera_group": "A", "description": "主控室入口，适合进出场、守卫、拦截", "is_sittable": false },
-      { "id": "Position 6",  "camera_group": "B", "description": "主控室走廊外侧，适合守卫、监视、阻截", "is_sittable": false },
-      { "id": "Position 7",  "camera_group": "C", "description": "实验台中央，核心研究位置，适合操作实验", "is_sittable": false },
-      { "id": "Position 8",  "camera_group": "C", "description": "显微镜操作台，精密仪器区，适合细致观察", "is_sittable": false },
-      { "id": "Position 9",  "camera_group": "C", "description": "样本储存柜前，生物样本管理区，适合取用样品", "is_sittable": false },
-      { "id": "Position 10", "camera_group": "C", "description": "实验室入口隔离门前，适合进出场、等候", "is_sittable": false },
-      { "id": "Position 11", "camera_group": "D", "description": "主服务器机架前，数据中枢，适合入侵、维护", "is_sittable": false },
-      { "id": "Position 12", "camera_group": "D", "description": "备用电源控制台，能源管理核心，适合断电操控", "is_sittable": false },
-      { "id": "Position 13", "camera_group": "E", "description": "会议桌主位，适合主持讨论、宣布决策", "is_sittable": true },
-      { "id": "Position 14", "camera_group": "F", "description": "全景观察窗前，太空景色一览无余，适合沉思、告白", "is_sittable": false },
-      { "id": "Position 15", "camera_group": "F", "description": "望远镜操作台，用于远距离天体与目标观测", "is_sittable": false },
-      { "id": "Position 16", "camera_group": "F", "description": "观察室记录台，适合记录数据、秘密交谈", "is_sittable": false },
-      { "id": "Position 17", "camera_group": "X", "description": "中央连通走廊，连接上下中层的关键通道，孤立感强", "is_sittable": false },
-      { "id": "Position 18", "camera_group": "E", "description": "会议桌侧位，与会者席位，适合旁听与插话", "is_sittable": true },
-      { "id": "Position 19", "camera_group": "E", "description": "会议室角落，适合旁观、低声密谈", "is_sittable": false },
-      { "id": "Position 20", "camera_group": "E", "description": "会议室出口，适合进出、中途离场", "is_sittable": false },
-      { "id": "Position 21", "camera_group": "C", "description": "实验室紧急出口旁，应急逃脱路线，适合危机时刻", "is_sittable": false },
-      { "id": "Position 22", "camera_group": "B", "description": "主控室侧门外，适合秘密等待、偷听、伏击", "is_sittable": false },
-      { "id": "Position 23", "camera_group": "B", "description": "主控室观察窗外走廊，可透视内部，适合监视", "is_sittable": false },
-      { "id": "Position 24", "camera_group": "G", "description": "公共休息大厅，适合非正式交流、放松、聚集", "is_sittable": false },
-      { "id": "Position 25", "camera_group": "G", "description": "个人休息舱入口，私人区域边界，适合私密谈话", "is_sittable": false },
-      { "id": "Position 26", "camera_group": "G", "description": "餐厅座位区，进餐和闲聊场所，氛围相对轻松", "is_sittable": true },
-      { "id": "Position 27", "camera_group": "G", "description": "健身区，适合运动、发泄情绪、偶遇", "is_sittable": false },
-      { "id": "Position 28", "camera_group": "G", "description": "娱乐室，适合游戏、消遣、放松警惕", "is_sittable": false },
-      { "id": "Position 29", "camera_group": "G", "description": "生活区走廊，连接各生活单元的通道", "is_sittable": false },
-      { "id": "Position 30", "camera_group": "X", "description": "中层电梯间，楼层切换节点，过渡性空间", "is_sittable": false },
-      { "id": "Position 31", "camera_group": "H", "description": "开放办公区，适合日常工作、团队协作", "is_sittable": false },
-      { "id": "Position 32", "camera_group": "H", "description": "独立工作站，专注作业位置，适合深度工作", "is_sittable": true },
-      { "id": "Position 33", "camera_group": "H", "description": "小型会议桌，适合小组讨论、汇报进展", "is_sittable": true },
-      { "id": "Position 34", "camera_group": "H", "description": "资料档案室，文件查阅区，适合搜集情报", "is_sittable": false },
-      { "id": "Position 35", "camera_group": "H", "description": "工作区休息角，适合短暂休息、非正式谈话", "is_sittable": false },
-      { "id": "Position 37", "camera_group": "X", "description": "紧急出口，太空站外壁紧急舱门前，危机感极强", "is_sittable": false }
+      {
+        "id": "Position 1",
+        "camera_group": "A",
+        "description": "中央指挥台，最高权限操作位，适合发号施令、战略决策",
+        "is_sittable": false,
+        "number": 1,
+        "name": "中央指挥台"
+      },
+      {
+        "id": "Position 2",
+        "camera_group": "A",
+        "description": "战术显示屏前，适合数据分析、战略制定、汇报",
+        "is_sittable": false,
+        "number": 2,
+        "name": "战术显示屏前"
+      },
+      {
+        "id": "Position 3",
+        "camera_group": "A",
+        "description": "通讯控制台，负责对外联络、接收情报",
+        "is_sittable": true,
+        "number": 3,
+        "name": "通讯控制台"
+      },
+      {
+        "id": "Position 4",
+        "camera_group": "A",
+        "description": "武器系统控制台，战斗指挥核心，适合紧急操作",
+        "is_sittable": false,
+        "number": 4,
+        "name": "武器系统控制台"
+      },
+      {
+        "id": "Position 5",
+        "camera_group": "A",
+        "description": "主控室入口，适合进出场、守卫、拦截",
+        "is_sittable": false,
+        "number": 5,
+        "name": "主控室入口"
+      },
+      {
+        "id": "Position 6",
+        "camera_group": "B",
+        "description": "主控室走廊外侧，适合守卫、监视、阻截",
+        "is_sittable": false,
+        "number": 6,
+        "name": "主控室走廊外侧"
+      },
+      {
+        "id": "Position 7",
+        "camera_group": "C",
+        "description": "实验台中央，核心研究位置，适合操作实验",
+        "is_sittable": false,
+        "number": 7,
+        "name": "实验台中央"
+      },
+      {
+        "id": "Position 8",
+        "camera_group": "C",
+        "description": "显微镜操作台，精密仪器区，适合细致观察",
+        "is_sittable": false,
+        "number": 8,
+        "name": "显微镜操作台"
+      },
+      {
+        "id": "Position 9",
+        "camera_group": "C",
+        "description": "样本储存柜前，生物样本管理区，适合取用样品",
+        "is_sittable": false,
+        "number": 9,
+        "name": "样本储存柜前"
+      },
+      {
+        "id": "Position 10",
+        "camera_group": "C",
+        "description": "实验室入口隔离门前，适合进出场、等候",
+        "is_sittable": false,
+        "number": 10,
+        "name": "实验室入口隔离门前"
+      },
+      {
+        "id": "Position 11",
+        "camera_group": "D",
+        "description": "主服务器机架前，数据中枢，适合入侵、维护",
+        "is_sittable": false,
+        "number": 11,
+        "name": "主服务器机架前"
+      },
+      {
+        "id": "Position 12",
+        "camera_group": "D",
+        "description": "备用电源控制台，能源管理核心，适合断电操控",
+        "is_sittable": false,
+        "number": 12,
+        "name": "备用电源控制台"
+      },
+      {
+        "id": "Position 13",
+        "camera_group": "E",
+        "description": "会议桌主位，适合主持讨论、宣布决策",
+        "is_sittable": true,
+        "number": 13,
+        "name": "会议桌主位"
+      },
+      {
+        "id": "Position 14",
+        "camera_group": "F",
+        "description": "全景观察窗前，太空景色一览无余，适合沉思、告白",
+        "is_sittable": false,
+        "number": 14,
+        "name": "全景观察窗前"
+      },
+      {
+        "id": "Position 15",
+        "camera_group": "F",
+        "description": "望远镜操作台，用于远距离天体与目标观测",
+        "is_sittable": false,
+        "number": 15,
+        "name": "望远镜操作台"
+      },
+      {
+        "id": "Position 16",
+        "camera_group": "F",
+        "description": "观察室记录台，适合记录数据、秘密交谈",
+        "is_sittable": false,
+        "number": 16,
+        "name": "观察室记录台"
+      },
+      {
+        "id": "Position 17",
+        "camera_group": "X",
+        "description": "中央连通走廊，连接上下中层的关键通道，孤立感强",
+        "is_sittable": false,
+        "number": 17,
+        "name": "中央连通走廊"
+      },
+      {
+        "id": "Position 18",
+        "camera_group": "E",
+        "description": "会议桌侧位，与会者席位，适合旁听与插话",
+        "is_sittable": true,
+        "number": 18,
+        "name": "会议桌侧位"
+      },
+      {
+        "id": "Position 19",
+        "camera_group": "E",
+        "description": "会议室角落，适合旁观、低声密谈",
+        "is_sittable": false,
+        "number": 19,
+        "name": "会议室角落"
+      },
+      {
+        "id": "Position 20",
+        "camera_group": "E",
+        "description": "会议室出口，适合进出、中途离场",
+        "is_sittable": false,
+        "number": 20,
+        "name": "会议室出口"
+      },
+      {
+        "id": "Position 21",
+        "camera_group": "C",
+        "description": "实验室紧急出口旁，应急逃脱路线，适合危机时刻",
+        "is_sittable": false,
+        "number": 21,
+        "name": "实验室紧急出口旁"
+      },
+      {
+        "id": "Position 22",
+        "camera_group": "B",
+        "description": "主控室侧门外，适合秘密等待、偷听、伏击",
+        "is_sittable": false,
+        "number": 22,
+        "name": "主控室侧门外"
+      },
+      {
+        "id": "Position 23",
+        "camera_group": "B",
+        "description": "主控室观察窗外走廊，可透视内部，适合监视",
+        "is_sittable": false,
+        "number": 23,
+        "name": "主控室观察窗外走廊"
+      },
+      {
+        "id": "Position 24",
+        "camera_group": "G",
+        "description": "公共休息大厅，适合非正式交流、放松、聚集",
+        "is_sittable": false,
+        "number": 24,
+        "name": "公共休息大厅"
+      },
+      {
+        "id": "Position 25",
+        "camera_group": "G",
+        "description": "个人休息舱入口，私人区域边界，适合私密谈话",
+        "is_sittable": false,
+        "number": 25,
+        "name": "个人休息舱入口"
+      },
+      {
+        "id": "Position 26",
+        "camera_group": "G",
+        "description": "餐厅座位区，进餐和闲聊场所，氛围相对轻松",
+        "is_sittable": true,
+        "number": 26,
+        "name": "餐厅座位区"
+      },
+      {
+        "id": "Position 27",
+        "camera_group": "G",
+        "description": "健身区，适合运动、发泄情绪、偶遇",
+        "is_sittable": false,
+        "number": 27,
+        "name": "健身区"
+      },
+      {
+        "id": "Position 28",
+        "camera_group": "G",
+        "description": "娱乐室，适合游戏、消遣、放松警惕",
+        "is_sittable": false,
+        "number": 28,
+        "name": "娱乐室"
+      },
+      {
+        "id": "Position 29",
+        "camera_group": "G",
+        "description": "生活区走廊，连接各生活单元的通道",
+        "is_sittable": false,
+        "number": 29,
+        "name": "生活区走廊"
+      },
+      {
+        "id": "Position 30",
+        "camera_group": "X",
+        "description": "中层电梯间，楼层切换节点，过渡性空间",
+        "is_sittable": false,
+        "number": 30,
+        "name": "中层电梯间"
+      },
+      {
+        "id": "Position 31",
+        "camera_group": "H",
+        "description": "开放办公区，适合日常工作、团队协作",
+        "is_sittable": false,
+        "number": 31,
+        "name": "开放办公区"
+      },
+      {
+        "id": "Position 32",
+        "camera_group": "H",
+        "description": "独立工作站，专注作业位置，适合深度工作",
+        "is_sittable": true,
+        "number": 32,
+        "name": "独立工作站"
+      },
+      {
+        "id": "Position 33",
+        "camera_group": "H",
+        "description": "小型会议桌，适合小组讨论、汇报进展",
+        "is_sittable": true,
+        "number": 33,
+        "name": "小型会议桌"
+      },
+      {
+        "id": "Position 34",
+        "camera_group": "H",
+        "description": "资料档案室，文件查阅区，适合搜集情报",
+        "is_sittable": false,
+        "number": 34,
+        "name": "资料档案室"
+      },
+      {
+        "id": "Position 35",
+        "camera_group": "H",
+        "description": "工作区休息角，适合短暂休息、非正式谈话",
+        "is_sittable": false,
+        "number": 35,
+        "name": "工作区休息角"
+      },
+      {
+        "id": "Position 37",
+        "camera_group": "X",
+        "description": "紧急出口，太空站外壁紧急舱门前，危机感极强",
+        "is_sittable": false,
+        "number": 37,
+        "name": "紧急出口"
+      }
     ]
   },
   {
@@ -311,40 +660,125 @@
       {
         "id": "A",
         "name": "河边走廊",
-        "position_ids": ["Position 1", "Position 2", "Position 3"]
+        "position_ids": [
+          "Position 1",
+          "Position 2",
+          "Position 3"
+        ]
       },
       {
         "id": "B",
         "name": "神坛",
-        "position_ids": ["Position 4"]
+        "position_ids": [
+          "Position 4"
+        ]
       },
       {
         "id": "C",
         "name": "雕塑广场",
-        "position_ids": ["Position 5", "Position 6", "Position 7"]
+        "position_ids": [
+          "Position 5",
+          "Position 6",
+          "Position 7"
+        ]
       },
       {
         "id": "D",
         "name": "神秘的角落",
-        "position_ids": ["Position 8", "Position 9"]
+        "position_ids": [
+          "Position 8",
+          "Position 9"
+        ]
       },
       {
         "id": "E",
         "name": "树屋",
-        "position_ids": ["Position 10"]
+        "position_ids": [
+          "Position 10"
+        ]
       }
     ],
     "valid_positions": [
-      { "id": "Position 1",  "camera_group": "A", "description": "河边走廊中央广场，开阔区域核心，适合多人聚集、公开对话", "is_sittable": false },
-      { "id": "Position 2",  "camera_group": "A", "description": "走廊通道中段，狭长过道，适合独行、拦截或巡逻", "is_sittable": false },
-      { "id": "Position 3",  "camera_group": "A", "description": "走廊墙边，靠墙边缘位置，适合旁观、等待或对峙", "is_sittable": false },
-      { "id": "Position 4",  "camera_group": "B", "description": "神坛中央，聚焦区域，视野集中，适合严肃对话或私密深度交流", "is_sittable": false },
-      { "id": "Position 5",  "camera_group": "C", "description": "雕塑广场中央，露天空旷区核心，适合多人聚集或公开演讲", "is_sittable": false },
-      { "id": "Position 6",  "camera_group": "C", "description": "雕像前方，带有仪式感的位置，适合宣告或展示", "is_sittable": false },
-      { "id": "Position 7",  "camera_group": "C", "description": "广场电脑道具区，散落物件旁，适合操作、等待或密谋", "is_sittable": false },
-      { "id": "Position 8",  "camera_group": "D", "description": "神秘角落中央，被石柱树木包围，视线受阻，适合隐秘接头或窃窃私语", "is_sittable": false },
-      { "id": "Position 9",  "camera_group": "D", "description": "角落深处，更隐蔽的位置，适合不愿被旁人察觉的秘密交谈", "is_sittable": false },
-      { "id": "Position 10", "camera_group": "E", "description": "树屋大树旁，空间狭小隐蔽，适合极度私密的双人对话", "is_sittable": false }
+      {
+        "id": "Position 1",
+        "camera_group": "A",
+        "description": "河边走廊中央广场，开阔区域核心，适合多人聚集、公开对话",
+        "is_sittable": false,
+        "number": 1,
+        "name": "河边走廊中央广场"
+      },
+      {
+        "id": "Position 2",
+        "camera_group": "A",
+        "description": "走廊通道中段，狭长过道，适合独行、拦截或巡逻",
+        "is_sittable": false,
+        "number": 2,
+        "name": "走廊通道中段"
+      },
+      {
+        "id": "Position 3",
+        "camera_group": "A",
+        "description": "走廊墙边，靠墙边缘位置，适合旁观、等待或对峙",
+        "is_sittable": false,
+        "number": 3,
+        "name": "走廊墙边"
+      },
+      {
+        "id": "Position 4",
+        "camera_group": "B",
+        "description": "神坛中央，聚焦区域，视野集中，适合严肃对话或私密深度交流",
+        "is_sittable": false,
+        "number": 4,
+        "name": "神坛中央"
+      },
+      {
+        "id": "Position 5",
+        "camera_group": "C",
+        "description": "雕塑广场中央，露天空旷区核心，适合多人聚集或公开演讲",
+        "is_sittable": false,
+        "number": 5,
+        "name": "雕塑广场中央"
+      },
+      {
+        "id": "Position 6",
+        "camera_group": "C",
+        "description": "雕像前方，带有仪式感的位置，适合宣告或展示",
+        "is_sittable": false,
+        "number": 6,
+        "name": "雕像前方"
+      },
+      {
+        "id": "Position 7",
+        "camera_group": "C",
+        "description": "广场电脑道具区，散落物件旁，适合操作、等待或密谋",
+        "is_sittable": false,
+        "number": 7,
+        "name": "广场电脑道具区"
+      },
+      {
+        "id": "Position 8",
+        "camera_group": "D",
+        "description": "神秘角落中央，被石柱树木包围，视线受阻，适合隐秘接头或窃窃私语",
+        "is_sittable": false,
+        "number": 8,
+        "name": "神秘角落中央"
+      },
+      {
+        "id": "Position 9",
+        "camera_group": "D",
+        "description": "角落深处，更隐蔽的位置，适合不愿被旁人察觉的秘密交谈",
+        "is_sittable": false,
+        "number": 9,
+        "name": "角落深处"
+      },
+      {
+        "id": "Position 10",
+        "camera_group": "E",
+        "description": "树屋大树旁，空间狭小隐蔽，适合极度私密的双人对话",
+        "is_sittable": false,
+        "number": 10,
+        "name": "树屋大树旁"
+      }
     ]
   },
   {
@@ -356,19 +790,53 @@
       {
         "id": "A",
         "name": "舞台",
-        "position_ids": ["Position 1", "Position 2", "Position 3"]
+        "position_ids": [
+          "Position 1",
+          "Position 2",
+          "Position 3"
+        ]
       },
       {
         "id": "B",
         "name": "评委席",
-        "position_ids": ["Position 4"]
+        "position_ids": [
+          "Position 4"
+        ]
       }
     ],
     "valid_positions": [
-      { "id": "Position 1", "camera_group": "A", "description": "舞台左侧，适合角色登台、侧向发言、与舞台中央形成站位层次", "is_sittable": false },
-      { "id": "Position 2", "camera_group": "A", "description": "舞台右侧，适合多人分列、候场回应、制造舞台两侧对峙关系", "is_sittable": false },
-      { "id": "Position 3", "camera_group": "A", "description": "舞台前侧，适合主讲、展示、公开宣告或面向观众的关键表达", "is_sittable": false },
-      { "id": "Position 4", "camera_group": "B", "description": "评委席，适合评审、提问、裁定、旁观或与舞台角色形成台上台下关系", "is_sittable": true }
+      {
+        "id": "Position 1",
+        "camera_group": "A",
+        "description": "舞台左侧，适合角色登台、侧向发言、与舞台中央形成站位层次",
+        "is_sittable": false,
+        "number": 1,
+        "name": "舞台左侧"
+      },
+      {
+        "id": "Position 2",
+        "camera_group": "A",
+        "description": "舞台右侧，适合多人分列、候场回应、制造舞台两侧对峙关系",
+        "is_sittable": false,
+        "number": 2,
+        "name": "舞台右侧"
+      },
+      {
+        "id": "Position 3",
+        "camera_group": "A",
+        "description": "舞台前侧，适合主讲、展示、公开宣告或面向观众的关键表达",
+        "is_sittable": false,
+        "number": 3,
+        "name": "舞台前侧"
+      },
+      {
+        "id": "Position 4",
+        "camera_group": "B",
+        "description": "评委席，适合评审、提问、裁定、旁观或与舞台角色形成台上台下关系",
+        "is_sittable": true,
+        "number": 4,
+        "name": "评委席"
+      }
     ]
   },
   {

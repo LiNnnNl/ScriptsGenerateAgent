@@ -18,6 +18,8 @@
 | └ language_config | 可选 / 对象 | 缺失时按旧版 speaker+content；启用后所有幕必须完全一致 |
 | └ tracks[] | language_config 内必需 | 1~8 条；id 匹配 `^[a-z0-9][a-z0-9_-]{0,63}$` 且唯一；default_track 必须引用它 |
 | └ tracks[].tts_prompt_suffix | 必需 / 1~80字符 | 仅简短语言/发音要求；禁止换行、URL、密钥、JSON、角色或系统指令 |
+| position_metadata | 必需 / 对象 | 以 \`Position N\` 为键；必须覆盖初始位置、所有 current position 与 move.destination 引用 |
+| └ 每个点位 | 必需 / 对象 | number 与 N 一致且不重复；name、description 为非空字符串；旧 position_descriptions 会在归一化时升级 |
 | initial position[] | 必需 / 数组 | character、position、state；恰好覆盖 who，同一快照不重占 |
 | scene | 必需 / 非空数组 | 每项为事件，见下表 |
 | event_index | 必需 / 整数 | 每幕从 0 连续递增 |

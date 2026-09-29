@@ -10,6 +10,7 @@ from .resource_loader import (
     Character,
     Scene,
 )
+from .position_metadata import normalize_position_metadata
 from .scene_segments import is_empty_shot, protect_empty_shot
 
 
@@ -89,6 +90,7 @@ class ScriptJSONGenerator:
                 # 强制保证字段顺序：scene information → initial position → scene
                 ordered = {
                     "scene information": scene_info_default,
+                    "position_metadata": normalize_position_metadata(scene_obj, self.scene),
                     "initial position": normalize_initial_position_states({
                         **scene_obj,
                         "initial position": scene_obj.get(
@@ -122,20 +124,23 @@ class ScriptJSONGenerator:
                 if item:
                     final_scene.append(item)
 
-        return [
-            {
-                "scene information": scene_info,
-                "initial position": [
-                    {
-                        "character": char.name,
-                        "position": self.character_positions.get(char.name, ""),
-                        "state": self.character_states.get(char.name, "standing"),
-                    }
-                    for char in self.characters
-                ],
-                "scene": final_scene
-            }
-        ]
+        converted_scene = {
+            "scene information": scene_info,
+            "initial position": [
+                {
+                    "character": char.name,
+                    "position": self.character_positions.get(char.name, ""),
+                    "state": self.character_states.get(char.name, "standing"),
+                }
+                for char in self.characters
+            ],
+            "scene": final_scene,
+        }
+        converted_scene["position_metadata"] = normalize_position_metadata(
+            converted_scene,
+            self.scene,
+        )
+        return [converted_scene]
 
     def _normalize_segment(self, seg: Dict, preserve_shot_fields: bool = False,
                             prev: Dict = None) -> Dict:

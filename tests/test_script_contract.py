@@ -15,6 +15,11 @@ from src.script_contract import MANDARIN, normalize_camera_resources, normalize_
 def sample():
     return [{'scene information': {'who': ['A'], 'where': 'Auditorium', 'what': 'A等候朋友',
                 'emotionLibrary': ''},
+             'position_metadata': {
+                 f'Position {number}': {'number': number, 'name': f'点位{number}',
+                                        'description': f'A 的点位 {number}'}
+                 for number in (1, 2, 3)
+             },
              'initial position': [{'character': 'A', 'position': 'Position 1', 'state': 'standing'}],
              'scene': [{'event_index': 0, 'speaker': 'A', 'content': '你来了。', 'actions': [],
                  'current position': [{'character': 'A', 'position': 'Position 1'}],

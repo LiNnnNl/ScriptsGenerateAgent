@@ -11,6 +11,7 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
 
 from .resource_loader import POSTURE_TRANSITION_TARGETS
+from .position_metadata import normalize_position_metadata, validate_position_metadata
 
 Text = Annotated[str, Field(min_length=1, pattern=r"\S")]
 TrackID = Annotated[str, Field(pattern=r"^[a-z0-9][a-z0-9_-]{0,63}$")]
@@ -59,6 +60,12 @@ class Position(StrictModel):
 
 class InitialPosition(Position):
     state: State
+
+
+class PositionMetadata(StrictModel):
+    number: Annotated[int, Field(ge=0)]
+    name: Text
+    description: Text
 
 
 class Interaction(StrictModel):
@@ -111,6 +118,7 @@ class Event(StrictModel):
 
 class Act(StrictModel):
     scene_information: SceneInfo = Field(alias="scene information")
+    position_metadata: dict[PositionID, PositionMetadata]
     initial_position: list[InitialPosition] = Field(alias="initial position")
     scene: Annotated[list[Event], Field(min_length=1)]
 
@@ -161,6 +169,10 @@ def normalize_script(script, resource_loader=None):
         if not isinstance(info, dict):
             continue
         info.setdefault("emotionLibrary", "")
+        scene = None
+        if resource_loader is not None and hasattr(resource_loader, "get_scene_by_id"):
+            scene = resource_loader.get_scene_by_id(info.get("where"))
+        act["position_metadata"] = normalize_position_metadata(act, scene)
         config = info.get("language_config")
         positions, states = {}, {}
         for pos in act.get("initial position", []) if isinstance(act.get("initial position"), list) else []:
@@ -303,6 +315,8 @@ def validate_script(script, resource_loader=None, *, final=True, act_count=None,
         return {"valid": False, "errors": errors, "warnings": warnings}
     # Optional means absent, not explicit null. Guard before semantic traversal.
     for si, act in enumerate(script):
+        for message in validate_position_metadata(act):
+            errors.append(issue(f"$[{si}].position_metadata", "POSITION_METADATA", message))
         for ei, event in enumerate(act['scene']):
             for key, value in event.items():
                 if value is None:
