@@ -11,6 +11,35 @@ from pathlib import Path
 from .position_metadata import derive_position_name, parse_position_number
 
 
+def load_emotion_libraries(resource_dir: Path) -> Dict[str, dict]:
+    """Load the canonical emotion catalog, with legacy compatibility."""
+    modern_path = Path(resource_dir) / "pixar_emotions_with_styles.json"
+    if modern_path.exists():
+        data = json.loads(modern_path.read_text(encoding="utf-8-sig"))
+        emotions = data.get("emotions") or {}
+        styles = data.get("emotionStyles") or {}
+        legacy_targets = []
+        legacy_path = Path(resource_dir) / "emotion_libraries.json"
+        if legacy_path.exists():
+            legacy = json.loads(legacy_path.read_text(encoding="utf-8-sig"))
+            legacy_targets = ((legacy.get("libraries") or {}).get("pixar_cartoon") or {}).get("target_characters", [])
+        return {
+            "pixar_cartoon": {
+                "version": 1,
+                "target_characters": legacy_targets,
+                "emotions": list(emotions),
+                "styles": list(styles),
+                "emotion_descriptions": emotions,
+                "style_descriptions": styles,
+            }
+        }
+    legacy_path = Path(resource_dir) / "emotion_libraries.json"
+    if not legacy_path.exists():
+        return {}
+    data = json.loads(legacy_path.read_text(encoding="utf-8-sig"))
+    return data.get("libraries", {})
+
+
 # 动作按“执行前的角色姿态”建立固定索引。即使某一类暂无动作，也必须保留，
 # 避免 Agent 把缺失分类误解为可以自由编造动作。
 ACTION_POSTURE_CATEGORIES = (

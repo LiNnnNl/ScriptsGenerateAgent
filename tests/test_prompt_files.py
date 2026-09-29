@@ -55,11 +55,8 @@ class PromptFilesTest(unittest.TestCase):
 
     def test_autogen_prompt_builders_are_importable(self):
         from src.prompt_renderers.autogen_agent_prompts import (
-            build_character_bios_system_message,
             build_director_word_system_message,
-            build_synopsis_system_message,
             build_title_system_message,
-            build_validation_system_message,
         )
         from src.resource_loader import ResourceLoader
 
@@ -70,10 +67,7 @@ class PromptFilesTest(unittest.TestCase):
         self.assertIn("剧本导演AI", director_word_prompt)
         self.assertIn("shot_description", director_word_prompt)
         self.assertIn("不要把 `shot_description` 留空", director_word_prompt)
-        self.assertIn("character_bios", build_character_bios_system_message())
-        self.assertIn("synopsis", build_synopsis_system_message())
         self.assertIn('"title"', build_title_system_message())
-        self.assertIn("_validate_constraints", build_validation_system_message())
 
     def test_title_agent_package_owns_factory_and_prompts(self):
         from src.agents.title import build_system_message, build_user_prompt, create_agent
@@ -104,7 +98,6 @@ class PromptFilesTest(unittest.TestCase):
             "critic": "CriticAgent",
             "dialogue": "DialogueAgent",
             "director_word": "DirectorAgent_Word",
-            "concept": "ConceptAgent",
             "position": "PositionAgent",
         }.items():
             module = import_module(f"src.agents.{package}")
@@ -117,8 +110,6 @@ class PromptFilesTest(unittest.TestCase):
             "revision": "RevisionAgent",
             "contract_repair": "ContractRepairAgent",
             "shot_plan": "ShotPlanAgent",
-            "synopsis": "SynopsisAgent",
-            "character_bios": "CharacterBiosAgent",
         }.items():
             module = import_module(f"src.agents.{package}")
             agent = module.create_agent(object(), assistant_agent_cls=FakeAgent)
@@ -131,13 +122,6 @@ class PromptFilesTest(unittest.TestCase):
         )
         self.assertEqual("DirectorAgent_Direct", direct_agent.kwargs["name"])
         self.assertEqual("测试提示词", direct_agent.kwargs["system_message"])
-
-        validation = import_module("src.agents.validation")
-        validation_agent = validation.create_agent(
-            object(), ["tool"], assistant_agent_cls=FakeAgent
-        )
-        self.assertEqual("ValidationAgent", validation_agent.kwargs["name"])
-        self.assertEqual(["tool"], validation_agent.kwargs["tools"])
 
     def test_action_prompt_is_compact_without_losing_action_ids(self):
         from src.prompt_renderers.action_info import render_action_info
@@ -180,11 +164,12 @@ class PromptFilesTest(unittest.TestCase):
         self.assertIn('"events"', build_story_ir_system_message())
 
     def test_cinematography_prompt_modules_are_importable(self):
-        from src.prompt_files.cinematography_position_grouping import cinematography_position_grouping_prompt
-        from src.prompt_files.cinematography_position_planning import cinematography_position_planning_prompt
-        from src.prompt_renderers.camera_planning_stage import camera_analysis_user_instructions
+        from src.cinematography.camera.rules import camera_analysis_user_instructions, shot_combined_user_instructions
+        from src.cinematography.positioning.rules import (
+            cinematography_position_grouping_prompt,
+            cinematography_position_planning_prompt,
+        )
         from src.prompt_renderers.position_agent import build_position_agent_stage1_prompt_text
-        from src.prompt_renderers.shot_planning_stage import shot_combined_user_instructions
 
         self.assertIn("分组", cinematography_position_grouping_prompt)
         self.assertIn("区域规划", cinematography_position_planning_prompt)
@@ -193,19 +178,40 @@ class PromptFilesTest(unittest.TestCase):
         self.assertTrue(any("camera_subject" in item for item in camera_analysis_user_instructions))
 
     def test_prompt_files_are_single_text_variables(self):
-        prompt_dir = ROOT / "backend" / "src" / "prompt_files"
         offenders = []
-        for path in sorted(prompt_dir.glob("*.py")):
-            if path.name == "__init__.py":
-                continue
-            text = path.read_text(encoding="utf-8")
-            if re.search(r"^(from|import|def|class)\b", text, flags=re.M):
-                offenders.append(f"{path.name} contains code/imports")
-                continue
-            matches = re.findall(r"^[a-zA-Z_][a-zA-Z0-9_]*_prompt\s*=\s*\"\"\".*\"\"\"\s*$", text, flags=re.S)
-            if len(matches) != 1:
-                offenders.append(f"{path.name} must contain exactly one *_prompt triple-quoted variable")
+        prompt_dirs = [
+            ROOT / "backend" / "src" / "prompt_files",
+            ROOT / "backend" / "src" / "cinematography" / "positioning" / "rules",
+            ROOT / "backend" / "src" / "cinematography" / "camera" / "rules",
+        ]
+        for prompt_dir in prompt_dirs:
+            for path in sorted(prompt_dir.glob("*.py")):
+                if path.name == "__init__.py":
+                    continue
+                text = path.read_text(encoding="utf-8")
+                if re.search(r"^(from|import|def|class)\b", text, flags=re.M):
+                    offenders.append(f"{path.name} contains code/imports")
+                    continue
+                matches = re.findall(r"^[a-zA-Z_][a-zA-Z0-9_]*_prompt\s*=\s*\"\"\".*\"\"\"\s*$", text, flags=re.S)
+                if len(matches) != 1:
+                    offenders.append(f"{path.name} must contain exactly one *_prompt triple-quoted variable")
         self.assertEqual([], offenders)
+
+    def test_cinematography_packages_own_live_stages(self):
+        from src.cinematography import CameraPlanningStage, CinematographyPositionStage, ShotPlanningStage
+        from src.cinematography.camera import CameraPlanningStage as CameraPackageStage
+        from src.cinematography.camera import ShotPlanningStage as ShotPackageStage
+        from src.cinematography.camera_planning_stage import CameraPlanningStage as CameraCompatibilityStage
+        from src.cinematography.cinematography_position_stage import CinematographyPositionStage as PositionCompatibilityStage
+        from src.cinematography.positioning import CinematographyPositionStage as PositionPackageStage
+        from src.cinematography.shot_planning_stage import ShotPlanningStage as ShotCompatibilityStage
+
+        self.assertIs(CameraPackageStage, CameraPlanningStage)
+        self.assertIs(CameraCompatibilityStage, CameraPlanningStage)
+        self.assertIs(ShotPackageStage, ShotPlanningStage)
+        self.assertIs(ShotCompatibilityStage, ShotPlanningStage)
+        self.assertIs(PositionPackageStage, CinematographyPositionStage)
+        self.assertIs(PositionCompatibilityStage, CinematographyPositionStage)
 
 
 if __name__ == "__main__":

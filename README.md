@@ -243,6 +243,7 @@ copy backend\.env.example backend\.env
 | `FALLBACK_MODEL` | 主模型额度耗尽时使用的备用模型 | `doubao-seed-2-0-mini-260215` |
 | `ENABLE_CINEMATOGRAPHY` | 是否开启摄影指导后处理 | `true` |
 | `CINEMATOGRAPHY_MODEL` | 摄影智能体专用模型（留空则复用 MODEL） | — |
+| `PERFORMANCE_MODEL` | 动作与表情专项智能体使用的模型（留空则复用 MODEL） | — |
 
 ---
 
@@ -251,7 +252,7 @@ copy backend\.env.example backend\.env
 1. **建立场景池** — 选择一个或多个有摄影锚点的场景，再为每一幕指定场景；单场景仍兼容旧的 `scene_id` 请求。
 2. **设置角色** — 指定角色数量（1-10），可填角色名/性格；GENERATE CAST 会参考整个场景池生成角色档案。
 3. **选择模式与风格** — 正常模式输入创作灵感；直接模式粘贴已有 JSON/文本剧本并只做结构化；也可选剧本风格、剧情倾向、对白语言和镜头风格参考。
-4. **开始生成** — ACTION! 运行完整流水线；DIRECTOR WORD 只生成可读分镜 Word。长编号分镜会按稳定事件 ID 分批处理并实时回传。
+4. **开始生成** — ACTION! 运行完整流水线；摄影完成后，动作与表情专项 Agent 按最终画面逐镜头选择资源。DIRECTOR WORD 只生成可读分镜 Word。长编号分镜会按稳定事件 ID 分批处理并实时回传。
 5. **下载与编辑** — 可下载单个产物或完整会话 ZIP；编辑后的剧本可调用同一合同进行校验。
 6. **生成记录** — 可查看生成中/失败/成功状态、修改标题、一键复填输入、加载剧本及导出 Word。
 
@@ -276,6 +277,7 @@ ScriptsGenerateAgent/
 │   │   ├── word_exporter.py        # 剧本 → Word 导出
 │   │   ├── resource_loader.py      # 场景/角色/动作资源
 │   │   ├── json_generator.py       # 最终 JSON 序列化
+│   │   ├── performance/            # 动作/表情专项 Agent 与安全回填
 │   │   └── cinematography/         # 摄影指导后处理（3 阶段）
 │   ├── resources/
 │   │   ├── characters_resource.json

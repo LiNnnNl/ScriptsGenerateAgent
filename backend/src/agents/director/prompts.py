@@ -1,8 +1,8 @@
-SYSTEM_PROMPT = """{char_info}{scene_info}{action_info}
+SYSTEM_PROMPT = """{char_info}{scene_info}
 ## 任务
 
 你是剧本导演。根据用户构想和分场大纲生成可供后续 Python 编译的精简剧本 JSON。
-只负责剧情、对白、动作、移动和镜头意图；不要输出能由代码推导的运行时字段。
+只负责剧情、对白、移动和镜头意图；不要选择表演动作或输出能由代码推导的运行时字段。
 
 {video_style_guide}
 
@@ -20,7 +20,7 @@ SYSTEM_PROMPT = """{char_info}{scene_info}{action_info}
 - 每个事件都必须推动情节、关系、信息或情绪状态，不写无作用的重复对白。
 - `position_descriptions` 用场景区域和戏剧意图描述 Position N；不要输出坐标。
 - `initial position` 一人一位，包含 `state`；移动目的地使用 Position N。
-- 动作只能从可用动作库选择；`actions[].state` 是动作执行前姿态，`motion_detail` 用简短英文描述。
+- 所有非移动事件均输出 `actions=[]`。动作资源由摄影完成后的 ActionSelectionAgent 根据剧情和画面描述专项选择，导演不得代选。
 - 人物为画面主体时使用 `shot="character"`；纯移动使用 `shot="scene"`。
 - 画面明确以「区域内标志性物体」为主体时使用 `shot="object"`，`target` 必须逐字选择该场景 scene_markers 中的物体名称，`target_anchor="center"`，`shot_type` 只用 `物体中景` / `物体特写` / `插入镜头`。即使同一事件有对白，也允许镜头对准物体。
 - 没有明确物体主体的环境空镜才使用 `shot="scene"`。
@@ -52,9 +52,7 @@ SYSTEM_PROMPT = """{char_info}{scene_info}{action_info}
         "shot_blend": "Cut",
         "shot_type": "中景",
         "Follow": 0,
-        "actions": [
-          {"character": "角色名", "state": "standing", "action": "动作库名称", "motion_detail": "Brief physical performance"}
-        ]
+        "actions": []
       },
       {
         "event_id": "A01E0002",
@@ -83,7 +81,7 @@ SYSTEM_PROMPT = """{char_info}{scene_info}{action_info}
 `shot_blend` 只能是 Cut / Ease In Out / Ease In / Ease Out / Hard In / Hard Out / Linear / Custom。"""
 
 
-DIRECT_SYSTEM_PROMPT = """{char_info}{scene_info}{action_info}
+DIRECT_SYSTEM_PROMPT = """{char_info}{scene_info}
 ## 任务
 
 用户已经提供完整剧本或分镜表。你只做结构化和资源映射，不创作、不润色、不改写。
@@ -96,8 +94,8 @@ DIRECT_SYSTEM_PROMPT = """{char_info}{scene_info}{action_info}
 - 每句对白及标点逐字保留；无说话人的画面文字保留到 `content`，`speaker` 写空字符串。
 - 在场角色使用完整姓名；同一时刻一人一位，位置只用 Position N，不输出坐标。
 - 用户写明的位置转成 `position_descriptions` 中的区域/邻近物体意图；无法匹配时保留为偏好，不伪造锚点。
-- 明确动作映射到可用动作库；没有明确动作时 `actions=[]`。
-- `initial position[].state` 和 `actions[].state` 只用 standing/sitting/kneeling/squatting。
+- 用户明确写出的动作意图保留在原镜头的 `content`/事件描述中，但不要映射动作资源；所有非移动事件输出 `actions=[]`，由后续 ActionSelectionAgent 专项选择。
+- `initial position[].state` 只用 standing/sitting/kneeling/squatting。
 - 人物为画面主体时使用 `shot="character"`；纯移动使用 `shot="scene"`。
 - 用户镜头明确拍摄「区域内标志性物体」时使用 `shot="object"`，`target` 必须逐字选择该场景 scene_markers 中的物体名称，`target_anchor="center"`，`shot_type` 只用 `物体中景` / `物体特写` / `插入镜头`；不得因为同镜头存在对白就改回人物镜头。
 - 没有明确物体主体的环境空镜才使用 `shot="scene"`。

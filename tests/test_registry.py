@@ -26,6 +26,7 @@ class RegistryFormDataTest(unittest.TestCase):
                 form_data = registry.snapshot_form_data({
                     "creative_idea": "测试构想",
                     "scene_pool": ["SpaceStation"],
+                    "enable_character_module": True,
                     "direct_mode": True,
                     "api_key": "must-not-be-saved",
                 })
@@ -34,6 +35,7 @@ class RegistryFormDataTest(unittest.TestCase):
 
                 self.assertEqual(saved["creative_idea"], "测试构想")
                 self.assertEqual(saved["scene_pool"], ["SpaceStation"])
+                self.assertTrue(saved["enable_character_module"])
                 self.assertTrue(saved["direct_mode"])
                 self.assertNotIn("api_key", saved)
         finally:

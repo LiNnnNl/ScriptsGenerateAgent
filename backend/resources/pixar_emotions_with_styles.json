@@ -1,0 +1,280 @@
+{
+  "emotions": {
+    "normal": {
+      "description": "Clean neutral baseline for Pixar-style characters. All blendshape channels are zero."
+    },
+    "happy_soft": {
+      "description": "Pixar-style happy smile: cheek raise and lip-corner pull with softer mouth influence so speech articulation remains readable."
+    },
+    "happy_medium": {
+      "description": "Pixar-style happy smile: cheek raise and lip-corner pull with softer mouth influence so speech articulation remains readable."
+    },
+    "happy_strong": {
+      "description": "Pixar-style happy smile: cheek raise and lip-corner pull with softer mouth influence so speech articulation remains readable."
+    },
+    "happy_extreme": {
+      "description": "Pixar-style happy smile: cheek raise and lip-corner pull with softer mouth influence so speech articulation remains readable."
+    },
+    "sad_soft": {
+      "description": "Pixar-style sadness/crying: inner brow raise, brow pinch, downturned mouth, and soft eye compression."
+    },
+    "sad_medium": {
+      "description": "Pixar-style sadness/crying: inner brow raise, brow pinch, downturned mouth, and soft eye compression."
+    },
+    "sad_strong": {
+      "description": "Pixar-style sadness/crying: inner brow raise, brow pinch, downturned mouth, and soft eye compression."
+    },
+    "sad_extreme": {
+      "description": "Pixar-style sadness/crying: inner brow raise, brow pinch, downturned mouth, and soft eye compression."
+    },
+    "angry_soft": {
+      "description": "Pixar-style anger: lowered brows, tightened lids, nose sneer, and pressed/downturned mouth."
+    },
+    "angry_medium": {
+      "description": "Pixar-style anger: lowered brows, tightened lids, nose sneer, and pressed/downturned mouth."
+    },
+    "angry_strong": {
+      "description": "Pixar-style anger: lowered brows, tightened lids, nose sneer, and pressed/downturned mouth."
+    },
+    "angry_extreme": {
+      "description": "Pixar-style anger: lowered brows, tightened lids, nose sneer, and pressed/downturned mouth."
+    },
+    "surprised_soft": {
+      "description": "Pixar-style surprise: raised brows, wide eyes, open jaw, and rounded mouth funnel."
+    },
+    "surprised_medium": {
+      "description": "Pixar-style surprise: raised brows, wide eyes, open jaw, and rounded mouth funnel."
+    },
+    "surprised_strong": {
+      "description": "Pixar-style surprise: raised brows, wide eyes, open jaw, and rounded mouth funnel."
+    },
+    "surprised_extreme": {
+      "description": "Pixar-style surprise: raised brows, wide eyes, open jaw, and rounded mouth funnel."
+    },
+    "disgusted_soft": {
+      "description": "Pixar soft variant of disgusted. Rejection and aversion. Use for contempt, dislike, and uncomfortable refusal."
+    },
+    "disgusted_medium": {
+      "description": "Pixar medium variant of disgusted. Rejection and aversion. Use for contempt, dislike, and uncomfortable refusal."
+    },
+    "disgusted_strong": {
+      "description": "Pixar strong variant of disgusted. Rejection and aversion. Use for contempt, dislike, and uncomfortable refusal."
+    },
+    "fear_soft": {
+      "description": "Pixar soft variant of fear. Anxious and defensive tone. Use for danger warning, worry, panic, or insecurity."
+    },
+    "fear_medium": {
+      "description": "Pixar medium variant of fear. Anxious and defensive tone. Use for danger warning, worry, panic, or insecurity."
+    },
+    "fear_strong": {
+      "description": "Pixar strong variant of fear. Anxious and defensive tone. Use for danger warning, worry, panic, or insecurity."
+    },
+    "fear_extreme": {
+      "description": "Pixar extreme variant of fear. Anxious and defensive tone. Use for danger warning, worry, panic, or insecurity."
+    },
+    "amused_soft": {
+      "description": "Pixar soft variant of amused. Playful amusement with a light smirk. Use for teasing, witty replies, and dry humor."
+    },
+    "amused_medium": {
+      "description": "Pixar medium variant of amused. Playful amusement with a light smirk. Use for teasing, witty replies, and dry humor."
+    },
+    "amused_strong": {
+      "description": "Pixar strong variant of amused. Playful amusement with a light smirk. Use for teasing, witty replies, and dry humor."
+    },
+    "excited_soft": {
+      "description": "Pixar soft variant of excited. High-energy enthusiasm. Use for hype moments, celebration, and eager anticipation."
+    },
+    "excited_medium": {
+      "description": "Pixar medium variant of excited. High-energy enthusiasm. Use for hype moments, celebration, and eager anticipation."
+    },
+    "excited_strong": {
+      "description": "Pixar strong variant of excited. High-energy enthusiasm. Use for hype moments, celebration, and eager anticipation."
+    },
+    "excited_extreme": {
+      "description": "Pixar extreme variant of excited. High-energy enthusiasm. Use for hype moments, celebration, and eager anticipation."
+    },
+    "confused_soft": {
+      "description": "Pixar soft variant of confused. Uncertain and puzzled tone. Use for misunderstanding, hesitation, and asking for clarification."
+    },
+    "confused_medium": {
+      "description": "Pixar medium variant of confused. Uncertain and puzzled tone. Use for misunderstanding, hesitation, and asking for clarification."
+    },
+    "confused_strong": {
+      "description": "Pixar strong variant of confused. Uncertain and puzzled tone. Use for misunderstanding, hesitation, and asking for clarification."
+    },
+    "bored_soft": {
+      "description": "Pixar soft variant of bored. Low-interest and drained tone. Use for waiting, repetition, and emotionally flat responses."
+    },
+    "bored_medium": {
+      "description": "Pixar medium variant of bored. Low-interest and drained tone. Use for waiting, repetition, and emotionally flat responses."
+    },
+    "bored_strong": {
+      "description": "Pixar strong variant of bored. Low-interest and drained tone. Use for waiting, repetition, and emotionally flat responses."
+    },
+    "determined_soft": {
+      "description": "Pixar soft variant of determined. Firm and resolute tone. Use for commitment, resolve, and steady tactical confidence."
+    },
+    "determined_medium": {
+      "description": "Pixar medium variant of determined. Firm and resolute tone. Use for commitment, resolve, and steady tactical confidence."
+    },
+    "determined_strong": {
+      "description": "Pixar strong variant of determined. Firm and resolute tone. Use for commitment, resolve, and steady tactical confidence."
+    },
+    "embarrassed_soft": {
+      "description": "Pixar soft variant of embarrassed. Awkward and self-conscious tone. Use for flustered reactions, praise discomfort, and social slip-ups."
+    },
+    "embarrassed_medium": {
+      "description": "Pixar medium variant of embarrassed. Awkward and self-conscious tone. Use for flustered reactions, praise discomfort, and social slip-ups."
+    },
+    "embarrassed_strong": {
+      "description": "Pixar strong variant of embarrassed. Awkward and self-conscious tone. Use for flustered reactions, praise discomfort, and social slip-ups."
+    },
+    "relieved_soft": {
+      "description": "Pixar soft variant of relieved. Tension release after worry. Use for safe outcomes, successful recovery, and calming down."
+    },
+    "relieved_medium": {
+      "description": "Pixar medium variant of relieved. Tension release after worry. Use for safe outcomes, successful recovery, and calming down."
+    },
+    "relieved_strong": {
+      "description": "Pixar strong variant of relieved. Tension release after worry. Use for safe outcomes, successful recovery, and calming down."
+    },
+    "skeptical_soft": {
+      "description": "Pixar soft variant of skeptical. Doubtful and unconvinced tone. Use for suspicion, side-eye reactions, and questioning claims."
+    },
+    "skeptical_medium": {
+      "description": "Pixar medium variant of skeptical. Doubtful and unconvinced tone. Use for suspicion, side-eye reactions, and questioning claims."
+    },
+    "skeptical_strong": {
+      "description": "Pixar strong variant of skeptical. Doubtful and unconvinced tone. Use for suspicion, side-eye reactions, and questioning claims."
+    },
+    "shy_soft": {
+      "description": "Pixar soft variant of shy. Soft and bashful tone. Use for gentle affection, timid agreement, and reserved replies."
+    },
+    "shy_medium": {
+      "description": "Pixar medium variant of shy. Soft and bashful tone. Use for gentle affection, timid agreement, and reserved replies."
+    },
+    "shy_strong": {
+      "description": "Pixar strong variant of shy. Soft and bashful tone. Use for gentle affection, timid agreement, and reserved replies."
+    },
+    "smug_soft": {
+      "description": "Pixar soft variant of smug. Self-satisfied confidence with a crooked smile. Use for taunts, clever wins, and knowing remarks."
+    },
+    "smug_medium": {
+      "description": "Pixar medium variant of smug. Self-satisfied confidence with a crooked smile. Use for taunts, clever wins, and knowing remarks."
+    },
+    "smug_strong": {
+      "description": "Pixar strong variant of smug. Self-satisfied confidence with a crooked smile. Use for taunts, clever wins, and knowing remarks."
+    },
+    "crying_soft": {
+      "description": "Pixar-style sadness/crying: inner brow raise, brow pinch, downturned mouth, and soft eye compression."
+    },
+    "crying_medium": {
+      "description": "Pixar-style sadness/crying: inner brow raise, brow pinch, downturned mouth, and soft eye compression."
+    },
+    "crying_strong": {
+      "description": "Pixar-style sadness/crying: inner brow raise, brow pinch, downturned mouth, and soft eye compression."
+    },
+    "crying_extreme": {
+      "description": "Pixar-style sadness/crying: inner brow raise, brow pinch, downturned mouth, and soft eye compression."
+    },
+    "laughing_soft": {
+      "description": "Pixar-style broad laugh: cheek raise, strong lip-corner pull, open jaw, stretched mouth corners, squinting eyes, and two visible laugh pulses inside the curve."
+    },
+    "laughing_medium": {
+      "description": "Pixar-style broad laugh: cheek raise, strong lip-corner pull, open jaw, stretched mouth corners, squinting eyes, and two visible laugh pulses inside the curve."
+    },
+    "laughing_strong": {
+      "description": "Pixar-style broad laugh: cheek raise, strong lip-corner pull, open jaw, stretched mouth corners, squinting eyes, and two visible laugh pulses inside the curve."
+    },
+    "laughing_extreme": {
+      "description": "Pixar-style broad laugh: cheek raise, strong lip-corner pull, open jaw, stretched mouth corners, squinting eyes, and two visible laugh pulses inside the curve."
+    },
+    "nervous_soft": {
+      "description": "Pixar soft variant of nervous. Restless anxiety and social tension. Use for unease, pressure, and shaky confidence."
+    },
+    "nervous_medium": {
+      "description": "Pixar medium variant of nervous. Restless anxiety and social tension. Use for unease, pressure, and shaky confidence."
+    },
+    "nervous_strong": {
+      "description": "Pixar strong variant of nervous. Restless anxiety and social tension. Use for unease, pressure, and shaky confidence."
+    },
+    "sleepy_soft": {
+      "description": "Pixar soft variant of sleepy. Drowsy and low-alert state. Use for fatigue, late-night lines, and half-awake reactions."
+    },
+    "sleepy_medium": {
+      "description": "Pixar medium variant of sleepy. Drowsy and low-alert state. Use for fatigue, late-night lines, and half-awake reactions."
+    },
+    "sleepy_strong": {
+      "description": "Pixar strong variant of sleepy. Drowsy and low-alert state. Use for fatigue, late-night lines, and half-awake reactions."
+    },
+    "helpless_soft": {
+      "description": "Pixar soft variant of helpless. Resigned and helpless state. Use for 'there is nothing I can do', awkward surrender, and powerless reactions."
+    },
+    "helpless_medium": {
+      "description": "Pixar medium variant of helpless. Resigned and helpless state. Use for 'there is nothing I can do', awkward surrender, and powerless reactions."
+    },
+    "helpless_strong": {
+      "description": "Pixar strong variant of helpless. Resigned and helpless state. Use for 'there is nothing I can do', awkward surrender, and powerless reactions."
+    },
+    "无奈_soft": {
+      "description": "Pixar soft variant of 无奈. Alias of helpless for direct Chinese-name matching."
+    },
+    "无奈_medium": {
+      "description": "Pixar medium variant of 无奈. Alias of helpless for direct Chinese-name matching."
+    },
+    "无奈_strong": {
+      "description": "Pixar strong variant of 无奈. Alias of helpless for direct Chinese-name matching."
+    },
+    "thinking_soft": {
+      "description": "Pixar soft variant of thinking. Focused internal reasoning. Use for pondering, analysis, and searching for the right answer."
+    },
+    "thinking_medium": {
+      "description": "Pixar medium variant of thinking. Focused internal reasoning. Use for pondering, analysis, and searching for the right answer."
+    },
+    "thinking_strong": {
+      "description": "Pixar strong variant of thinking. Focused internal reasoning. Use for pondering, analysis, and searching for the right answer."
+    }
+  },
+  "emotionStyles": {
+    "default": {
+      "description": "通用平滑切换。只控制情绪间交叉淡入，不控制每个情绪的时长。",
+      "transitionSeconds": 0.35,
+      "transitionCurve": "smoothstep"
+    },
+    "steady": {
+      "description": "稳定自然切换，适合正常对话中的轻中度情绪变化。",
+      "transitionSeconds": 0.42,
+      "transitionCurve": "smoothstep"
+    },
+    "quick_reaction": {
+      "description": "快速反应切换，前段变化快，适合惊讶、突然生气、被打断。",
+      "transitionSeconds": 0.16,
+      "transitionCurve": "ease_out"
+    },
+    "snap_reaction": {
+      "description": "更夸张的卡通瞬时反应，几乎立刻进入下一个情绪。",
+      "transitionSeconds": 0.08,
+      "transitionCurve": "snap_early"
+    },
+    "slow_morph": {
+      "description": "缓慢变脸，适合逐渐难过、逐渐怀疑、慢慢意识到问题。",
+      "transitionSeconds": 0.75,
+      "transitionCurve": "ease_in_out"
+    },
+    "delayed_realize": {
+      "description": "前半段迟疑，后半段突然明确，适合从困惑转惊讶或从平静转愤怒。",
+      "transitionSeconds": 0.46,
+      "transitionCurve": "snap_late"
+    },
+    "reaction_then_control": {
+      "description": "先快速反应，再进入受控状态；时长由 emotion 权重决定。",
+      "transitionSeconds": 0.22,
+      "transitionCurve": "ease_out"
+    },
+    "conflict": {
+      "description": "矛盾情绪的拉扯式切换，过渡更长更软。",
+      "transitionSeconds": 0.62,
+      "transitionCurve": "ease_in_out"
+    }
+  }
+}

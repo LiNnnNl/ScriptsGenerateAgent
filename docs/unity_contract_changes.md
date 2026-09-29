@@ -4,7 +4,7 @@
 
 | 项目 | 当前 Unity 依据 | 需要对接 |
 |---|---|---|
-| 命名情绪库、复合权重、emotionStyle | Scripts/ScriptExecute/EventExecutionModule.cs 的 TryParseEmotionAssignment 读取 character/emotion 并将整体当名称；用户提供的 Pixar 文件定义了 78 个模板和 8 个切换样式 | 读取幕 emotionLibrary；按逗号拆分复合权重并分别查模板；实现 `default/steady/quick_reaction/snap_reaction/slow_morph/delayed_realize/reaction_then_control/conflict`。不要将整串权重当单一名称 |
+| 命名情绪库、复合权重、emotionStyle | Scripts/ScriptExecute/EventExecutionModule.cs 的 TryParseEmotionAssignment 读取 character/emotion 并将整体当名称；`backend/resources/pixar_emotions_with_styles.json` 定义 78 个模板和 8 个切换样式 | 读取幕 emotionLibrary；按逗号拆分复合权重并分别查模板；每个角色的复合情绪最多 3 项；实现 `default/steady/quick_reaction/snap_reaction/slow_morph/delayed_realize/reaction_then_control/conflict`。不要将整串权重当单一名称 |
 | 语言轨道 | Scripts 下未找到 language_config/content_variants 的消费代码 | language_config 缺失时走旧逻辑；存在时要求所有幕一致、每句译本完整，再按 language_track 选文本和发音。配音请求传 speech_language/tts_prompt_suffix；缓存键包含轨道 |
 | 幕索引 | Scripts/ScriptExecute/EventExecutionModule.cs、CameraControlModule.cs 使用 scene_index；Camera/CameraCreator.cs 亦引用旧键 | 读 shot_index，迁移期兼容 scene_index；按幕+event_index 对齐，不能仅依赖数组顺序 |
 | 多幕位置文件 | Scripts/PositionStage 中现有位置生成/加载流程 | 新多幕文件外层 scenes 数组，逐幕按 where 选数据；保留单幕旧对象兼容。需要验证每幕切换和移动目的地加载 |
@@ -14,7 +14,7 @@
 
 ## 新字段示例输入
 
-下列为协议片段，不是可直接导入的完整剧本。表情值来自用户提供的真实 `pixar_cartoon` 索引，但该文件的 targetCharacters 只声明阿福、陈阿嫲、林阿公。
+下列为协议片段，不是可直接导入的完整剧本。表情值来自 `pixar_emotions_with_styles.json` 的真实 `pixar_cartoon` 索引；角色适用范围仍由旧兼容目录中的 targetCharacters 约束。
 
 ```json
 {

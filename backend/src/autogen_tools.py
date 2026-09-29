@@ -1,9 +1,4 @@
-"""
-AutoGen FunctionTool 包装层
-
-将现有的验证函数提取为独立函数，并补充缺失的 camera_group 分组一致性检查。
-这些函数既可以作为 AutoGen FunctionTool 使用，也可以直接调用。
-"""
+"""剧本验证与自动修复工具。"""
 
 import json
 import re
@@ -439,57 +434,3 @@ def auto_fix_script(script: list, scene: Scene, resource_loader: ResourceLoader)
                     last_positions[move["character"]] = move["destination"]
 
     return result
-
-
-def make_validation_tools(resource_loader: ResourceLoader, scene: Scene):
-    """
-    工厂函数：创建绑定了具体资源实例的 AutoGen FunctionTool 列表。
-
-    Returns:
-        list of autogen_core.tools.FunctionTool
-    """
-    from autogen_core.tools import FunctionTool
-
-    def _validate_constraints(script_json_str: str) -> str:
-        """
-        验证剧本 JSON 字符串中的技术约束（点位、动作、camera_group）。
-        输入：剧本 JSON 字符串；输出：验证结果 JSON 字符串。
-        """
-        try:
-            script = json.loads(script_json_str)
-        except json.JSONDecodeError as e:
-            return json.dumps({"valid": False, "errors": [f"JSON 解析失败: {e}"], "warnings": []}, ensure_ascii=False)
-        result = validate_script_constraints(script, scene, resource_loader)
-        return json.dumps(result, ensure_ascii=False)
-
-    def _validate_spec(script_json_str: str) -> str:
-        """
-        验证剧本 JSON 字符串是否符合 scene_json_spec 规范。
-        输入：剧本 JSON 字符串；输出：验证结果 JSON 字符串。
-        """
-        try:
-            script = json.loads(script_json_str)
-        except json.JSONDecodeError as e:
-            return json.dumps({"valid": False, "errors": [f"JSON 解析失败: {e}"], "warnings": []}, ensure_ascii=False)
-        result = validate_json_spec(script, resource_loader)
-        return json.dumps(result, ensure_ascii=False)
-
-    return [
-        FunctionTool(
-            _validate_constraints,
-            description=(
-                "验证剧本 JSON 的技术约束：点位 ID 有效性、动作 ID 有效性、"
-                "动作状态兼容性、同镜头不同人物站位唯一性、"
-                "同一对白片段的 camera_group 一致性。"
-                "输入为剧本 JSON 字符串，输出为验证结果 JSON 字符串。"
-            )
-        ),
-        FunctionTool(
-            _validate_spec,
-            description=(
-                "验证剧本 JSON 结构是否符合 scene_json_spec 规范（字段完整性、"
-                "initial position.state、人物站位唯一性检查）。"
-                "输入为剧本 JSON 字符串，输出为验证结果 JSON 字符串。"
-            )
-        ),
-    ]

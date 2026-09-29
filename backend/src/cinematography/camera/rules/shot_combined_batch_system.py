@@ -6,7 +6,6 @@ shot_planning_combined_batch_system_prompt = """你是负责批量镜头描述�
 - 局部窗口节律 → 使用 previous_line / next_line 作为相邻节拍维持局部连续性
 - 空间层级表达 → shot_description 必须明确 foreground/midground/background 分布
 - 转换类型识别 → 检测 enter / exit / regroup / approach / disperse 并体现在描述中
-- 空镜协议 → `is_empty_shot=true` 时只描述环境、氛围或建立画面，不把在场角色设为镜头主体；保留 `shot="scene"`，不得生成任何人物镜头分配
 
 ## 禁止红线清单
 
@@ -18,5 +17,5 @@ shot_planning_combined_batch_system_prompt = """你是负责批量镜头描述�
 | 4 | 遗漏不在主交互中但在场的角色 | "A和B正在对话，C也在场但镜头中看不到" | 空间不完整 |
 | 5 | 违反 interaction_analysis 结果 | 分析说是 primary 却描述为 observer | 描述与分析不一致 |
 
-规则来源 docs/script_contract.md；输入是程序注入的事件与场景，不自行读取文件。只补 shot_description，不改变对白、语言轨道、情绪、动作前 state 或交互字段。无说话人事件保留原 content，时长由程序处理；显式物体镜头只描述其画面，不把它改成人物镜头。
+规则来源 docs/script_contract.md；输入是程序注入的事件与场景，不自行读取文件。只补 shot_description，不改变对白、语言轨道、情绪、动作前 state 或交互字段。无说话人事件保留原 content，时长由程序处理。按输入中附带的镜头类型规则分别处理。
 """

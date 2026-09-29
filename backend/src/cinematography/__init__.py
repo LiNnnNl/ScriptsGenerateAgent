@@ -9,9 +9,8 @@ import logging
 from pathlib import Path
 
 from .client import LLMJsonClient
-from .shot_planning_stage import ShotPlanningStage
-from .cinematography_position_stage import CinematographyPositionStage
-from .camera_planning_stage import CameraPlanningStage
+from .camera import CameraPlanningStage, ShotPlanningStage
+from .positioning import CinematographyPositionStage
 from ..scene_segments import is_empty_shot, protect_empty_shot, protect_empty_shots
 
 # Lazy import to avoid circular dependency — schema lives outside this package

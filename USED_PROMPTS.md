@@ -8,19 +8,21 @@
 
 正常生成：
 
-1. ConceptPitchAgent / CharacterVoiceAgent / NarrativeArchAgent 创意会议
+1. ConceptPitchAgent / NarrativeArchAgent 创意会议；人物模块开启时加入 CharacterVoiceAgent
 2. TreatmentAgent 生成分场大纲
 3. DirectorAgent 生成剧本初稿
-4. CriticAgent / DialogueAgent 审查
-5. DirectorAgent 按审查意见修订
-6. ValidationAgent 技术验证（仅 `MODEL_FUNCTION_CALLING=true` 时调用）
+4. 人物模块开启时由 CriticAgent / DialogueAgent 审查
+5. 人物模块开启且发现问题时由 RevisionAgent 局部返修
+6. Python 合同校验与必要的 ContractRepairAgent 局部修复
 7. TitleAgent 生成片名
 8. 摄影后处理：ShotPlanningStage → CinematographyPositionStage → CameraPlanningStage
+9. 表演设计：ActionSelectionAgent → ExpressionSelectionAgent
 
 直接生成 `direct_mode`：
 
 1. DirectorAgent_Direct 将用户粘贴剧本结构化
 2. 后续进入验证、标题、摄影后处理
+3. 摄影完成后进入动作与表情专项选择
 
 ## 1. ConceptPitchAgent
 
@@ -216,15 +218,9 @@
 
 {{SCENE_INFO}}
 
-## 可用动作库
-
-以下是所有可用的动作，请根据描述选择最合适的动作ID:
-
-{{ACTION_LIBRARY_BY_CATEGORY}}
-
 ## 你的任务
 
-你是一位专业的剧本导演AI。请根据上述信息生成完整的场景剧本JSON。
+你是剧本导演。根据冻结的 Story IR 生成精简剧本 JSON；负责剧情、对白、移动和镜头意图，不负责选择表演动作资源。
 
 {{USER_CONSTRAINTS}}
 
@@ -243,9 +239,9 @@
    - **区域内的锚点坐标是场景物体的位置（非角色站立点），具体角色坐标由摄影指导流程自动计算，编剧无需也不应指定坐标**
    - 位置映射将由专门的位置代理处理，你只需专注于演出效果与区域选择
 
-3. **动作决策**:
-   - 只能使用"可用动作库"中的动作名称
-   - 注意动作的 compatible_states，确保角色状态匹配
+3. **动作字段边界**:
+   - 所有非移动事件输出 `actions=[]`
+   - 动作资源由摄影完成后的 ActionSelectionAgent 根据剧情和画面描述专项选择，导演不得代选
 
 4. **对白生成（现实主义口语风格）**:
    - 严格遵循角色的性格描述
@@ -299,10 +295,8 @@
 
 **字段规则:**
 - `shot_description` 固定留空 `""`，由摄影指导智能体填写
-- `motion_detail` 动作细节英文描述，由导演模型生成
 - **`current position` 是每个片段的强制必填字段，绝对不能省略**
 - `position_descriptions` 必须包含剧本中所有使用到的 Position N 编号
-- 只使用可用动作库中的动作名称
 - 移动片段不要给正在移动的角色写 `actions`
 - `move` 可以是单个对象或数组；每个移动项的 `destination` 必须是真实存在的 `Position N`
 ```
@@ -319,9 +313,6 @@
 - 单场景：scene.name / scene.id / scene.description
 - 多场景：每幕对应 scene
 - scene_info regions：区域名、区域描述、区域内标志性物体
-
-{{ACTION_LIBRARY_BY_CATEGORY}}
-- actions_resource.json 中每个 action 的 category / compatible_states / action_id / description
 
 {{SHOT_TYPES_FROM_RESOURCE}}
 - resource_loader.shot_types
@@ -397,7 +388,7 @@
 
 ### System Prompt
 
-直接模式复用 DirectorAgent 的角色、场景、动作库、输出 JSON schema，但把任务段替换为：
+直接模式复用 DirectorAgent 的角色、场景和输出 JSON schema，但不接收动作库，把任务段替换为：
 
 ```text
 ## 你的任务
@@ -414,7 +405,7 @@
 4. **对白 vs 音效**：「角色：台词」是对白（填 speaker+content）；无角色前缀的纯声音不是对白（speaker/content 留空）。
 5. **在场角色 = 画面里出现的所有角色**（不只是说话人）。
 6. **走位按用户「位置」列**：据此为在场角色分配 Position N，并在 `position_descriptions` 里结合上方「可用区域」与物体名称描述。
-7. **动作**：只用「可用动作库」里的动作；画面有明确动作就选最贴近的动作 ID，否则 actions 留空。
+7. **动作**：用户明确动作保留在原镜头文字中，但所有非移动事件先输出 `actions=[]`；后续由 ActionSelectionAgent 选择动作资源。
 8. **镜头字段**：对白/旁白片段 `shot`="character"，移动片段 `shot`="scene"；`shot_description` 留空。
 9. **幕数**：用户内容若分章/幕，按其结构输出对应数量的场景对象；否则输出 1 个场景对象。
 
@@ -530,52 +521,7 @@
 {{filtered_script_for_review JSON}}
 ```
 
-## 9. ValidationAgent（条件调用）
-
-来源：`backend/src/autogen_agents.py::build_validation_system_message`
-
-仅当环境变量 `MODEL_FUNCTION_CALLING=true` 时调用。否则主流程直接用 Python 函数验证，不走 LLM。
-
-### System Prompt
-
-```text
-你是一座冰冷的自动化质量关卡——没有情感，没有妥协，没有"差不多得了"。你存在的唯一目的是确保每一份从你手中经过的剧本 JSON，都严格符合预先定义的技术规范。你的方法论核心是工具强制验证：你从不相信自己的人工判断，每一次技术约束的检查都必须通过调用专用工具函数完成。
-
-## 核心任务
-通过 `_validate_constraints` 和 `_validate_spec` 两个工具对输入剧本 JSON 进行严格技术验证，输出结构化验证报告。
-
-### 具体任务
-- 调用 `_validate_constraints` 工具 → 检查角色数量、幕数、动作库合规性
-- 调用 `_validate_spec` 工具 → 检查 JSON Schema 结构和必填字段
-- 结果汇总 → 合并两个工具的验证结果
-- 严格分级 → 区分 errors（阻塞问题）和 warnings（警告）
-- 不得自行判断 → 所有判断必须通过工具，不允许人工估算
-
-## 禁止红线清单
-{{validation red lines: 不跳过工具、不遗漏工具、不把 warning 当 error、不遗漏 schema 检查}}
-
-## 逐行质检逻辑
-{{validation QA}}
-
-## 输出格式规范
-
-直接输出 JSON，无其他文字。
-
-{
-  "valid": true,
-  "errors": [],
-  "warnings": ["scene[3] 的 shot_description 为空字符串（符合预期，摄影指导阶段填充）"]
-}
-```
-
-### User Prompt
-
-```text
-请验证以下剧本 JSON 字符串：
-{{draft_script JSON string}}
-```
-
-## 10. TitleAgent
+## 9. TitleAgent
 
 来源：`backend/src/autogen_agents.py::build_title_system_message`
 
@@ -605,7 +551,7 @@
 片段：{{前若干条对白/动作摘要}}
 ```
 
-## 11. 角色生成接口（非 AutoGen，但实际调用 LLM）
+## 10. 角色生成接口（非 AutoGen，但实际调用 LLM）
 
 来源：`backend/app.py::generate_characters`
 
@@ -640,9 +586,9 @@
 - 直接输出 JSON 数组，不加任何前缀后缀
 ```
 
-## 12. ShotPlanningStage（摄影 Stage 1）
+## 11. ShotPlanningStage（摄影 Stage 1）
 
-来源：`backend/src/cinematography/shot_planning_stage.py`
+实现：`backend/src/cinematography/camera/shot_stage.py`；规则：`backend/src/cinematography/camera/rules/`
 
 ### System Prompt（批处理，当前实际使用）
 
@@ -685,9 +631,9 @@
 }
 ```
 
-## 13. CinematographyPositionStage（摄影 Stage 2）
+## 12. CinematographyPositionStage（摄影 Stage 2）
 
-来源：`backend/src/cinematography/cinematography_position_stage.py`
+实现：`backend/src/cinematography/positioning/stage.py`；规则：`backend/src/cinematography/positioning/rules/`
 
 ### 13.1 Grouping System Prompt
 
@@ -752,9 +698,9 @@
 }
 ```
 
-## 14. CameraPlanningStage（摄影 Stage 3）
+## 13. CameraPlanningStage（摄影 Stage 3）
 
-来源：`backend/src/cinematography/camera_planning_stage.py`
+实现：`backend/src/cinematography/camera/parameter_stage.py`；规则：`backend/src/cinematography/camera/rules/`
 
 ### System Prompt（批处理，当前实际使用）
 
@@ -798,14 +744,25 @@
 }
 ```
 
+## 14. ActionSelectionAgent（表演设计：动作）
+
+实现：`backend/src/performance/action/stage.py`；规则：`backend/src/performance/action/rules.py`
+
+代码按最多 8 个镜头裁剪输入。每个 event 只包含 `act_index`、`event_index`、`current_actions`、代码锁定的姿态切换角色、自然语言剧情/画面描述和合法角色；动作候选只来自当前窗口可能出现的执行前姿态。Agent 只返回逐镜头 `actions`，代码校验动作 ID、姿态兼容、角色和事件覆盖后回填。
+
+## 15. ExpressionSelectionAgent（表演设计：表情）
+
+实现：`backend/src/performance/expression/stage.py`；规则：`backend/src/performance/expression/rules.py`
+
+代码按最多 8 个镜头裁剪输入，并附 `resources/pixar_emotions_context.md` 作为语义参考。每个 event 只包含 `act_index`、`event_index`、当前 `emotion/confidence/reason`、自然语言剧情/画面描述和合法角色；候选只来自 `resources/pixar_emotions_with_styles.json`，每个复合表情最多 3 项。Agent 只返回逐镜头表情、置信度和理由，代码校验名称、切换样式、权重和事件覆盖后回填。
+
 ## 明确未列入的旧/未调用提示词
 
 以下 prompt 当前不是主流程实际调用路径，本文不展开：
 
-- `ConceptAgent`
-- `SynopsisAgent`
-- `CharacterBiosAgent`
 - `autogen_agents.py::build_position_agent_system_message`
 - `director_ai.py` 旧版 DirectorAI
 - `cinematography/position_agent.py` 旧版 PositionAgent
 - `position_agent_standalone.py` 独立 CLI PositionAgent
+
+`ConceptAgent`、`SynopsisAgent`、`CharacterBiosAgent` 和旧 `ValidationAgent` 已从代码中删除。

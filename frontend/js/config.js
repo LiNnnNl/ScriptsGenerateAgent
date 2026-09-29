@@ -64,6 +64,7 @@ const APP_STATE = {
     customCharacters: [],   // [{name: string, description: string}]
     castSlots: [],          // [{mode: 'library'|'custom', selectedName: '', customName: '', customDesc: ''}]
     requiredCharacterCount: 2,
+    enableCharacterModule: false,
     scriptStyleId: '',
     scriptToneId: '',
     scenes: [],

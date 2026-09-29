@@ -65,9 +65,10 @@ function checkFormComplete() {
     const castGenBtn = document.getElementById('castGenerateBtn');
     const hasScene = APP_STATE.scenePool.length > 0;
     const hasIdea = !!document.getElementById('creativeIdea').value.trim();
+    APP_STATE.enableCharacterModule = document.getElementById('enableCharacterModule').checked;
     if (hasScene) {
         UI.enableStep('step3');
-        castGenBtn.disabled = false;
+        castGenBtn.disabled = !APP_STATE.enableCharacterModule;
     } else {
         castGenBtn.disabled = true;
         UI.disableGenerateBtn();
@@ -80,8 +81,8 @@ function checkFormComplete() {
         UI.disableDirectGenerateBtn();
         UI.disableDirectorWordBtn();
     }
-    // ACTION! 只在角色档案已生成后可用
-    if (hasScene && APP_STATE.generatedCharacters) {
+    // 人物模块关闭时无需先生成角色档案；开启时沿用原有前置条件。
+    if (hasScene && (!APP_STATE.enableCharacterModule || APP_STATE.generatedCharacters)) {
         UI.enableGenerateBtn();
     } else {
         UI.disableGenerateBtn();
@@ -166,6 +167,10 @@ async function generateCast() {
 // 生成剧本
 async function generateScript(directMode = false) {
     const generateBtn = document.getElementById(directMode ? 'directGenerateBtn' : 'generateBtn');
+    const enableCharacterModule = !directMode && APP_STATE.enableCharacterModule;
+    const selectedCharacters = (directMode || enableCharacterModule)
+        ? (APP_STATE.generatedCharacters || [])
+        : [];
 
     if (directMode && !document.getElementById('creativeIdea').value.trim()) {
         alert('请先在创作灵感输入框中粘贴你的完整剧本（JSON、Markdown 分镜表或纯文本）。');
@@ -180,9 +185,12 @@ async function generateScript(directMode = false) {
 
     // 开始日志
     UI.addLog('info', directMode ? '⚡ 直接模式：按你提供的剧本生成（跳过头脑风暴与创作）...' : '🚀 开始生成剧本...');
-    if (APP_STATE.generatedCharacters && APP_STATE.generatedCharacters.length > 0) {
-        UI.addLog('info', `角色: ${APP_STATE.generatedCharacters.map(c => c.name).join(', ')}`);
+    if (selectedCharacters.length > 0) {
+        UI.addLog('info', `角色: ${selectedCharacters.map(c => c.name).join(', ')}`);
     }
+    if (!directMode) UI.addLog('info', enableCharacterModule
+        ? '人物与台词模块：已启用'
+        : '人物与台词模块：未启用（8 Agent 核心流程）');
     const poolNames = (APP_STATE.scenePool || [])
         .map(id => APP_STATE.scenes.find(s => s.id === id)?.name || id)
         .join(' / ');
@@ -200,7 +208,7 @@ async function generateScript(directMode = false) {
         UI.addLog('info', '📡 正在连接 AI 服务...');
 
         await API.generateScript({
-            custom_characters: APP_STATE.generatedCharacters || [],
+            custom_characters: selectedCharacters,
             scene_id: APP_STATE.selectedScene,
             scene_pool: APP_STATE.scenePool,
             act_scenes: APP_STATE.actScenes,
@@ -211,6 +219,7 @@ async function generateScript(directMode = false) {
             shot_style_reference: document.getElementById('shotStyleReference').value.trim(),
             required_character_count: APP_STATE.requiredCharacterCount,
             act_count: APP_STATE.actCount,
+            enable_character_module: enableCharacterModule,
             direct_mode: directMode
         }, (data) => {
             if (data.type === 'success') succeeded = true;
@@ -430,6 +439,7 @@ function setupEventListeners() {
     document.querySelectorAll('.script-tone-option').forEach(btn => {
         btn.addEventListener('click', () => selectScriptTone(btn.dataset.toneId));
     });
+    document.getElementById('enableCharacterModule').addEventListener('change', checkFormComplete);
 
     // 生成角色按钮
     document.getElementById('castGenerateBtn').addEventListener('click', generateCast);
@@ -675,6 +685,8 @@ function refillHistoryForm(sessionId) {
 
     document.getElementById('creativeIdea').value = data.creative_idea || '';
     document.getElementById('shotStyleReference').value = data.shot_style_reference || '';
+    APP_STATE.enableCharacterModule = data.enable_character_module === true;
+    document.getElementById('enableCharacterModule').checked = APP_STATE.enableCharacterModule;
 
     const language = data.dialogue_language || 'mandarin';
     const languageInput = document.getElementById('dialogueLanguage');

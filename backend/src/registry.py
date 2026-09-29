@@ -16,7 +16,7 @@ FORM_DATA_KEYS = (
     "creative_idea", "scene_id", "scene_pool", "act_scenes",
     "custom_characters", "required_character_count", "act_count",
     "script_style_id", "script_tone_id", "dialogue_language",
-    "shot_style_reference", "direct_mode",
+    "shot_style_reference", "enable_character_module", "direct_mode",
 )
 
 

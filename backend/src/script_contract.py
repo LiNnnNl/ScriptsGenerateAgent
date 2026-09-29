@@ -10,7 +10,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
 
-from .resource_loader import POSTURE_TRANSITION_TARGETS
+from .resource_loader import POSTURE_TRANSITION_TARGETS, load_emotion_libraries
 from .position_metadata import normalize_position_metadata, validate_position_metadata
 
 Text = Annotated[str, Field(min_length=1, pattern=r"\S")]
@@ -136,8 +136,7 @@ def issue(path, code, message, candidates=None):
 def read_catalogs(resource_loader):
     """Only repository-local catalogs; Unity paths never become runtime dependencies."""
     root = resource_loader.resource_dir
-    emotions_path = root / "emotion_libraries.json"
-    emotions = json.loads(emotions_path.read_text(encoding="utf-8-sig")) if emotions_path.exists() else {}
+    emotions = load_emotion_libraries(root)
     interactions = {}
     for path in sorted((root / "interactions").glob("*.json")):
         data = json.loads(path.read_text(encoding="utf-8-sig"))
@@ -152,7 +151,7 @@ def read_catalogs(resource_loader):
                 if name:
                     targets.setdefault(name, {"id": name, "anchors": ["center", "bounds_center", "top", "bottom"]})
         camera_targets[data["where"]] = targets
-    return {"emotions": emotions.get("libraries", {}), "interactions": interactions, 'camera_targets': camera_targets}
+    return {"emotions": emotions, "interactions": interactions, 'camera_targets': camera_targets}
 
 
 def normalize_script(script, resource_loader=None):
@@ -455,6 +454,7 @@ def validate_script(script, resource_loader=None, *, final=True, act_count=None,
                             require(name not in emotion_names and 0 <= weight <= 1, path, "EMOTION_WEIGHT", "情绪不重复，权重在 [0,1]")
                             emotion_names.add(name)
                             weights.append(weight)
+                    require(1 <= len(weights) <= 3, path + ".emotion", "EMOTION_COUNT", "复合表情最多包含 3 个情绪")
                     require(math.isclose(sum(weights), 1, abs_tol=1e-6), path, "EMOTION_WEIGHT", "权重总和必须为 1")
             for ai, action in enumerate(event.get("actions", [])):
                 c = action["character"]

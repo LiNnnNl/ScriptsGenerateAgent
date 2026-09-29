@@ -13,10 +13,7 @@ from autogen_agentchat.agents import AssistantAgent
 from autogen_core.models import CreateResult
 from autogen_ext.models.openai import OpenAIChatCompletionClient
 from .resource_loader import ResourceLoader, Character, Scene
-from .autogen_tools import make_validation_tools
 from .agents.character_voice import create_agent as create_character_voice_package_agent
-from .agents.character_bios import create_agent as create_character_bios_package_agent
-from .agents.concept import create_agent as create_concept_package_agent
 from .agents.concept_pitch import create_agent as create_concept_pitch_package_agent
 from .agents.meeting_summary import create_agent as create_meeting_summary_package_agent
 from .agents.narrative_arch import create_agent as create_narrative_arch_package_agent
@@ -29,10 +26,8 @@ from .agents.director_word import create_agent as create_director_word_package_a
 from .agents.revision import create_agent as create_revision_package_agent
 from .agents.story_ir import create_agent as create_story_ir_package_agent
 from .agents.shot_plan import create_agent as create_shot_plan_package_agent
-from .agents.synopsis import create_agent as create_synopsis_package_agent
 from .agents.title import create_agent as create_title_package_agent
 from .agents.treatment import create_agent as create_treatment_package_agent
-from .agents.validation import create_agent as create_validation_package_agent
 
 
 # 额度耗尽时的备用模型（同 API Key，同 BASE_URL）
@@ -135,11 +130,9 @@ def make_fallback_model_client(*, structured_json: bool = False) -> OpenAIChatCo
 
 
 from .prompt_renderers.autogen_agent_prompts import (
-    build_character_bios_system_message,
     build_character_voice_system_message,
     build_meeting_summary_system_message,
     build_concept_pitch_system_message,
-    build_concept_system_message,
     build_critic_system_message,
     build_dialogue_system_message,
     build_director_system_message,
@@ -147,9 +140,7 @@ from .prompt_renderers.autogen_agent_prompts import (
     build_narrative_arch_system_message,
     build_position_agent_system_message,
     build_shot_plan_system_message,
-    build_synopsis_system_message,
     build_treatment_system_message,
-    build_validation_system_message,
 )
 
 
@@ -220,33 +211,6 @@ def create_critic_agent(
             fixed_dialogues=fixed_dialogues,
             script_style_guide=script_style_guide,
         ),
-        assistant_agent_cls=AssistantAgent,
-    )
-
-
-def create_concept_agent(
-    characters: List[Character],
-    scene: Scene,
-    required_character_count: int = 0,
-    model: Optional[str] = None
-) -> AssistantAgent:
-    return create_concept_package_agent(
-        make_model_client(model),
-        build_concept_system_message(characters, scene, required_character_count),
-        assistant_agent_cls=AssistantAgent,
-    )
-
-
-def create_synopsis_agent(model: Optional[str] = None) -> AssistantAgent:
-    return create_synopsis_package_agent(
-        make_model_client(model),
-        assistant_agent_cls=AssistantAgent,
-    )
-
-
-def create_character_bios_agent(model: Optional[str] = None) -> AssistantAgent:
-    return create_character_bios_package_agent(
-        make_model_client(model),
         assistant_agent_cls=AssistantAgent,
     )
 
@@ -361,19 +325,6 @@ def create_narrative_arch_agent(
     return create_narrative_arch_package_agent(
         make_model_client(model),
         build_narrative_arch_system_message(script_style_guide=script_style_guide),
-        assistant_agent_cls=AssistantAgent,
-    )
-
-
-def create_validation_agent(
-    resource_loader: ResourceLoader,
-    scene: Scene,
-    model: Optional[str] = None
-) -> AssistantAgent:
-    tools = make_validation_tools(resource_loader, scene)
-    return create_validation_package_agent(
-        make_model_client(model),
-        tools,
         assistant_agent_cls=AssistantAgent,
     )
 
