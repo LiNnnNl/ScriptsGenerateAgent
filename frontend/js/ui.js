@@ -134,6 +134,41 @@ const UI = {
         }
     },
 
+    showPositionDelivery(files, mode, warnings = []) {
+        let panel = document.getElementById('positionDelivery');
+        if (!panel) {
+            panel = document.createElement('div');
+            panel.id = 'positionDelivery';
+            document.getElementById('resultPanel').appendChild(panel);
+        }
+        panel.replaceChildren();
+        if (mode !== 'native-v2') return;
+        const note = document.createElement('p');
+        note.textContent = '新版走位规划已生成。Unity 验收状态及待处理问题请查看检查报告。';
+        panel.appendChild(note);
+        for (const warning of warnings.filter(item => item.code !== 'unity_pending')) {
+            const issue = document.createElement('p');
+            issue.textContent = `⚠ ${warning.message || warning.code}`;
+            issue.style.color = '#b45309';
+            panel.appendChild(issue);
+        }
+        for (const [key, label] of [['position_bundle', '下载完整走位交付包'], ['attention_plan', '下载注视计划'], ['position_report', '下载检查报告']]) {
+            if (!files[key]) continue;
+            const button = document.createElement('button');
+            button.textContent = label;
+            button.onclick = () => API.downloadFile(files[key]);
+            panel.appendChild(button);
+        }
+        for (const [key, file] of Object.entries(files)) {
+            if (!key.startsWith('position_preview_')) continue;
+            const img = document.createElement('img');
+            img.src = `${API_CONFIG.BASE_URL}/api/download/${encodeURIComponent(file)}`;
+            img.alt = `第 ${key.split('_').pop()} 幕站位预览`;
+            img.style.cssText = 'max-width:100%;display:block;margin-top:12px';
+            panel.appendChild(img);
+        }
+    },
+
     // 显示错误
     showError(message, details = null) {
         const errorPanel = document.getElementById('errorPanel');
@@ -165,7 +200,7 @@ const UI = {
             const hasAnchor = scene.regions && scene.regions.length > 0;
             const disabledAttr = hasAnchor ? '' : 'disabled';
             const checkedAttr = APP_STATE.scenePool.includes(scene.id) ? 'checked' : '';
-            const note = hasAnchor ? '' : '<span class="scene-pool-note">暂无坐标锚点，不可选</span>';
+            const note = hasAnchor ? '' : '<span class="scene-pool-note">尚未提供新版场景包</span>';
             return `
             <label class="scene-pool-item ${hasAnchor ? '' : 'is-disabled'}">
                 <input type="checkbox" class="scene-pool-checkbox" value="${scene.id}" ${disabledAttr} ${checkedAttr}>
@@ -1612,7 +1647,7 @@ const UI = {
   </div>
   <div class="history-session-time">${dt}</div>
   ${errorText}
-  <div class="history-session-actions">${refillBtn}${loadBtn}${wordBtn}</div>
+  <div class="history-session-actions">${refillBtn}${loadBtn}${wordBtn}${files.position_bundle ? `<button class="history-action-btn" onclick="API.downloadFile('${this._attr(files.position_bundle)}')">走位交付包</button>` : ''}</div>
 </div>`;
         }).join('');
     }

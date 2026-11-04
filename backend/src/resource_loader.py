@@ -315,6 +315,9 @@ class ResourceLoader:
         先精确匹配 <scene_id>.json；找不到时按归一化键模糊匹配，
         兼容空格/下划线/大小写差异（如 "Space Station" == "SpaceStation"）。
         """
+        from . import position_integration
+        if position_integration.enabled() and scene_id in position_integration.settings().get('scenes', {}):
+            return position_integration.exported_scene_info(scene_id)
         folder = self.resource_dir / "cinematography" / "scene_info"
         path = folder / f"{scene_id}.json"
         if not path.exists():

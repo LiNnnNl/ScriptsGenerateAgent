@@ -10,7 +10,7 @@ import threading
 from datetime import datetime
 from pathlib import Path
 
-REGISTRY_PATH = Path("outputs/registry.json")
+REGISTRY_PATH = Path(__file__).resolve().parents[1] / 'outputs/registry.json'
 _LOCK = threading.Lock()
 FORM_DATA_KEYS = (
     "creative_idea", "scene_id", "scene_pool", "act_scenes",

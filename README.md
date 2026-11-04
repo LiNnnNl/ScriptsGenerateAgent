@@ -1,5 +1,10 @@
 # ScriptAgent
 
+> **维护交接入口（2026-11-04）：[完整部署、使用、启动与排错](docs/HANDOFF.md)。**
+> 当前 main 已合并线上交接与原开发线，默认 native-v2.1 + GLM + 后台任务；合并不会自动部署。
+> 原线上快照另行保留，旧版快速启动与豆包示例仅供兼容开发参考。
+> 生产由 5001 同时提供前端和 API，不需要另启 8080。外部站位引擎、真实场景及密钥必须另行准备。
+
 电影级 AI 剧本生成系统，基于 Flask + AutoGen 多智能体流水线。支持从创作灵感生成、多场景逐幕编排、粘贴现成剧本直接结构化，以及导演 Word 分镜模式；最终输出经统一合同校验后供 Unity 使用。
 
 主要产物包括剧本 JSON、独立镜头脚本、演员档案、逐幕站位/坐标文件和校验报告。完整架构见 [PROJECT_OVERVIEW.md](./PROJECT_OVERVIEW.md)，最终字段合同见 [docs/script_contract.md](./docs/script_contract.md)。

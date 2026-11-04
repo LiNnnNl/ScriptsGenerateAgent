@@ -96,7 +96,9 @@ def make_model_client(
     function_calling = os.getenv("MODEL_FUNCTION_CALLING", "false").lower() == "true"
 
     create_args = {}
-    if structured_json and "volces.com" in base_url.lower():
+    if 'bigmodel.cn' in base_url.lower() and model_name.lower().startswith('glm-5.3'):
+        create_args['extra_body'] = {'thinking': {'type': 'enabled'}, 'reasoning_effort': 'low'}
+    elif structured_json and "volces.com" in base_url.lower():
         thinking_type = os.getenv("STRUCTURED_MODEL_THINKING", "disabled").strip().lower()
         if thinking_type in {"enabled", "disabled", "auto"}:
             create_args["extra_body"] = {"thinking": {"type": thinking_type}}
