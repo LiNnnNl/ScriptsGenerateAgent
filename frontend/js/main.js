@@ -6,6 +6,12 @@ async function init() {
     setupEventListeners();
     LocalProjects.init();
     loadHistory();
+    const pending = localStorage.getItem('scriptGenerationJob');
+    if (pending) {
+        UI.addLog('info', '正在恢复上次生成任务的进度…');
+        try { await API.followGeneration(JSON.parse(pending), handleStreamData); }
+        catch (error) { UI.showError(error.message); }
+    }
 }
 
 async function loadActions() {
@@ -309,7 +315,8 @@ function handleStreamData(data) {
             data: data.latest_scenes || data.scenes || [],
         });
     } else if (data.type === 'success') {
-        UI.addLog('success', '✅ 剧本生成成功！');
+        const needsReview = (data.warnings || []).some(warning => warning.code === 'AUTHORED_DISTANCE_MISMATCH');
+        UI.addLog(needsReview ? 'warning' : 'success', needsReview ? '剧本与走位已生成，但距离要求有偏差，请查看检查报告。' : '✅ 剧本生成成功！');
         UI.addLog('success', `📁 剧本文件: ${data.filename}`);
         if (data.mode === 'director_word') {
             APP_STATE.currentSessionId = data.session_id || null;
@@ -340,6 +347,12 @@ function handleStreamData(data) {
             UI.addLog('success', `🎥 镜头脚本: ${data.camera_script_filename}`);
         }
         UI.showSuccess(data.filename, data.actors_profile_filename, data.position_filename, [], data.position_plan_filename, data.position_detail_filename, data.camera_script_filename, data.estimated_duration, data.title);
+        UI.showPositionDelivery(data.position_files || {}, data.position_mode, data.warnings || []);
+        for (const warning of data.warnings || []) {
+            UI.addLog('warning', warning.code === 'unity_pending'
+                ? '走位文件已生成，真实场景的碰撞、路径和动画执行仍需在 Unity 中验收。'
+                : warning.message || String(warning));
+        }
         UI.showVersionLabelSection(true);
         loadScriptEditor(data.filename);
         loadHistory();
@@ -772,7 +785,29 @@ async function loadScriptEditor(filename) {
                 APP_STATE.positionPlanMap = {};
             }
 
-            UI.renderScriptViewer(result.data);
+            const native = result.data.some(act => (act.scene || []).some(event => event.blocking_state_id));
+            APP_STATE.nativePositionScript = native;
+            if (native) {
+                APP_STATE.currentScriptData = result.data;
+                viewer.replaceChildren();
+                const note = document.createElement('p');
+                note.textContent = '新版剧本已绑定走位和注视计划。修改剧情后请重新生成；完整交付请下载走位交付包。';
+                viewer.appendChild(note);
+                for (const act of result.data) {
+                    for (const event of act.scene || []) {
+                        const row = document.createElement('p');
+                        row.textContent = `${event.speaker || '场景'}：${event.content || ''}　[${event.blocking_state_id}]`;
+                        viewer.appendChild(row);
+                    }
+                }
+                const download = document.createElement('button');
+                download.textContent = '下载已验证剧本';
+                download.onclick = () => API.downloadFile(filename);
+                viewer.appendChild(download);
+            } else {
+                UI.renderScriptViewer(result.data);
+            }
+            document.getElementById('downloadScriptEditedBtn').disabled = native;
         } else {
             viewer.innerHTML = `<p style="padding:20px;color:#f44336">加载失败：${result.error}</p>`;
         }

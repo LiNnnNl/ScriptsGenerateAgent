@@ -1,5 +1,8 @@
 # ScriptsGenerateAgent — 项目规则
 
+> 维护交接：`docs/HANDOFF.md` 为当前生产分支的安装、启动、使用和故障处理入口。
+> 本分支基于 25fd697，未擅自合并后续 main；站位私有引擎和素材不发布到本公开仓库。
+
 > 仅放本项目专属约定。通用规则（语言、协作态度、编码风格、提交格式）见全局 `~/.Codex/AGENTS.md`，此处不重复。
 
 ## 项目概述
@@ -23,8 +26,13 @@
 
 ## 关键架构事实（动代码前必须记住）
 
-- **位置与物体镜头权威数据源**：`backend/resources/cinematography/scene_info/*.json` 的 anchors/scene_markers 是**带真实 x/y/z 坐标的物品锚点**，为唯一权威；其中 `scene_markers.name` 同时作为该场景合法的物体镜头 `target`。`scenes_resource.json` 的 `valid_positions`（Position 1~N）是**无坐标的逻辑槽**，旧版，仅作导演点位菜单 + 同框约束 + 校验。
-- **坐标全部由摄影算**：角色站位 x/y/z 由摄影 Stage2（`CinematographyPositionStage`，分组→规划 region+neartarget→`CoordinateSkill` 用锚点坐标 + `LayoutLib.json` 按人数选站位方式）计算得出。Position N 本身不带坐标。
+- **新版默认链路（2026-11-02）**：`backend/position_agent.json` 启用 native-v2。`src/position_integration.py` 调用独立环境中的 `agent_runner`，目前只有 MinNan 完整 ScenePackage。不得回退旧坐标求解或将旧 Position 编号当成新坐标；`script.json`、`blocking_plan.json`、`spatial_solution.json`、`attention_plan.json` 为不可修改的正式四文件。旧版位置合同仍用于上游编辑稿校验，发布前按新版合同再次校验，下载为新版剧本。
+- **新版镜头与模型**：镜头 `target_position` 引用本幕 `placement_id`，取事件执行 `before_event` 转换之后的人物状态；身体旋转是 `body_facing_world`，补偿 0。模型配置从数据盘私密文件加载，GLM 5.3 必须启用思考并指定 `reasoning_effort=low`，不得沿用豆包的关闭思考参数。
+- **2026-11-04 数值距离升级**：默认快照为 `20261103-api-checked-linux-epsilon`。明确人物间距贯穿原文证据、分状态硬约束、求解与正式交付；约数容差 0.3 米、精确数 0.05 米，统一 1e-6 米浮点比较余量，不自动放宽业务容差。仅无对白移动可按紧邻下一事件的 `before_event` 完成，检查报告显式记录边界映射，其他未授权移动仍拒绝。历史任务继续绑定原快照，不能原地改审批哈希。详见 `docs/position_agent_v2_1.md`。
+- **后台生成**：页面使用 `POST/GET /api/generation_jobs`，稳定 job_id 防重复提交；独立进程生成，状态和事件存于 `backend/outputs/.jobs`。刷新/断线后恢复查询，不自动重试状态不明的模型调用。Web 工作进程重启不终止后台任务。详细操作、限制和验收见 `docs/position_agent_v2.md`。
+
+- **位置与物体镜头权威数据源**：新版读取配置绑定的原始 ScenePackage（grid/navigation/affordances/camera_targets），读取时构建镜头上下文，不覆盖原始导出。以下旧版说明仅适用于关闭 native-v2 的兼容路径：`backend/resources/cinematography/scene_info/*.json` 的 anchors/scene_markers 为旧锚点源。`scenes_resource.json` 的 `valid_positions`（Position 1~N）是无坐标的编辑稿逻辑槽。
+- **坐标全部由程序求解**：新版用导出网格、导航和人物尺寸求解并做视觉审查；旧版兼容 Stage2 使用 `CoordinateSkill`。Position N 本身不带坐标。
 - **direct_mode（直接生成）**：用户粘已写好的剧本时，跳过头脑风暴/对白补写，由 `DirectorAgent_Direct` 做"结构化不创作"——对白逐字保留、保留每个镜头、按用户「位置」分配 Position N。实现在 `autogen_pipeline.py` 的 `_build_direct_draft` 与 `autogen_agents.py` 的 `build_director_system_message(..., direct_mode=True)`。
 - **无说话人协议**：无 move 且 `speaker=""`；content 保留原文（允许“无台词”），`duration` 为正数秒默认 5，`actions=[]`。普通空镜的中间 shot=scene；摄影参数仅进入独立 camera_script。统一识别见 scene_segments.py，文学审查跳过、摄影不分配人物镜头。
 - **最终合同**：`backend/src/script_contract.py` 强制字段、动作前 state、资源候选及跨文件引用。规则见 `docs/script_contract.md`。先暂存于 outputs/.pending，通过后才发布；空库名称留空并报 RESOURCE_LIBRARY_EMPTY，禁止假造资源。camera_script 使用 shot_index，多幕位置文件使用 scenes 数组。

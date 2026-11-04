@@ -487,7 +487,7 @@ async def run_director_word_pipeline(
     _emit_output(bridge, "DirectorAgent_Word", draft_script)
 
     timestamp = int(time.time())
-    output_dir = Path("outputs")
+    output_dir = Path(__file__).resolve().parents[1] / 'outputs'
     output_dir.mkdir(exist_ok=True)
     filename = f"script_director_{timestamp}.json"
     docx_filename = f"script_director_{timestamp}.docx"

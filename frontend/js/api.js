@@ -32,56 +32,59 @@ const API = {
         return await response.json();
     },
 
-    // 生成剧本（流式）
+    // 稳定任务编号提交，断线只重连查询，不重复生成。
     async generateScript(data, onStream) {
-        const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.GENERATE}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(data)
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        if (localStorage.getItem('scriptGenerationJob')) {
+            throw new Error('有尚未收取结果的任务，请刷新页面恢复进度。');
         }
+        const pending = {job_id: crypto.randomUUID(), params: data};
+        localStorage.setItem('scriptGenerationJob', JSON.stringify(pending));
+        return this.followGeneration(pending, onStream);
+    },
 
-        // 读取流式响应
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = '';
-
+    async followGeneration(pending, onStream) {
+        const endpoint = `${API_CONFIG.BASE_URL}/api/generation_jobs`;
+        const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
+        let accepted = false, cursor = 0, failures = 0, terminalSeen = false;
         while (true) {
-            const { done, value } = await reader.read();
-            
-            if (done) break;
-            
-            buffer += decoder.decode(value, { stream: true });
-            
-            // 处理完整的JSON行
-            const lines = buffer.split('\n');
-            buffer = lines.pop();
-            
-            for (const line of lines) {
-                if (line.trim()) {
-                    try {
-                        const data = JSON.parse(line);
-                        onStream(data);
-                    } catch (e) {
-                        console.error('解析日志失败:', e, line);
-                    }
-                }
-            }
-        }
-
-        // 处理剩余buffer
-        if (buffer.trim()) {
+            let state;
             try {
-                const data = JSON.parse(buffer);
-                onStream(data);
-            } catch (e) {
-                console.error('解析最后的日志失败:', e, buffer);
+                const response = await fetch(accepted ? `${endpoint}/${encodeURIComponent(pending.job_id)}?cursor=${cursor}` : endpoint,
+                    accepted ? {signal: AbortSignal.timeout(20000)} : {
+                        method: 'POST', headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(pending), signal: AbortSignal.timeout(20000)
+                    });
+                state = await response.json();
+                if (!response.ok) {
+                    if ([400, 404, 409].includes(response.status)) {
+                        localStorage.removeItem('scriptGenerationJob');
+                        const error = new Error(state.error || '任务请求未通过');
+                        error.definitive = true;
+                        throw error;
+                    }
+                    throw new Error(state.error || `服务暂时不可用（${response.status}）`);
+                }
+                accepted = true;
+                failures = 0;
+            } catch (error) {
+                if (error.definitive) throw error;
+                failures += 1;
+                if (failures === 1) onStream({type: 'log', level: 'warning', message: '连接暂时中断，正在恢复任务进度；服务器任务不会因页面断线取消。'});
+                if (failures >= 12) throw new Error('暂时无法连接服务器。任务编号已保存，请稍后刷新页面恢复查询。');
+                await pause(Math.min(1000 * 2 ** failures, 15000));
+                continue;
             }
+            for (const event of state.events || []) {
+                onStream(event);
+                if (['success', 'error'].includes(event.type)) terminalSeen = true;
+            }
+            cursor = state.cursor;
+            if (state.state !== 'running' && !state.has_more) {
+                localStorage.removeItem('scriptGenerationJob');
+                if (!terminalSeen) onStream(state.result || {type: 'error', message: state.error || '任务未返回结果'});
+                return;
+            }
+            await pause(state.has_more ? 0 : 2500);
         }
     },
 

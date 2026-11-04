@@ -1,0 +1,19 @@
+{
+  "enabled": true,
+  "home": "/mnt/data/lzf/position-planning",
+  "release": "releases/20261103-api-checked-linux-epsilon",
+  "env_file": "model.env",
+  "model": "glm-5.3-flash",
+  "scenes": {"MinNan": "inputs/scenes/MinNan"},
+  "max_turns": 32,
+  "max_calls": 64,
+  "max_total_tokens": 5000000,
+  "max_run_seconds": 3600,
+  "distance_policy": {
+    "meters_per_world_unit": 1.0,
+    "distance_metric": "xz_root_distance",
+    "approx_tolerance_m": 0.3,
+    "exact_tolerance_m": 0.05,
+    "default_group_distance_m": 1.4
+  }
+}

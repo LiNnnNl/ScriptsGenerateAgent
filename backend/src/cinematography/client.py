@@ -51,6 +51,10 @@ class LLMJsonClient:
             "max_tokens": self.max_tokens,
             "response_format": {"type": "json_object"},
         }
+        if 'bigmodel.cn' in self.api_url:
+            payload['thinking'] = {'type': 'enabled'}
+            payload['reasoning_effort'] = 'low'
+            payload['max_tokens'] = max(payload['max_tokens'], 16384)
 
         last_error = None
         _quota_switched = False

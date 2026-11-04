@@ -144,6 +144,12 @@ def read_catalogs(resource_loader):
                 if name:
                     targets.setdefault(name, {"id": name, "anchors": ["center", "bounds_center", "top", "bottom"]})
         camera_targets[data["where"]] = targets
+    from . import position_integration
+    if position_integration.enabled():
+        for scene_id in position_integration.settings().get('scenes', {}):
+            info = position_integration.exported_scene_info(scene_id)
+            camera_targets[scene_id] = {m['name']: {'id': m['name'], 'anchors': ['center', 'bounds_center', 'top', 'bottom']}
+                for region in info['regions'] for m in region.get('scene_markers', [])}
     return {"emotions": emotions.get("libraries", {}), "interactions": interactions, 'camera_targets': camera_targets}
 
 
@@ -491,7 +497,7 @@ def validate_script(script, resource_loader=None, *, final=True, act_count=None,
     return {"valid": not errors, "errors": errors, "warnings": warnings}
 
 
-def validate_bundle(script, camera, actors, loader, plans=None, details=None):
+def validate_bundle(script, camera, actors, loader, plans=None, details=None, native_scenes=None):
     """Cross-file checks against the exact final script, not an earlier draft."""
     from .schema import validate_camera_script
     errors, warnings = [], []
@@ -502,6 +508,9 @@ def validate_bundle(script, camera, actors, loader, plans=None, details=None):
         if not ok:
             errors.append(issue(path, 'BUNDLE_REFERENCE', message))
     camera_scenes = camera['scenes']
+    if native_scenes is not None:
+        from .position_integration import validate_camera_targets
+        errors.extend(validate_camera_targets(camera, native_scenes))
     check(len(camera_scenes) == len(script), 'camera_script.scenes', '幕数必须与剧本一致')
     for si, (act, cs) in enumerate(zip(script, camera_scenes)):
         check(cs['shot_index'] == si, f'camera_script.scenes[{si}]', 'shot_index 必须匹配幕索引')
@@ -510,7 +519,7 @@ def validate_bundle(script, camera, actors, loader, plans=None, details=None):
             path = f'camera_script.scenes[{si}].events[{ei}]'
             check(ce['event_index'] == ei, path, 'event_index 不匹配')
             pos = {p['character']: p['position'] for p in event['current position']}
-            if ce['shot'] == 'character':
+            if ce['shot'] == 'character' and native_scenes is None:
                 check(ce['target'] in pos and pos.get(ce['target']) == ce['target_position'], path, '镜头目标与事件开始位置不匹配')
             elif ce['shot'] == 'object':
                 targets = read_catalogs(loader)['camera_targets'].get(act['scene information']['where'], {})
@@ -544,7 +553,7 @@ def validate_bundle(script, camera, actors, loader, plans=None, details=None):
             check(isinstance(appearance, dict) and all(isinstance(appearance.get(k), str) for k in ('height', 'body_type', 'hair', 'face')),
                   f'actors_profile[{i}].appearance', 'appearance 必须有四个字符串字段')
             check(isinstance(actor.get('traits'), list) and all(isinstance(t, str) for t in actor['traits']), f'actors_profile[{i}].traits', 'traits 必须为字符串数组')
-    for label, document in (('position_plan', plans), ('position_detail', details)):
+    for label, document in (() if native_scenes is not None else (('position_plan', plans), ('position_detail', details))):
         if document is None:
             continue
         scenes = document.get('scenes', [document]) if isinstance(document, dict) else []
