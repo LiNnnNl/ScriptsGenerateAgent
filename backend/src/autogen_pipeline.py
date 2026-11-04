@@ -76,8 +76,8 @@ from .performance import run_performance_pipeline
 MAX_REVIEW_ROUNDS = 3
 
 
-_CONTRACT_EVENT_PATH_RE = re.compile(r"^\$\[(\d+)]\.scene\[(\d+)]")
-_CONTRACT_ACT_PATH_RE = re.compile(r"^\$\[(\d+)]\.(scene information|initial position)")
+_CONTRACT_EVENT_PATH_RE = re.compile(r"^\$(?:\[|\.)(\d+)\]?\.scene(?:\[|\.)(\d+)\]?")
+_CONTRACT_ACT_PATH_RE = re.compile(r"^\$(?:\[|\.)(\d+)\]?\.(scene information|initial position)")
 
 
 def _character_module_enabled(request_params: dict) -> bool:
@@ -2147,6 +2147,19 @@ def _normalize_direct_scene(scene_obj: Dict, fallback_names: List[str], scene_na
         empty_shot = is_empty_shot(beat)
         if has_move and isinstance(beat.get("move"), dict):
             beat["move"] = [beat["move"]]
+        if has_move and not beat.get('speaker'):
+            # Silent movement is stage direction, not dialogue. Canonicalize
+            # before freezing the dialogue contract so repair never has to
+            # "change" an empty speaker or the literal no-dialogue marker.
+            narration = str(beat.get('content') or '').strip()
+            if narration and narration not in ('无台词', '无对白'):
+                description = str(beat.get('shot_description') or '')
+                if narration not in description:
+                    beat['shot_description'] = (description + '\n' + narration).strip()
+            beat.pop('speaker', None)
+            beat.pop('content', None)
+            if beat.get('actions') == []:
+                beat.pop('actions')
 
         if not beat.get("shot"):
             beat["shot"] = "scene" if has_move or empty_shot else "character"
@@ -2686,6 +2699,10 @@ async def run_autogen_pipeline(
                 return
 
     scene = scene_pool_objs[0]  # 默认场景，保留所有现有单 scene 引用
+    from . import position_integration
+    position_integration.check_request({'scene_pool': [s.id for s in scene_pool_objs]})
+    position_source_context = (position_integration.authored_contexts(creative_idea, act_count) if direct_mode else
+                               {i: creative_idea for i in range(act_count)}) if position_integration.enabled() else {}
 
     # 构建 幕→场景 映射：act_scenes[i] 解析为池内 Scene；缺失/越界/无效 → 回退默认场景
     act_scenes_ids = request_params.get('act_scenes') or []
@@ -3062,7 +3079,8 @@ async def run_autogen_pipeline(
     import asyncio as _asyncio
     _running_loop = _asyncio.get_running_loop()
     timestamp = time.time_ns()
-    output_dir = Path('outputs') / '.pending' / str(timestamp)
+    output_root = Path(__file__).resolve().parents[1] / 'outputs'
+    output_dir = output_root / '.pending' / str(timestamp)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     _emit_stage_log(bridge, 'info', 'output', 'start', '💾 [输出阶段] 正在生成最终 JSON 并保存文件...')
@@ -3124,6 +3142,8 @@ async def run_autogen_pipeline(
 
     # ── 阶段五前：从剧本直接提取位置文件（兜底，始终生成） ──
     camera_script_filename = None
+    native_scenes = None
+    native_files = {}
     position_plan_filename = f"position_plan_{timestamp}.json"
     position_detail_filename = f"position_detail_{timestamp}.json"
     _base_plan, _base_detail = _extract_position_files(final_json, scene.id)
@@ -3150,6 +3170,7 @@ async def run_autogen_pipeline(
                 timestamp,
                 act_scene_map if multi_scene else None,
                 _emit_cinematography_progress,
+                position_source_context,
             )
             if cine_result.get("ok"):
                 draft_script = cine_result["enriched_script"]
@@ -3157,6 +3178,7 @@ async def run_autogen_pipeline(
                 camera_script_filename = cine_result.get("camera_script_filename")
                 position_plan_filename = cine_result.get("position_plan_filename")
                 position_detail_filename = cine_result.get("position_detail_filename")
+                native_scenes = cine_result.get('native_scenes')
                 # Per-act position files from this run are authoritative; never read shared stale stage files.
                 checked, _ = normalize_script(draft_script, resource_loader)
                 final_check = validate_script(checked, resource_loader, act_count=act_count,
@@ -3182,7 +3204,9 @@ async def run_autogen_pipeline(
 
     # ── 阶段六：动作与表情专项选择 ──
     _emit_stage_log(bridge, 'info', 'performance', 'start',
-                    '🎭 [表演设计期] 动作与表情智能体开始逐镜头选择资源...')
+                    ('📦 [表演设计期] 使用已批准的新版原生交付，不追加动作/表情调用'
+                     if native_scenes is not None
+                     else '🎭 [表演设计期] 动作与表情智能体开始逐镜头选择资源...'))
 
     def _emit_performance_progress(level: str, phase: str, message: str) -> None:
         _emit_stage_log(bridge, level, 'performance', phase, message)
@@ -3193,12 +3217,15 @@ async def run_autogen_pipeline(
         draft_script,
         resource_loader,
         _emit_performance_progress,
+        native_scenes,
     )
     if not performance_result.get("ok"):
         raise ValueError(f'动作与表情选择失败，未发布最终文件：{performance_result.get("error")}')
     draft_script = performance_result["enriched_script"]
     _emit_stage_log(bridge, 'success', 'performance', 'result',
-                    '✅ [表演设计期] 动作与表情已按镜头完成选择')
+                    ('📦 [表演设计期] 新版正式四文件已批准，保留原生表演，不追加改写动作/表情'
+                     if performance_result.get('skipped') == 'native_release_immutable'
+                     else '✅ [表演设计期] 动作与表情已按镜头完成选择'))
 
     final_json, empty_warnings = normalize_script(draft_script, resource_loader)
     validation_result = validate_script(final_json, resource_loader, act_count=act_count,
@@ -3307,10 +3334,12 @@ async def run_autogen_pipeline(
 
     def read_output(name):
         return json.loads((output_dir / name).read_text(encoding='utf-8'))
-    camera_document = normalize_camera_resources(read_output(camera_script_filename), final_json, resource_loader)
+    camera_document = read_output(camera_script_filename)
+    if native_scenes is None:
+        camera_document = normalize_camera_resources(camera_document, final_json, resource_loader)
     (output_dir / camera_script_filename).write_text(json.dumps(camera_document, ensure_ascii=False, indent=2), encoding='utf-8')
     bundle_report = validate_bundle(final_json, camera_document, actors_profile,
-        resource_loader, read_output(position_plan_filename), read_output(position_detail_filename))
+        resource_loader, read_output(position_plan_filename), read_output(position_detail_filename), native_scenes=native_scenes)
     validation_result['errors'].extend(bundle_report['errors'])
     validation_result['warnings'].extend(bundle_report['warnings'])
     validation_result['valid'] = not validation_result['errors']
@@ -3318,10 +3347,26 @@ async def run_autogen_pipeline(
     (output_dir / report_filename).write_text(json.dumps(validation_result, ensure_ascii=False, indent=2), encoding='utf-8')
     if not validation_result['valid']:
         raise ValueError('最终产物交叉校验失败：' + json.dumps(validation_result['errors'], ensure_ascii=False))
+    if native_scenes is not None:
+        native_files = position_integration.publish_artifacts(output_dir, timestamp, native_scenes, camera_document)
+        # The download is the native script. Legacy slots were editorial input,
+        # and must never be presented as the new executable placement authority.
+        final_json = [item['documents']['script.json'][0] for item in native_scenes]
+        position_integration.save(filepath, final_json)
+        validation_result['position_mode'] = 'native-v2'
+        validation_result['can_execute'] = all(item['final']['capabilities'].get('can_execute') for item in native_scenes)
+        for index, item in enumerate(native_scenes):
+            validation_result['warnings'].extend(position_integration.audit_authored_distances(item))
+            if any(p.get('facing_resolution', {}).get('requires_review') for p in item['documents']['spatial_solution.json']['placements']):
+                validation_result['warnings'].append({'path': f'$[{index}]', 'code': 'BODY_FACING_REVIEW',
+                    'message': '部分身体朝向来自推断或默认策略，需结合剧情复核。'})
+            validation_result['warnings'].extend({'path': f'$[{index}]', 'code': issue['code'], 'message': issue['message']}
+                for issue in item['final'].get('open_issues', []))
+        position_integration.save(output_dir/report_filename, validation_result)
     # Only validated artifacts are made downloadable and registered as successful.
     for name in (filename, camera_script_filename, actors_profile_filename,
-                 position_plan_filename, position_detail_filename, report_filename):
-        os.replace(output_dir / name, Path('outputs') / name)
+                 position_plan_filename, position_detail_filename, report_filename, *native_files.values()):
+        os.replace(output_dir / name, output_root / name)
 
     _emit_stage_log(bridge, 'success', 'output', 'actors_profile', f'✅ 已生成角色档案：{len(actors_profile)} 位演员')
 
@@ -3337,6 +3382,7 @@ async def run_autogen_pipeline(
             "position_plan": position_plan_filename,
             "position_detail": position_detail_filename,
             "validation": report_filename,
+            **native_files,
         },
         scene_id=session_scene_id,
         act_count=act_count,
@@ -3357,6 +3403,8 @@ async def run_autogen_pipeline(
         'session_id': session_id,
         'validation_filename': report_filename,
         'title': script_title,
+        'position_mode': 'native-v2' if native_scenes is not None else 'legacy',
+        'position_files': native_files,
         'estimated_duration': duration_info,
         'warnings': validation_result.get('warnings', []) if validation_result else []
     })

@@ -248,15 +248,17 @@ class DirectorBatchedIRTests(unittest.TestCase):
             "initial position": [{"character": "A", "position": "Position 1"}],
             "scene": [{"content": "one"}, {"content": "two"}, {"content": "three"}],
         }]
-        payload = _contract_repair_payload(script, [{
-            "path": "$[0].scene[1].actions[0].action",
-            "code": "RESOURCE_VALUE",
-            "candidates": ["Standing Normal"],
-        }])
+        for path in ("$[0].scene[1].actions[0].action", "$.0.scene.1.actions.0.action"):
+            with self.subTest(path=path):
+                payload = _contract_repair_payload(script, [{
+                    "path": path,
+                    "code": "RESOURCE_VALUE",
+                    "candidates": ["Standing Normal"],
+                }])
 
-        self.assertEqual(1, len(payload["event_targets"]))
-        self.assertEqual("two", payload["event_targets"][0]["event"]["content"])
-        self.assertNotIn("three", str(payload))
+                self.assertEqual(1, len(payload["event_targets"]))
+                self.assertEqual("two", payload["event_targets"][0]["event"]["content"])
+                self.assertNotIn("three", str(payload))
 
     def test_contract_repair_is_split_into_bounded_batches(self):
         from src.autogen_pipeline import _contract_repair_batches

@@ -5,7 +5,11 @@ from .action import ActionSelectionStage
 from .expression import ExpressionSelectionStage
 
 
-def run_performance_pipeline(script, resource_loader, progress_callback=None):
+def run_performance_pipeline(script, resource_loader, progress_callback=None, native_scenes=None):
+    # Native four-file releases are already approved. Selecting resources here
+    # would either invalidate their hashes or be silently lost at publication.
+    if native_scenes is not None:
+        return {"ok": True, "enriched_script": script, "skipped": "native_release_immutable"}
     try:
         client = LLMJsonClient(model_env="PERFORMANCE_MODEL")
         action_result = ActionSelectionStage(

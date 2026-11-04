@@ -74,6 +74,7 @@ class CameraPlanningStage:
         stage_output_dir=None,
         progress_callback=None,
         validation_feedback="",
+        authoritative_snapshots=False,
     ):
         self.raw_script_json = self._load_json_like(script_json)
         self.scene_info_json = self._load_json_like(scene_info_json)
@@ -89,6 +90,7 @@ class CameraPlanningStage:
         self.output_path = self.output_dir / self.OUTPUT_FILENAME
         self.progress_callback = progress_callback
         self.validation_feedback = validation_feedback
+        self.authoritative_snapshots = authoritative_snapshots
 
         self.script_payload = copy.deepcopy(self.raw_script_json)
         self.timeline_root = self._extract_timeline_root(self.script_payload)
@@ -116,6 +118,10 @@ class CameraPlanningStage:
         for beat_index, beat in enumerate(scene, start=1):
             if not isinstance(beat, dict):
                 continue
+            if self.authoritative_snapshots:
+                current_position_state = OrderedDict(
+                    (p['character'], p['position']) for p in beat['current position']
+                )
             beat["current position"] = [
                 {"character": char, "position": pos_id}
                 for char, pos_id in current_position_state.items()

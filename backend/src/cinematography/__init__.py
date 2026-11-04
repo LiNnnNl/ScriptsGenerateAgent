@@ -42,7 +42,7 @@ _SHOT_BLEND_MAP = {
 # Public API
 # ─────────────────────────────────────────────��
 
-def run_cinematography_pipeline(script, scene, resource_dir, output_dir, timestamp, act_scene_map=None, progress_callback=None):
+def run_cinematography_pipeline(script, scene, resource_dir, output_dir, timestamp, act_scene_map=None, progress_callback=None, source_context=None):
     """
     Synchronous three-stage cinematography post-processing pipeline.
     Designed to run inside asyncio.get_event_loop().run_in_executor().
@@ -62,6 +62,10 @@ def run_cinematography_pipeline(script, scene, resource_dir, output_dir, timesta
         {"ok": False, "error": "..."}
     """
     try:
+        from .. import position_integration
+        if position_integration.enabled():
+            return position_integration.run_cinematography(
+                script, scene, resource_dir, output_dir, timestamp, act_scene_map, progress_callback, source_context)
         resource_dir = Path(resource_dir)
         output_dir = Path(output_dir)
 
@@ -126,6 +130,7 @@ def run_cinematography_pipeline(script, scene, resource_dir, output_dir, timesta
                 enriched_scene = scene_obj
 
             protect_empty_shots(enriched_scene, ensure_camera=True)
+            _normalise_shot_contract(enriched_scene)
 
             # ── 冲突修复1: save "scene" beats before Stage 3 overwrites them ──
             scene_shot_backup = _backup_scene_shots(enriched_scene)
@@ -202,6 +207,7 @@ def run_cinematography_pipeline(script, scene, resource_dir, output_dir, timesta
 
             # ── 冲突修复2: normalise shot_blend to current framework format ──
             _normalise_shot_blend(final_scene)
+            _normalise_shot_contract(final_scene)
 
             enriched_script.append(final_scene)
             all_position_plans.append(position_plan_json)
@@ -265,6 +271,7 @@ def run_cinematography_pipeline(script, scene, resource_dir, output_dir, timesta
                             backup = _backup_scene_shots(data["scene_obj"])
                             _restore_scene_shots(new_scene, backup)
                             _normalise_shot_blend(new_scene)
+                            _normalise_shot_contract(new_scene)
                             enriched_script[retry_si] = new_scene
                             logger.info("[Cinematography] Stage 3 retry done for scene %d", retry_si)
                     except Exception as retry_exc:
@@ -368,6 +375,64 @@ def _normalise_shot_blend(scene_obj):
         elif isinstance(raw, str) and raw.lower() in ("cut", "blend", "easein"):
             beat["shot_blend"] = raw.lower()
         # If value is already correct (lowercase), leave it; unknown values left as-is.
+
+
+def _normalise_shot_contract(scene_obj):
+    """Deterministically repair cross-field shot invariants before validation."""
+    object_shot_types = {"物体中景", "物体特写", "插入镜头"}
+    for beat in scene_obj.get("scene", []):
+        if not isinstance(beat, dict):
+            continue
+
+        shot = beat.get("shot") or "character"
+        if shot == "object":
+            target = beat.get("target")
+            target = target.strip() if isinstance(target, str) else ""
+            if not target:
+                speaker = beat.get("speaker")
+                speaker = speaker.strip() if isinstance(speaker, str) else ""
+                if speaker:
+                    beat["shot"] = "character"
+                    raw_type = str(beat.get("shot_type") or "").strip()
+                    beat["shot_type"] = "中景" if not raw_type or raw_type in object_shot_types else raw_type
+                    follow = beat.get("Follow")
+                    beat["Follow"] = follow if type(follow) is int and follow in (0, 1) else 0
+                    for field in ("camera", "target", "target_anchor"):
+                        beat.pop(field, None)
+                else:
+                    beat["shot"] = "scene"
+                    camera = beat.get("camera")
+                    beat["camera"] = camera if type(camera) is int and camera >= 0 else 1
+                    for field in ("target", "target_anchor", "shot_type", "Follow"):
+                        beat.pop(field, None)
+                continue
+
+            beat["target"] = target
+            beat["target_anchor"] = beat.get("target_anchor") or "center"
+            raw_type = str(beat.get("shot_type") or "").strip()
+            if raw_type not in object_shot_types:
+                if "插入" in raw_type:
+                    raw_type = "插入镜头"
+                elif "特写" in raw_type or raw_type in {"近景", "中近景"}:
+                    raw_type = "物体特写"
+                else:
+                    raw_type = "物体中景"
+            beat["shot_type"] = raw_type
+            beat.pop("camera", None)
+            beat.pop("Follow", None)
+        elif shot == "scene":
+            camera = beat.get("camera")
+            beat["camera"] = camera if type(camera) is int and camera >= 0 else 1
+            for field in ("target", "target_anchor", "shot_type", "Follow"):
+                beat.pop(field, None)
+        else:
+            beat["shot"] = "character"
+            if not beat.get("shot_type") or beat.get("shot_type") in object_shot_types:
+                beat["shot_type"] = "中景"
+            follow = beat.get("Follow")
+            beat["Follow"] = follow if type(follow) is int and follow in (0, 1) else 0
+            for field in ("camera", "target", "target_anchor"):
+                beat.pop(field, None)
 
 
 # ──────────────────────────────────────────────

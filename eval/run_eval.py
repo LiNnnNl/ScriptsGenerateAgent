@@ -245,12 +245,13 @@ def render_html(run_dir: Path, results: List[Dict[str, Any]]) -> None:
                 f"<ul>{previews}</ul>"
                 "</section>"
             )
+        error_html = '<p class="error">' + esc(item['error']) + '</p>' if item.get('error') else ''
         cards.append(
             "<article class=\"case-card\">"
             f"<header><h3>{esc(item['name'])}</h3><span class=\"pill {status_class}\">{esc(item['status'])}</span></header>"
             f"<p class=\"idea\">{esc(item['creative_idea'])}</p>"
             f"<div class=\"meta\">耗时 {esc(item['elapsed_seconds'])}s · 标题 {esc(item.get('title') or '未生成')} · 幕数 {esc(summary.get('act_count'))} · beat {esc(summary.get('beat_count'))}</div>"
-            f"{'<p class=\"error\">' + esc(item.get('error')) + '</p>' if item.get('error') else ''}"
+            f"{error_html}"
             f"<nav>{links}</nav>"
             + "".join(act_blocks)
             + "</article>"

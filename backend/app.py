@@ -18,6 +18,9 @@ import time
 from datetime import datetime
 from pathlib import Path
 from dotenv import load_dotenv
+load_dotenv(Path(__file__).resolve().parent / '.env')
+from src.position_integration import configure_models
+configure_models()
 from src.resource_loader import ACTION_POSTURE_CATEGORIES, ACTION_POSTURE_LABELS, ResourceLoader
 from src.autogen_bridge import AutoGenStreamBridge
 from src.autogen_agents import is_quota_error
@@ -93,8 +96,12 @@ def _create_chat_completion_with_quota_fallback(client, primary_model, fallback_
 
 app = Flask(__name__)
 app.config['JSON_AS_ASCII'] = False  # 支持中文
+app.config['MAX_CONTENT_LENGTH'] = int(
+    os.getenv('SCRIPT_AGENT_MAX_CONTENT_LENGTH', str(2 * 1024 * 1024))
+)
 _repo_dir = Path(__file__).resolve().parent.parent
 _frontend_dir = _repo_dir / "frontend"
+_output_dir = Path(__file__).resolve().parent / 'outputs'
 
 
 class _ScriptPrefixMiddleware:
@@ -219,7 +226,9 @@ def get_all_scenes():
         scenes = resource_loader.get_all_scenes()
         scenes_data = []
         for scene in scenes:
-            raw = resource_loader.load_scene_info(scene.id)
+            from src import position_integration
+            available = not position_integration.enabled() or scene.id in position_integration.settings().get('scenes', {})
+            raw = resource_loader.load_scene_info(scene.id) if available else None
             regions = []
             if raw:
                 for r in raw.get("regions", []):
@@ -234,6 +243,7 @@ def get_all_scenes():
                 'name': scene.name,
                 'description': scene.description,
                 'regions': regions,
+                'position_available': available,
             })
         return jsonify({'success': True, 'data': scenes_data})
     except Exception as e:
@@ -530,7 +540,7 @@ def generate_characters():
         # 保存文件
         timestamp = int(datetime.now().timestamp())
         filename = f"characters_{timestamp}.json"
-        output_dir = Path('outputs')
+        output_dir = _output_dir
         output_dir.mkdir(exist_ok=True)
         with open(output_dir / filename, 'w', encoding='utf-8') as f:
             json.dump(characters, f, ensure_ascii=False, indent=2)
@@ -548,6 +558,31 @@ def generate_characters():
     except Exception as e:
         logger.error("generate_characters 失败: %s", e)
         return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/generation_jobs', methods=['POST'])
+def submit_generation_job():
+    from src import generation_jobs
+    body = request.get_json(silent=True)
+    if not isinstance(body, dict):
+        return jsonify({'error': '请求格式无效'}), 400
+    try:
+        return jsonify(generation_jobs.submit(body.get('job_id'), body.get('params'))), 202
+    except (ValueError, TypeError) as exc:
+        return jsonify({'error': str(exc)}), 400
+    except RuntimeError as exc:
+        return jsonify({'error': str(exc)}), 409
+
+
+@app.route('/api/generation_jobs/<job_id>', methods=['GET'])
+def get_generation_job(job_id):
+    from src import generation_jobs
+    try:
+        return jsonify(generation_jobs.status(job_id, request.args.get('cursor', 0)))
+    except FileNotFoundError:
+        return jsonify({'error': '任务不存在'}), 404
+    except (ValueError, TypeError) as exc:
+        return jsonify({'error': str(exc)}), 400
 
 
 @app.route('/api/generate', methods=['POST'])
@@ -596,7 +631,7 @@ def generate_director_word():
 def get_script_content(filename):
     """返回生成的剧本 JSON 内容（供前端编辑器加载）"""
     try:
-        filepath = Path('outputs') / filename
+        filepath = _output_dir / filename
         if not filepath.exists() or filepath.suffix != '.json':
             return jsonify({'success': False, 'error': '文件不存在'}), 404
         with open(filepath, 'r', encoding='utf-8') as f:
@@ -614,6 +649,8 @@ def validate_edited_script():
     if not isinstance(body, dict) or 'script' not in body:
         return jsonify({'valid': False, 'errors': [{'path': '$', 'code': 'REQUEST', 'message': '缺少 script'}], 'warnings': []}), 400
     try:
+        if isinstance(body['script'], list) and any('script_id' in act and any('blocking_state_id' in event for event in act.get('scene', [])) for act in body['script'] if isinstance(act, dict)):
+            return jsonify({'valid': False, 'errors': [{'code': 'REPLAN_REQUIRED', 'message': '新版剧本修改后需要重新生成走位及注视计划，请使用原始下载或重新生成。'}], 'warnings': []}), 422
         data, warnings = normalize_script(body['script'], resource_loader)
         report = validate_script(data, resource_loader)
         report['warnings'].extend(warnings)
@@ -641,7 +678,7 @@ def character_image(gameobject_name):
 def download_file(filename):
     """下载生成的脚本文件"""
     try:
-        filepath = Path('outputs') / filename
+        filepath = _output_dir / filename
         if not filepath.exists():
             return jsonify({
                 'success': False,
@@ -652,7 +689,7 @@ def download_file(filename):
             filepath,
             as_attachment=True,
             download_name=filename,
-            mimetype='application/json'
+            mimetype='application/zip' if filename.endswith('.zip') else 'image/png' if filename.endswith('.png') else 'application/json'
         )
     except Exception as e:
         return jsonify({
@@ -674,7 +711,7 @@ def get_position_plan(session_id):
         if not fname:
             return jsonify({'success': False, 'error': '无 position_plan 文件'}), 404
 
-        fpath = Path("outputs") / fname
+        fpath = _output_dir / fname
         if not fpath.exists():
             return jsonify({'success': False, 'error': '文件不存在'}), 404
 
@@ -723,11 +760,11 @@ def download_session_zip(session_id):
         files_info = session.get("files", {})
         word_export = session.get("word_export")
 
-        output_dir = Path("outputs")
+        output_dir = _output_dir
         buf = io.BytesIO()
         with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
             # 收集所有文件
-            keys = ['script', 'actors_profile', 'position_plan', 'position_detail', 'camera_script']
+            keys = list(files_info)
             for key in keys:
                 fname = files_info.get(key)
                 if fname:
@@ -756,7 +793,7 @@ def download_session_zip(session_id):
 def download_word(filename):
     """将剧本 JSON 导出为 Word 文档并下载（只含对话和镜头描述）"""
     try:
-        output_dir = Path('outputs')
+        output_dir = _output_dir
         json_path = output_dir / filename
         if not json_path.exists() or json_path.suffix != '.json':
             return jsonify({'success': False, 'error': '剧本文件不存在'}), 404
@@ -794,4 +831,12 @@ def serve_frontend(asset_path):
 
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5001)
+    host = os.getenv('SCRIPT_AGENT_HOST', '127.0.0.1')
+    port = int(os.getenv('SCRIPT_AGENT_PORT', '5001'))
+    debug = os.getenv('SCRIPT_AGENT_DEBUG', 'false').strip().lower() in {
+        '1',
+        'true',
+        'yes',
+        'on',
+    }
+    app.run(debug=debug, host=host, port=port)

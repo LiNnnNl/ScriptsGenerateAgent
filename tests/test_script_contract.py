@@ -308,8 +308,10 @@ class ScriptContractTests(unittest.TestCase):
         data = sample()
         data[0]['scene information']['where'] = 'MinNan'
         intermediate = copy.deepcopy(data)
+        from src.script_contract import read_catalogs
+        targets = read_catalogs(self.loader)['camera_targets']['MinNan']
         intermediate[0]['scene'][0].update(
-            shot='object', target='香炉 (2)', target_anchor='center',
+            shot='object', target=next(iter(targets)), target_anchor='center',
             shot_type='物体特写', shot_blend='cut',
         )
         camera = _build_camera_script(intermediate, self.loader.camera_list)
@@ -325,7 +327,7 @@ class ScriptContractTests(unittest.TestCase):
 
         camera['scenes'][0]['events'][0]['target'] = '红龟稞'
         normalized = normalize_camera_resources(camera, data, self.loader)
-        self.assertEqual('红龟稞 (3)', normalized['scenes'][0]['events'][0]['target'])
+        self.assertEqual('红龟稞' if '红龟稞' in targets else '红龟稞 (3)', normalized['scenes'][0]['events'][0]['target'])
         self.assertTrue(validate_bundle(data, normalized, [actor], self.loader)['valid'])
 
     def test_unknown_object_camera_downgrades_to_scene(self):
